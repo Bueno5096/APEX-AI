@@ -14,7 +14,7 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { useHealthStore } from '../../src/store/healthStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import { CircularProgress } from '../../src/components/CircularProgress';
-import { BodyMap } from '../../src/components/BodyMap';
+import { BodyMapEnhanced } from '../../src/components/BodyMapEnhanced';
 
 export default function RecoveryScreen() {
   const { theme, accentColor } = useThemeStore();
@@ -141,35 +141,7 @@ export default function RecoveryScreen() {
             Tap muscles for details
           </Text>
           <MetallicCard style={styles.bodyMapCard}>
-            <BodyMap muscles={muscles} mode="readiness" />
-            
-            {/* Legend */}
-            <View style={styles.legend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: accentColor }]} />
-                <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>
-                  Recovered
-                </Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: theme.colors.muscleFatigueMild }]} />
-                <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>
-                  Mild Fatigue
-                </Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: theme.colors.muscleFatigueModerate }]} />
-                <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>
-                  Moderate
-                </Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: theme.colors.muscleOverworked }]} />
-                <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>
-                  Overworked
-                </Text>
-              </View>
-            </View>
+            <BodyMapEnhanced muscles={muscles} mode="readiness" />
           </MetallicCard>
         </View>
         
@@ -288,6 +260,7 @@ const styles = StyleSheet.create({
   },
   bodyMapCard: {
     paddingVertical: 24,
+    minHeight: 500,
   },
   legend: {
     flexDirection: 'row',
