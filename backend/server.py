@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,62 +6,27 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime
 
-
+# Load environment variables
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[os.environ.get('DB_NAME', 'coach_db')]
 
-# Create the main app without a prefix
-app = FastAPI()
+# LLM Integration
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+# Create the main app
+app = FastAPI(title="Coach AI Fitness API")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
-
-
-# Define Models
-class StatusCheck(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-class StatusCheckCreate(BaseModel):
-    client_name: str
-
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
-
-# Include the router in the main app
-app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Configure logging
 logging.basicConfig(
@@ -70,6 +35,347 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ============ Models ============
+
+class StatusCheck(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    client_name: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class StatusCheckCreate(BaseModel):
+    client_name: str
+
+class ChatContext(BaseModel):
+    recoveryScore: Optional[int] = None
+    sleepDuration: Optional[float] = None
+    hrv: Optional[int] = None
+    coachStyle: Optional[str] = "neutral"
+    userProfile: Optional[Dict[str, Any]] = None
+
+class ChatRequest(BaseModel):
+    message: str
+    context: Optional[ChatContext] = None
+    session_id: Optional[str] = None
+
+class ChatResponse(BaseModel):
+    response: str
+    session_id: str
+
+class ChatMessage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str
+    role: str  # 'user' or 'coach'
+    content: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class UserProfile(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    height: int  # cm
+    weight: float  # kg
+    age: int
+    body_fat: Optional[float] = None
+    training_experience: str  # beginner, intermediate, advanced
+    fitness_goals: List[str] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class WorkoutLog(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    workout_name: str
+    exercises: List[Dict[str, Any]]
+    duration_minutes: int
+    intensity: str
+    notes: Optional[str] = None
+    completed_at: datetime = Field(default_factory=datetime.utcnow)
+
+class RecoveryLog(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    score: int
+    sleep_duration: float
+    sleep_score: int
+    hrv: int
+    resting_heart_rate: int
+    steps: int
+    logged_at: datetime = Field(default_factory=datetime.utcnow)
+
+# ============ Helper Functions ============
+
+def get_coach_system_prompt(style: str, context: Optional[ChatContext] = None) -> str:
+    """Generate system prompt based on coach style and user context"""
+    
+    base_prompt = """You are COACH, an advanced AI fitness coaching system. You are a scientifically grounded, personalized fitness coach who provides evidence-based training recommendations.
+
+Your core principles:
+- Provide concise, actionable recommendations rooted in exercise science
+- Adapt workout intensity based on recovery state
+- Avoid training heavily fatigued muscle groups
+- Prioritize safety when detecting soreness, pain, injury, poor sleep, or fatigue
+- Never give dangerous or unqualified medical advice
+
+Your capabilities:
+- Recommend and modify workouts based on user context
+- Analyze recovery and provide insights
+- Suggest exercise substitutions
+- Give progress insights
+- Answer nutrition and fitness questions practically"""
+
+    style_prompts = {
+        "neutral": "\n\nCommunication style: Professional and balanced. Provide clear, informative responses.",
+        "direct": "\n\nCommunication style: Short and performance-focused. Be concise, use bullet points when helpful, get straight to the point.",
+        "supportive": "\n\nCommunication style: Encouraging and motivating. Acknowledge effort, celebrate progress, provide positive reinforcement."
+    }
+    
+    context_info = ""
+    if context:
+        context_info = "\n\nCurrent user context:"
+        if context.recoveryScore is not None:
+            context_info += f"\n- Recovery Score: {context.recoveryScore}%"
+            if context.recoveryScore >= 75:
+                context_info += " (Well recovered, ready for intense training)"
+            elif context.recoveryScore >= 50:
+                context_info += " (Moderate recovery, standard training ok)"
+            else:
+                context_info += " (Low recovery, recommend light activity or rest)"
+        
+        if context.sleepDuration is not None:
+            context_info += f"\n- Sleep: {context.sleepDuration} hours"
+        
+        if context.hrv is not None:
+            context_info += f"\n- HRV: {context.hrv}ms"
+        
+        if context.userProfile:
+            profile = context.userProfile
+            if profile.get('name'):
+                context_info += f"\n- User: {profile.get('name')}"
+            if profile.get('trainingExperience'):
+                context_info += f"\n- Experience: {profile.get('trainingExperience')}"
+            if profile.get('fitnessGoals'):
+                context_info += f"\n- Goals: {', '.join(profile.get('fitnessGoals', []))}"
+    
+    return base_prompt + style_prompts.get(style, style_prompts["neutral"]) + context_info
+
+# ============ Routes ============
+
+@api_router.get("/")
+async def root():
+    return {"message": "Coach AI Fitness API", "status": "online"}
+
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+# Status endpoints
+@api_router.post("/status", response_model=StatusCheck)
+async def create_status_check(input: StatusCheckCreate):
+    status_dict = input.model_dump()
+    status_obj = StatusCheck(**status_dict)
+    await db.status_checks.insert_one(status_obj.model_dump())
+    return status_obj
+
+@api_router.get("/status", response_model=List[StatusCheck])
+async def get_status_checks():
+    status_checks = await db.status_checks.find().to_list(1000)
+    return [StatusCheck(**sc) for sc in status_checks]
+
+# Coach Chat endpoint
+@api_router.post("/coach/chat", response_model=ChatResponse)
+async def coach_chat(request: ChatRequest):
+    """Main AI Coach chat endpoint"""
+    try:
+        # Get or create session ID
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        # Get coach style from context
+        coach_style = request.context.coachStyle if request.context else "neutral"
+        
+        # Generate system prompt
+        system_prompt = get_coach_system_prompt(coach_style, request.context)
+        
+        # Get API key
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            raise HTTPException(status_code=500, detail="LLM API key not configured")
+        
+        # Initialize chat
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=session_id,
+            system_message=system_prompt
+        )
+        
+        # Use GPT-5.2 (newest available)
+        chat.with_model("openai", "gpt-5.2")
+        
+        # Load previous messages for context (last 10 messages)
+        previous_messages = await db.chat_messages.find(
+            {"session_id": session_id}
+        ).sort("timestamp", -1).limit(10).to_list(10)
+        
+        # Build conversation history for context
+        if previous_messages:
+            history_context = "\n\nRecent conversation history:"
+            for msg in reversed(previous_messages):
+                role = "User" if msg['role'] == 'user' else "Coach"
+                history_context += f"\n{role}: {msg['content'][:200]}..."
+            
+            # Update system message with history
+            chat = LlmChat(
+                api_key=api_key,
+                session_id=session_id,
+                system_message=system_prompt + history_context
+            )
+            chat.with_model("openai", "gpt-5.2")
+        
+        # Create user message
+        user_message = UserMessage(text=request.message)
+        
+        # Send message and get response
+        response = await chat.send_message(user_message)
+        
+        # Store user message in database
+        user_msg = ChatMessage(
+            session_id=session_id,
+            role="user",
+            content=request.message
+        )
+        await db.chat_messages.insert_one(user_msg.model_dump())
+        
+        # Store coach response in database
+        coach_msg = ChatMessage(
+            session_id=session_id,
+            role="coach",
+            content=response
+        )
+        await db.chat_messages.insert_one(coach_msg.model_dump())
+        
+        logger.info(f"Coach chat completed for session {session_id}")
+        
+        return ChatResponse(response=response, session_id=session_id)
+        
+    except Exception as e:
+        logger.error(f"Coach chat error: {str(e)}")
+        # Return a fallback response
+        fallback_responses = {
+            "neutral": "I'm experiencing a temporary connection issue. Please try again in a moment.",
+            "direct": "Connection issue. Retry shortly.",
+            "supportive": "I'm having a brief technical hiccup, but don't worry - try again in just a moment!"
+        }
+        coach_style = request.context.coachStyle if request.context else "neutral"
+        return ChatResponse(
+            response=fallback_responses.get(coach_style, fallback_responses["neutral"]),
+            session_id=request.session_id or str(uuid.uuid4())
+        )
+
+# Chat history endpoint
+@api_router.get("/coach/history/{session_id}")
+async def get_chat_history(session_id: str, limit: int = 50):
+    """Get chat history for a session"""
+    messages = await db.chat_messages.find(
+        {"session_id": session_id}
+    ).sort("timestamp", 1).limit(limit).to_list(limit)
+    
+    return {"session_id": session_id, "messages": messages}
+
+# User Profile endpoints
+@api_router.post("/profile", response_model=UserProfile)
+async def create_profile(profile: UserProfile):
+    await db.profiles.insert_one(profile.model_dump())
+    return profile
+
+@api_router.get("/profile/{user_id}", response_model=UserProfile)
+async def get_profile(user_id: str):
+    profile = await db.profiles.find_one({"id": user_id})
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return UserProfile(**profile)
+
+@api_router.put("/profile/{user_id}", response_model=UserProfile)
+async def update_profile(user_id: str, profile_update: Dict[str, Any]):
+    profile_update["updated_at"] = datetime.utcnow()
+    result = await db.profiles.update_one(
+        {"id": user_id},
+        {"$set": profile_update}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    profile = await db.profiles.find_one({"id": user_id})
+    return UserProfile(**profile)
+
+# Workout logging endpoints
+@api_router.post("/workout/log", response_model=WorkoutLog)
+async def log_workout(workout: WorkoutLog):
+    await db.workout_logs.insert_one(workout.model_dump())
+    return workout
+
+@api_router.get("/workout/history/{user_id}")
+async def get_workout_history(user_id: str, limit: int = 30):
+    workouts = await db.workout_logs.find(
+        {"user_id": user_id}
+    ).sort("completed_at", -1).limit(limit).to_list(limit)
+    return {"user_id": user_id, "workouts": workouts}
+
+# Recovery logging endpoints
+@api_router.post("/recovery/log", response_model=RecoveryLog)
+async def log_recovery(recovery: RecoveryLog):
+    await db.recovery_logs.insert_one(recovery.model_dump())
+    return recovery
+
+@api_router.get("/recovery/history/{user_id}")
+async def get_recovery_history(user_id: str, limit: int = 30):
+    logs = await db.recovery_logs.find(
+        {"user_id": user_id}
+    ).sort("logged_at", -1).limit(limit).to_list(limit)
+    return {"user_id": user_id, "recovery_logs": logs}
+
+# Analytics endpoints
+@api_router.get("/analytics/{user_id}")
+async def get_analytics(user_id: str, days: int = 30):
+    """Get user analytics for the specified period"""
+    from_date = datetime.utcnow() - timedelta(days=days)
+    
+    # Get workout stats
+    workout_count = await db.workout_logs.count_documents({
+        "user_id": user_id,
+        "completed_at": {"$gte": from_date}
+    })
+    
+    # Get recovery average
+    recovery_logs = await db.recovery_logs.find({
+        "user_id": user_id,
+        "logged_at": {"$gte": from_date}
+    }).to_list(1000)
+    
+    avg_recovery = 0
+    if recovery_logs:
+        avg_recovery = sum(log['score'] for log in recovery_logs) / len(recovery_logs)
+    
+    return {
+        "user_id": user_id,
+        "period_days": days,
+        "workout_count": workout_count,
+        "avg_recovery_score": round(avg_recovery, 1),
+        "recovery_entries": len(recovery_logs)
+    }
+
+# Include the router in the main app
+app.include_router(api_router)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+# Import for analytics
+from datetime import timedelta
