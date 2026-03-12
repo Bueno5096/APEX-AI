@@ -258,9 +258,93 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         ex.id === exerciseId ? newExercise : ex
       );
       
+      // Also update active workout if running
+      const activeExercises = state.activeWorkout.workout?.exercises.map((ex) =>
+        ex.id === exerciseId ? newExercise : ex
+      );
+      
       return {
         todayWorkout: { ...state.todayWorkout, exercises },
+        activeWorkout: state.activeWorkout.workout ? {
+          ...state.activeWorkout,
+          workout: { ...state.activeWorkout.workout, exercises: activeExercises! },
+        } : state.activeWorkout,
       };
     });
+  },
+  
+  modifyExercise: (exerciseName: string, changes: { sets?: number; reps?: string; weight?: number }) => {
+    set((state) => {
+      const updateExercises = (exercises: Exercise[]) =>
+        exercises.map((ex) => {
+          if (ex.name.toLowerCase() === exerciseName.toLowerCase()) {
+            return {
+              ...ex,
+              sets: changes.sets ?? ex.sets,
+              reps: changes.reps ?? ex.reps,
+              weight: changes.weight ?? ex.weight,
+            };
+          }
+          return ex;
+        });
+      
+      const updatedToday = state.todayWorkout
+        ? { ...state.todayWorkout, exercises: updateExercises(state.todayWorkout.exercises) }
+        : state.todayWorkout;
+        
+      const updatedActive = state.activeWorkout.workout
+        ? {
+            ...state.activeWorkout,
+            workout: { ...state.activeWorkout.workout, exercises: updateExercises(state.activeWorkout.workout.exercises) },
+          }
+        : state.activeWorkout;
+      
+      return { todayWorkout: updatedToday, activeWorkout: updatedActive };
+    });
+  },
+  
+  applyCoachActions: (actions: any[]) => {
+    const { modifyExercise, swapExercise, setRestTimer, todayWorkout, nextExercise } = get();
+    
+    for (const action of actions) {
+      switch (action.type) {
+        case 'modify_exercise':
+          modifyExercise(action.exercise_name, {
+            sets: action.new_sets,
+            reps: action.new_reps,
+            weight: action.new_weight,
+          });
+          break;
+          
+        case 'swap_exercise': {
+          const existingEx = todayWorkout?.exercises.find(
+            (e) => e.name.toLowerCase() === (action.exercise_name || '').toLowerCase()
+          );
+          if (existingEx) {
+            swapExercise(existingEx.id, {
+              ...existingEx,
+              name: action.new_exercise_name || existingEx.name,
+              sets: action.new_sets ?? existingEx.sets,
+              reps: action.new_reps ?? existingEx.reps,
+              weight: action.new_weight ?? existingEx.weight,
+              targetMuscles: action.target_muscles ?? existingEx.targetMuscles,
+              completedSets: 0,
+              isCompleted: false,
+            });
+          }
+          break;
+        }
+          
+        case 'adjust_rest':
+          if (action.new_rest_seconds) {
+            setRestTimer(action.new_rest_seconds);
+          }
+          break;
+          
+        case 'skip_exercise':
+          nextExercise();
+          break;
+      }
+    }
   },
 }));

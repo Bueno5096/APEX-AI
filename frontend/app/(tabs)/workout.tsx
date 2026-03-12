@@ -21,6 +21,15 @@ import { useHealthStore } from '../../src/store/healthStore';
 import { CircularProgress } from '../../src/components/CircularProgress';
 import Constants from 'expo-constants';
 
+// Weight display helper
+const displayWeight = (kg: number | undefined, isImperial: boolean): string => {
+  if (!kg) return '';
+  if (isImperial) {
+    return `${Math.round(kg * 2.20462)} lbs`;
+  }
+  return `${kg}kg`;
+};
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'coach';
@@ -36,7 +45,7 @@ const WORKOUT_SUGGESTIONS = [
 ];
 
 export default function WorkoutScreen() {
-  const { theme, accentColor } = useThemeStore();
+  const { theme, accentColor, unitSystem } = useThemeStore();
   const { recoveryData } = useHealthStore();
   const {
     todayWorkout,
@@ -56,6 +65,7 @@ export default function WorkoutScreen() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [pendingActions, setPendingActions] = useState<any[]>([]);
   const chatScrollRef = useRef<ScrollView>(null);
   
   const getBackendUrl = () => {
@@ -69,7 +79,18 @@ export default function WorkoutScreen() {
     if (!text.trim() || isChatLoading) return;
     
     const exerciseName = currentExercise?.name || 'current exercise';
-    const workoutContext = `Currently doing: ${exerciseName} (${activeWorkout.workout?.title || 'workout'})`;
+    const workoutTitle = activeWorkout.workout?.title || 'workout';
+    
+    // Build full workout context for the AI
+    const workoutExercises = activeWorkout.workout?.exercises.map(ex => ({
+      name: ex.name,
+      sets: ex.sets,
+      reps: ex.reps,
+      weight: ex.weight,
+      targetMuscles: ex.targetMuscles,
+      completedSets: ex.completedSets,
+      isCompleted: ex.isCompleted,
+    })) || [];
     
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -85,11 +106,12 @@ export default function WorkoutScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: `[Workout context: ${workoutContext}] ${text.trim()}`,
+          message: text.trim(),
           context: {
             recoveryScore: recoveryData?.score,
-            activeWorkout: activeWorkout.workout?.title,
+            activeWorkout: workoutTitle,
             currentExercise: exerciseName,
+            workoutExercises: workoutExercises,
           },
         }),
       });
@@ -101,6 +123,17 @@ export default function WorkoutScreen() {
         content: data.response || "I couldn't process that. Try again.",
       };
       setChatMessages(prev => [...prev, coachMsg]);
+      
+      // If the AI returned workout modification actions, show apply button
+      if (data.actions && data.actions.length > 0) {
+        setPendingActions(data.actions);
+        const actionMsg: ChatMessage = {
+          id: (Date.now() + 2).toString(),
+          role: 'coach',
+          content: `__ACTIONS__`,
+        };
+        setChatMessages(prev => [...prev, actionMsg]);
+      }
     } catch (error) {
       setChatMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
@@ -276,7 +309,7 @@ export default function WorkoutScreen() {
             </Text>
             <Text style={[styles.currentExerciseSets, { color: theme.colors.textSecondary }]}>
               {currentExercise.sets} sets × {currentExercise.reps} reps
-              {currentExercise.weight && ` • ${currentExercise.weight}kg`}
+              {currentExercise.weight && ` • ${displayWeight(currentExercise.weight, unitSystem === 'imperial')}`}
             </Text>
             
             {/* Previous Performance */}
@@ -284,7 +317,7 @@ export default function WorkoutScreen() {
               <View style={[styles.prevPerf, { backgroundColor: theme.colors.card }]}>
                 <Ionicons name="time" size={14} color={theme.colors.textSecondary} />
                 <Text style={[styles.prevPerfText, { color: theme.colors.textSecondary }]}>
-                  Last: {currentExercise.previousPerformance.weight}kg ×{' '}
+                  Last: {displayWeight(currentExercise.previousPerformance.weight, unitSystem === 'imperial')} ×{' '}
                   {currentExercise.previousPerformance.reps} reps
                 </Text>
               </View>
@@ -469,26 +502,49 @@ export default function WorkoutScreen() {
                 contentContainerStyle={styles.chatMessagesContent}
               >
                 {chatMessages.map((msg) => (
-                  <View
-                    key={msg.id}
-                    style={[
-                      styles.chatBubble,
-                      msg.role === 'user'
-                        ? [styles.chatBubbleUser, { backgroundColor: accentColor + '20' }]
-                        : [styles.chatBubbleCoach, { backgroundColor: theme.colors.backgroundSecondary }],
-                    ]}
-                  >
-                    {msg.role === 'coach' && (
-                      <View style={styles.chatBubbleIcon}>
-                        <Ionicons name="sparkles" size={12} color={accentColor} />
+                  <View key={msg.id}>
+                    {msg.content === '__ACTIONS__' ? (
+                      /* Apply Changes Button */
+                      <TouchableOpacity
+                        style={[styles.applyChangesBtn, { backgroundColor: accentColor }]}
+                        onPress={() => {
+                          useWorkoutStore.getState().applyCoachActions(pendingActions);
+                          setPendingActions([]);
+                          // Replace the action marker with a confirmation
+                          setChatMessages(prev => prev.map(m => 
+                            m.id === msg.id 
+                              ? { ...m, content: '✅ Changes applied to your workout!' }
+                              : m
+                          ));
+                        }}
+                      >
+                        <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                        <Text style={styles.applyChangesText}>
+                          Apply Changes ({pendingActions.length})
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View
+                        style={[
+                          styles.chatBubble,
+                          msg.role === 'user'
+                            ? [styles.chatBubbleUser, { backgroundColor: accentColor + '20' }]
+                            : [styles.chatBubbleCoach, { backgroundColor: theme.colors.backgroundSecondary }],
+                        ]}
+                      >
+                        {msg.role === 'coach' && (
+                          <View style={styles.chatBubbleIcon}>
+                            <Ionicons name="sparkles" size={12} color={accentColor} />
+                          </View>
+                        )}
+                        <Text style={[
+                          styles.chatBubbleText,
+                          { color: theme.colors.textPrimary },
+                        ]}>
+                          {msg.content}
+                        </Text>
                       </View>
                     )}
-                    <Text style={[
-                      styles.chatBubbleText,
-                      { color: theme.colors.textPrimary },
-                    ]}>
-                      {msg.content}
-                    </Text>
                   </View>
                 ))}
                 {isChatLoading && (
@@ -646,7 +702,7 @@ export default function WorkoutScreen() {
                   </Text>
                   <Text style={[styles.exerciseMeta, { color: theme.colors.textSecondary }]}>
                     {exercise.sets} sets × {exercise.reps}
-                    {exercise.weight && ` • ${exercise.weight}kg`}
+                    {exercise.weight && ` • ${displayWeight(exercise.weight, unitSystem === 'imperial')}`}
                   </Text>
                   <Text style={[styles.exerciseTarget, { color: theme.colors.textMuted }]}>
                     {exercise.targetMuscles.join(', ')}
@@ -665,7 +721,7 @@ export default function WorkoutScreen() {
                 <View style={[styles.prevPerformance, { backgroundColor: theme.colors.backgroundSecondary }]}>
                   <Ionicons name="time" size={12} color={theme.colors.textMuted} />
                   <Text style={[styles.prevPerformanceText, { color: theme.colors.textMuted }]}>
-                    Previous: {exercise.previousPerformance.weight}kg × {exercise.previousPerformance.reps} reps
+                    Previous: {displayWeight(exercise.previousPerformance.weight, unitSystem === 'imperial')} × {exercise.previousPerformance.reps} reps
                   </Text>
                 </View>
               )}
@@ -1148,6 +1204,21 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  applyChangesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignSelf: 'center',
+  },
+  applyChangesText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   // Active workout minimized banner
   activeBanner: {

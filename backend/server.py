@@ -51,15 +51,30 @@ class ChatContext(BaseModel):
     hrv: Optional[int] = None
     coachStyle: Optional[str] = "neutral"
     userProfile: Optional[Dict[str, Any]] = None
+    activeWorkout: Optional[str] = None
+    currentExercise: Optional[str] = None
+    workoutExercises: Optional[List[Dict[str, Any]]] = None
 
 class ChatRequest(BaseModel):
     message: str
     context: Optional[ChatContext] = None
     session_id: Optional[str] = None
 
+class WorkoutAction(BaseModel):
+    type: str  # swap_exercise, modify_exercise, adjust_rest, skip_exercise
+    exercise_id: Optional[str] = None
+    exercise_name: Optional[str] = None
+    new_exercise_name: Optional[str] = None
+    new_sets: Optional[int] = None
+    new_reps: Optional[str] = None
+    new_weight: Optional[float] = None
+    new_rest_seconds: Optional[int] = None
+    target_muscles: Optional[List[str]] = None
+
 class ChatResponse(BaseModel):
     response: str
     session_id: str
+    actions: Optional[List[Dict[str, Any]]] = None
 
 class ChatMessage(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -120,7 +135,22 @@ Your capabilities:
 - Analyze recovery and provide insights
 - Suggest exercise substitutions
 - Give progress insights
-- Answer nutrition and fitness questions practically"""
+- Answer nutrition and fitness questions practically
+
+IMPORTANT - WORKOUT MODIFICATIONS:
+When the user asks you to change, swap, modify, add, or remove exercises, sets, reps, weight, or rest time, you MUST include a JSON action block at the end of your response. The format is:
+
+[ACTIONS]
+[{"type": "modify_exercise", "exercise_name": "Bench Press", "new_sets": 3, "new_reps": "10-12", "new_weight": 70}]
+[/ACTIONS]
+
+Available action types:
+- "swap_exercise": Replace an exercise. Include "exercise_name" (current) and "new_exercise_name", "new_sets", "new_reps", "new_weight", "target_muscles" (array)
+- "modify_exercise": Change sets/reps/weight. Include "exercise_name" and any of "new_sets", "new_reps", "new_weight"
+- "adjust_rest": Change rest time. Include "new_rest_seconds"
+- "skip_exercise": Skip current exercise. Include "exercise_name"
+
+Always provide your coaching explanation FIRST, then the action block. Only include actions when the user explicitly asks for changes. For general questions or advice, do NOT include actions."""
 
     style_prompts = {
         "neutral": "\n\nCommunication style: Professional and balanced. Provide clear, informative responses.",
@@ -145,6 +175,17 @@ Your capabilities:
         
         if context.hrv is not None:
             context_info += f"\n- HRV: {context.hrv}ms"
+        
+        if context.activeWorkout:
+            context_info += f"\n- Active Workout: {context.activeWorkout}"
+        
+        if context.currentExercise:
+            context_info += f"\n- Current Exercise: {context.currentExercise}"
+        
+        if context.workoutExercises:
+            context_info += "\n- Workout Program:"
+            for ex in context.workoutExercises:
+                context_info += f"\n  • {ex.get('name', 'Unknown')}: {ex.get('sets', '?')} sets × {ex.get('reps', '?')} @ {ex.get('weight', '?')}kg"
         
         if context.userProfile:
             profile = context.userProfile
@@ -235,6 +276,22 @@ async def coach_chat(request: ChatRequest):
         # Send message and get response
         response = await chat.send_message(user_message)
         
+        # Parse actions from response if present
+        actions = None
+        clean_response = response
+        if '[ACTIONS]' in response and '[/ACTIONS]' in response:
+            try:
+                import json as json_module
+                action_start = response.index('[ACTIONS]') + len('[ACTIONS]')
+                action_end = response.index('[/ACTIONS]')
+                action_json = response[action_start:action_end].strip()
+                actions = json_module.loads(action_json)
+                clean_response = response[:response.index('[ACTIONS]')].strip()
+                logger.info(f"Parsed {len(actions)} workout actions")
+            except Exception as parse_error:
+                logger.warning(f"Failed to parse actions: {parse_error}")
+                clean_response = response.replace('[ACTIONS]', '').replace('[/ACTIONS]', '').strip()
+        
         # Store user message in database
         user_msg = ChatMessage(
             session_id=session_id,
@@ -247,13 +304,13 @@ async def coach_chat(request: ChatRequest):
         coach_msg = ChatMessage(
             session_id=session_id,
             role="coach",
-            content=response
+            content=clean_response
         )
         await db.chat_messages.insert_one(coach_msg.model_dump())
         
         logger.info(f"Coach chat completed for session {session_id}")
         
-        return ChatResponse(response=response, session_id=session_id)
+        return ChatResponse(response=clean_response, session_id=session_id, actions=actions)
         
     except Exception as e:
         logger.error(f"Coach chat error: {str(e)}")
