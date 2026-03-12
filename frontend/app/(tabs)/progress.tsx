@@ -47,6 +47,7 @@ const CountUp = ({ target, color }: { target: string; color: string }) => {
 export default function ProgressScreen() {
   const { theme, accentColor } = useThemeStore();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('30d');
+  const isDark = theme.name === 'dark';
   
   const strengthData = [
     { value: 80, label: 'W1' },
@@ -84,7 +85,7 @@ export default function ProgressScreen() {
   ];
   
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -92,18 +93,18 @@ export default function ProgressScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Progress</Text>
-          <Text style={styles.headerSubtitle}>PERFORMANCE TRACKING</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Progress</Text>
+          <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted }]}>PERFORMANCE TRACKING</Text>
         </View>
         
         {/* Time Filter */}
-        <View style={styles.filterContainer}>
+        <View style={[styles.filterContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
           {(['7d', '30d', '3m', '1y'] as TimeFilter[]).map((filter) => (
             <TouchableOpacity
               key={filter}
               style={[
                 styles.filterButton,
-                timeFilter === filter && [styles.filterButtonActive, { borderTopColor: accentColor }],
+                timeFilter === filter && [styles.filterButtonActive, { borderTopColor: accentColor, backgroundColor: theme.colors.cardSecondary }],
               ]}
               onPress={() => setTimeFilter(filter)}
               activeOpacity={0.7}
@@ -111,7 +112,7 @@ export default function ProgressScreen() {
               <Text
                 style={[
                   styles.filterText,
-                  { color: timeFilter === filter ? '#ffffff' : '#555555' },
+                  { color: timeFilter === filter ? theme.colors.textPrimary : theme.colors.textMuted },
                 ]}
               >
                 {filter === '7d' ? '7 Days' : filter === '30d' ? '30 Days' : filter === '3m' ? '3 Months' : '1 Year'}
@@ -150,8 +151,8 @@ export default function ProgressScreen() {
         {/* Strength Progress Chart */}
         <MetallicCard style={styles.chartCard} delay={320}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Strength Progress</Text>
-            <Text style={styles.chartSubtitle}>Bench Press (kg)</Text>
+            <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Strength Progress</Text>
+            <Text style={[styles.chartSubtitle, { color: theme.colors.textMuted }]}>Bench Press (kg)</Text>
           </View>
           <LineChart
             data={strengthData}
@@ -161,10 +162,10 @@ export default function ProgressScreen() {
             thickness={2}
             dataPointsColor={accentColor}
             dataPointsRadius={4}
-            xAxisColor="#2e2e2e"
-            yAxisColor="#2e2e2e"
-            xAxisLabelTextStyle={{ color: '#555555', fontSize: 10 }}
-            yAxisTextStyle={{ color: '#555555', fontSize: 10 }}
+            xAxisColor={theme.colors.divider}
+            yAxisColor={theme.colors.divider}
+            xAxisLabelTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
+            yAxisTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
             hideRules
             curved
             areaChart
@@ -178,21 +179,21 @@ export default function ProgressScreen() {
         {/* Recovery Trend */}
         <MetallicCard style={styles.chartCard} delay={400}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Recovery Trend</Text>
-            <Text style={styles.chartSubtitle}>This week</Text>
+            <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Recovery Trend</Text>
+            <Text style={[styles.chartSubtitle, { color: theme.colors.textMuted }]}>This week</Text>
           </View>
           <LineChart
             data={recoveryData}
             width={SCREEN_WIDTH - 100}
             height={160}
-            color="#c0c0c0"
+            color={isDark ? '#c0c0c0' : accentColor}
             thickness={2}
-            dataPointsColor="#c0c0c0"
+            dataPointsColor={isDark ? '#c0c0c0' : accentColor}
             dataPointsRadius={4}
-            xAxisColor="#2e2e2e"
-            yAxisColor="#2e2e2e"
-            xAxisLabelTextStyle={{ color: '#555555', fontSize: 10 }}
-            yAxisTextStyle={{ color: '#555555', fontSize: 10 }}
+            xAxisColor={theme.colors.divider}
+            yAxisColor={theme.colors.divider}
+            xAxisLabelTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
+            yAxisTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
             hideRules
             curved
             maxValue={100}
@@ -202,8 +203,8 @@ export default function ProgressScreen() {
         {/* Workout Frequency */}
         <MetallicCard style={styles.chartCard} delay={480}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Workout Frequency</Text>
-            <Text style={styles.chartSubtitle}>Sessions per week</Text>
+            <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Workout Frequency</Text>
+            <Text style={[styles.chartSubtitle, { color: theme.colors.textMuted }]}>Sessions per week</Text>
           </View>
           <BarChart
             data={workoutFrequencyData}
@@ -211,10 +212,10 @@ export default function ProgressScreen() {
             height={140}
             barWidth={32}
             spacing={24}
-            xAxisColor="#2e2e2e"
-            yAxisColor="#2e2e2e"
-            xAxisLabelTextStyle={{ color: '#555555', fontSize: 10 }}
-            yAxisTextStyle={{ color: '#555555', fontSize: 10 }}
+            xAxisColor={theme.colors.divider}
+            yAxisColor={theme.colors.divider}
+            xAxisLabelTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
+            yAxisTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
             hideRules
             barBorderRadius={8}
             maxValue={7}
@@ -223,7 +224,7 @@ export default function ProgressScreen() {
         
         {/* Personal Records */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PERSONAL RECORDS</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textMuted }]}>PERSONAL RECORDS</Text>
           {personalRecords.map((record, index) => (
             <MetallicCard key={index} style={styles.recordCard} delay={560 + index * 80} small>
               <View style={styles.recordRow}>
@@ -231,8 +232,8 @@ export default function ProgressScreen() {
                   <Ionicons name="trophy" size={18} color={accentColor} />
                 </View>
                 <View style={styles.recordInfo}>
-                  <Text style={styles.recordExercise}>{record.exercise}</Text>
-                  <Text style={styles.recordDate}>{record.date}</Text>
+                  <Text style={[styles.recordExercise, { color: theme.colors.textPrimary }]}>{record.exercise}</Text>
+                  <Text style={[styles.recordDate, { color: theme.colors.textMuted }]}>{record.date}</Text>
                 </View>
                 <Text style={[styles.recordWeight, { color: accentColor }]}>
                   {record.weight}kg
@@ -246,9 +247,9 @@ export default function ProgressScreen() {
         <MetallicCard style={styles.insightCard} intensity="medium" delay={800}>
           <View style={styles.insightHeader}>
             <Ionicons name="sparkles" size={20} color={accentColor} />
-            <Text style={styles.insightTitle}>Coach Analysis</Text>
+            <Text style={[styles.insightTitle, { color: theme.colors.textPrimary }]}>Coach Analysis</Text>
           </View>
-          <Text style={styles.insightText}>
+          <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
             Strong progress this month! Your bench press has increased 12.5% over 6 weeks. 
             Your recovery scores are consistent, averaging 78%. Consider adding more leg 
             training - your lower body volume is 23% below your upper body.

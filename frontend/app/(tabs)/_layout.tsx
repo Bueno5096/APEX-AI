@@ -31,15 +31,15 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#000000',
-          borderTopColor: 'transparent',
+          backgroundColor: theme.colors.tabBar,
+          borderTopColor: theme.colors.tabBarBorder || 'transparent',
           borderTopWidth: 0,
           height: Platform.OS === 'ios' ? 90 : 75,
           paddingBottom: Platform.OS === 'ios' ? 30 : 12,
           paddingTop: 12,
         },
-        tabBarActiveTintColor: '#ffffff',
-        tabBarInactiveTintColor: '#444444',
+        tabBarActiveTintColor: theme.colors.textPrimary,
+        tabBarInactiveTintColor: theme.name === 'dark' ? '#444444' : '#aaaaaa',
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600',
@@ -80,8 +80,8 @@ export default function TabLayout() {
             <View style={[
               styles.coachButton,
               { 
-                backgroundColor: focused ? '#1a1a1a' : '#111111',
-                borderColor: focused ? accentColor : '#2a2a2a',
+                backgroundColor: focused ? theme.colors.cardSecondary : theme.colors.card,
+                borderColor: focused ? accentColor : theme.colors.cardBorder,
               }
             ]}>
               <Ionicons 

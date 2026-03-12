@@ -55,12 +55,11 @@ export const MetallicCard: React.FC<MetallicCardProps> = ({
           borderRadius,
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
-          ...theme.shadows.card,
         },
         style,
       ]}
     >
-      {/* Silver top glow line */}
+      {/* Top glow line */}
       <View
         style={[
           styles.topGlow,

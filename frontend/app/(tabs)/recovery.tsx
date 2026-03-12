@@ -109,9 +109,9 @@ const ApexCircularProgress = ({
 
 // Floating metric card
 const MetricCard = ({ 
-  icon, value, label, accentColor, delay = 0,
+  icon, value, label, accentColor, delay = 0, theme,
 }: { 
-  icon: string; value: string; label: string; accentColor: string; delay?: number;
+  icon: string; value: string; label: string; accentColor: string; delay?: number; theme: any;
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(12)).current;
@@ -127,12 +127,17 @@ const MetricCard = ({
   }, []);
 
   return (
-    <Animated.View style={[styles.metricCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+    <Animated.View style={[styles.metricCard, { 
+      opacity: fadeAnim, 
+      transform: [{ translateY: slideAnim }],
+      backgroundColor: theme.colors.card,
+      borderColor: theme.colors.cardBorder,
+    }]}>
       {/* Silver top glow */}
       <View style={[styles.metricGlow, { backgroundColor: accentColor, opacity: 0.3 }]} />
       <Ionicons name={icon as any} size={18} color={accentColor} />
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>{value}</Text>
+      <Text style={[styles.metricLabel, { color: theme.colors.textMuted }]}>{label}</Text>
     </Animated.View>
   );
 };
@@ -171,9 +176,11 @@ export default function RecoveryScreen() {
   const overallScore = recoveryData 
     ? Math.round((recoveryData.score * 0.6) + (avgReadiness * 0.4))
     : Math.round(avgReadiness);
+
+  const isDark = theme.name === 'dark';
   
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -189,8 +196,8 @@ export default function RecoveryScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>Recovery</Text>
-            <Text style={styles.headerSubtitle}>BODY READINESS</Text>
+            <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Recovery</Text>
+            <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted }]}>BODY READINESS</Text>
           </View>
           <View style={[styles.statusBadge, { borderColor: accentColor + '40' }]}>
             <View style={[styles.statusDot, { backgroundColor: accentColor }]} />
@@ -199,7 +206,7 @@ export default function RecoveryScreen() {
         </View>
         
         {/* Recovery Score - floating card */}
-        <View style={styles.scoreSection}>
+        <View style={[styles.scoreSection, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
           <ApexCircularProgress 
             value={overallScore} 
             size={200}
@@ -212,64 +219,64 @@ export default function RecoveryScreen() {
           <MetricCard 
             icon="moon" 
             value={recoveryData?.metrics.sleepDuration ? `${recoveryData.metrics.sleepDuration}h` : '--'}
-            label="SLEEP" accentColor={accentColor} delay={0}
+            label="SLEEP" accentColor={accentColor} delay={0} theme={theme}
           />
           <MetricCard 
             icon="pulse" 
             value={recoveryData?.metrics.hrv ? `${recoveryData.metrics.hrv}` : '--'}
-            label="HRV" accentColor={accentColor} delay={80}
+            label="HRV" accentColor={accentColor} delay={80} theme={theme}
           />
           <MetricCard 
             icon="heart" 
             value={recoveryData?.metrics.restingHeartRate ? `${recoveryData.metrics.restingHeartRate}` : '--'}
-            label="RHR" accentColor={accentColor} delay={160}
+            label="RHR" accentColor={accentColor} delay={160} theme={theme}
           />
           <MetricCard 
             icon="footsteps" 
             value={recoveryData?.metrics.steps ? `${(recoveryData.metrics.steps / 1000).toFixed(1)}k` : '--'}
-            label="STEPS" accentColor={accentColor} delay={240}
+            label="STEPS" accentColor={accentColor} delay={240} theme={theme}
           />
         </View>
         
         {/* Body Map Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>MUSCLE READINESS</Text>
-          <View style={styles.bodyMapContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textMuted }]}>MUSCLE READINESS</Text>
+          <View style={[styles.bodyMapContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
             <ApexBodyMap mode="readiness" />
           </View>
         </View>
         
         {/* AI Explanation Panel */}
-        <View style={styles.explanationCard}>
+        <View style={[styles.explanationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
           <View style={[styles.explanationGlow, { backgroundColor: accentColor }]} />
           <View style={styles.explanationHeader}>
             <View style={styles.explanationTitleRow}>
               <Ionicons name="sparkles" size={18} color={accentColor} />
-              <Text style={styles.explanationTitle}>AI ANALYSIS</Text>
+              <Text style={[styles.explanationTitle, { color: theme.colors.textMuted }]}>AI ANALYSIS</Text>
             </View>
             <View style={[styles.aiTag, { backgroundColor: accentColor + '15' }]}>
               <Text style={[styles.aiTagText, { color: accentColor }]}>AI</Text>
             </View>
           </View>
           
-          <Text style={styles.explanationText}>{recommendation.explanation}</Text>
+          <Text style={[styles.explanationText, { color: theme.colors.textSecondary }]}>{recommendation.explanation}</Text>
           
           {recommendation.reasoning.length > 0 && (
             <View style={styles.reasoningList}>
               {recommendation.reasoning.map((reason, i) => (
                 <View key={i} style={styles.reasoningItem}>
                   <View style={[styles.reasoningBullet, { backgroundColor: accentColor }]} />
-                  <Text style={styles.reasoningText}>{reason}</Text>
+                  <Text style={[styles.reasoningText, { color: theme.colors.textMuted }]}>{reason}</Text>
                 </View>
               ))}
             </View>
           )}
           
-          <View style={styles.muscleStatusSummary}>
+          <View style={[styles.muscleStatusSummary, { borderTopColor: theme.colors.divider }]}>
             {recommendation.readyMuscles.length > 0 && (
               <View style={styles.muscleStatusRow}>
                 <View style={[styles.statusIndicator, { backgroundColor: accentColor }]} />
-                <Text style={styles.muscleStatusText}>
+                <Text style={[styles.muscleStatusText, { color: theme.colors.textSecondary }]}>
                   Ready: {recommendation.readyMuscles.slice(0, 3).join(', ')}
                   {recommendation.readyMuscles.length > 3 && ` +${recommendation.readyMuscles.length - 3}`}
                 </Text>
@@ -277,8 +284,8 @@ export default function RecoveryScreen() {
             )}
             {recommendation.fatiguedMuscles.length > 0 && (
               <View style={styles.muscleStatusRow}>
-                <View style={[styles.statusIndicator, { backgroundColor: '#8B0000' }]} />
-                <Text style={styles.muscleStatusText}>
+                <View style={[styles.statusIndicator, { backgroundColor: theme.colors.readinessFatigued }]} />
+                <Text style={[styles.muscleStatusText, { color: theme.colors.textSecondary }]}>
                   Fatigued: {recommendation.fatiguedMuscles.slice(0, 3).join(', ')}
                   {recommendation.fatiguedMuscles.length > 3 && ` +${recommendation.fatiguedMuscles.length - 3}`}
                 </Text>
@@ -297,7 +304,8 @@ export default function RecoveryScreen() {
           }}
         >
           <View style={[styles.workoutCard, { 
-            borderColor: workoutApplied ? '#3A7A5A' : accentColor + '40',
+            backgroundColor: theme.colors.card,
+            borderColor: workoutApplied ? theme.colors.success : accentColor + '40',
           }]}>
             <LinearGradient
               colors={[accentColor + '08', 'transparent']}
@@ -308,16 +316,16 @@ export default function RecoveryScreen() {
             <View style={styles.workoutContent}>
               <View>
                 <Text style={[styles.workoutLabel, { color: accentColor }]}>RECOMMENDED</Text>
-                <Text style={styles.workoutTitle}>{recommendation.title}</Text>
-                <Text style={styles.workoutType}>
+                <Text style={[styles.workoutTitle, { color: theme.colors.textPrimary }]}>{recommendation.title}</Text>
+                <Text style={[styles.workoutType, { color: theme.colors.textMuted }]}>
                   {workoutApplied ? 'Workout set! Navigating...' : 'Tap to set as today\'s workout'}
                 </Text>
               </View>
               <View style={[styles.workoutArrow, { 
-                backgroundColor: workoutApplied ? '#3A7A5A' : '#1a1a1a',
-                borderColor: workoutApplied ? '#3A7A5A' : accentColor + '30',
+                backgroundColor: workoutApplied ? theme.colors.success : theme.colors.cardSecondary,
+                borderColor: workoutApplied ? theme.colors.success : accentColor + '30',
               }]}>
-                <Ionicons name={workoutApplied ? "checkmark" : "arrow-forward"} size={20} color="#fff" />
+                <Ionicons name={workoutApplied ? "checkmark" : "arrow-forward"} size={20} color={isDark ? '#fff' : '#333'} />
               </View>
             </View>
           </View>

@@ -176,14 +176,14 @@ export default function CoachScreen() {
   };
   
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: theme.colors.divider }]}>
           <View style={styles.headerLeft}>
             <View style={[styles.statusDot, { backgroundColor: accentColor }]} />
             <Text style={[styles.headerTitle, { color: accentColor }]}>COACH</Text>
@@ -207,8 +207,8 @@ export default function CoachScreen() {
                 style={[
                   styles.messageBubble,
                   message.role === 'user'
-                    ? styles.userMessage
-                    : styles.coachMessage,
+                    ? [styles.userMessage, { backgroundColor: theme.colors.cardSecondary, borderColor: theme.colors.cardBorder }]
+                    : [styles.coachMessage, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderLeftColor: accentColor + '30' }],
                 ]}
               >
                 {message.role === 'coach' && (
@@ -219,7 +219,7 @@ export default function CoachScreen() {
                 <Text
                   style={[
                     styles.messageText,
-                    { color: message.role === 'user' ? '#ffffff' : '#ffffff' },
+                    { color: theme.colors.textPrimary },
                   ]}
                 >
                   {message.content}
@@ -241,9 +241,9 @@ export default function CoachScreen() {
           ))}
           
           {isLoading && (
-            <View style={styles.loadingBubble}>
+            <View style={[styles.loadingBubble, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
               <ActivityIndicator size="small" color={accentColor} />
-              <Text style={styles.loadingText}>Coach is thinking...</Text>
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Coach is thinking...</Text>
             </View>
           )}
         </ScrollView>
@@ -259,11 +259,11 @@ export default function CoachScreen() {
               {SUGGESTED_PROMPTS.map((prompt, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.suggestionChip}
+                  style={[styles.suggestionChip, { borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card }]}
                   onPress={() => sendMessage(prompt)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.suggestionText}>{prompt}</Text>
+                  <Text style={[styles.suggestionText, { color: theme.colors.textSecondary }]}>{prompt}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -272,7 +272,7 @@ export default function CoachScreen() {
         
         {/* Input Bar - floating pill */}
         <View style={styles.inputWrapper}>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
             {inputMode === 'voice' && isListening ? (
               <View style={styles.voiceContainer}>
                 <View style={styles.waveformContainer}>
