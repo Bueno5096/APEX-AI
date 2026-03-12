@@ -74,7 +74,7 @@ export default function WorkoutScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://coach-ai-fitness.preview.emergentagent.com';
+      || 'https://coach-context-v1.preview.emergentagent.com';
     return backendUrl;
   };
   

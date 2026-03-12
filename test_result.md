@@ -128,6 +128,12 @@ backend:
         - working: true
         - agent: "main"
         - comment: "POST /api/coach/chat works with Emergent LLM key and GPT-5.2"
+        - working: "NA"
+        - agent: "main"
+        - comment: "Updated to accept conversation_history array for memory. Strengthened conciseness in system prompt. Frontend now sends last 20 messages and persists session_id."
+        - working: true
+        - agent: "testing"
+        - comment: "✅ COMPREHENSIVE TESTING PASSED: All 5 test scenarios successful. 1) Health check returns 200 OK. 2) Basic chat works without history and returns session_id. 3) Conversation memory works - AI correctly referenced chest workout context from history array. 4) Responses are concise (56-100 words, 2-4 sentences). 5) Session persistence works - same session_id preserved across calls and AI remembered user name. Backend API fully functional with conversation memory and conciseness features working as expected."
 
 frontend:
   - task: "Recovery page with SVG body map"
@@ -245,14 +251,13 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "SVG Muscle Readiness Map with varied colors"
-    - "Imperial/Metric unit toggle"
-    - "RGB Accent Color Picker"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-    - message: "All core features implemented and verified via screenshots. The infinite loop bug from previous session is resolved. Body map shows varied readiness colors across 4 levels. Imperial/metric toggle works with live stat conversion. RGB color picker with sliders and presets functional."
+    - message: "Updated AI Coach to support conversation memory and concise responses. Backend now accepts conversation_history array in ChatRequest. Frontend sends last 20 messages with each request and persists session_id. System prompt strengthened for conciseness. Please test: 1) POST /api/coach/chat with conversation_history array works, 2) Responses reference prior conversation context, 3) Responses are concise (2-4 sentences). Test with multi-turn conversation simulating the user asking about a topic and then following up."
+    - agent: "testing"
+    - message: "✅ ALL BACKEND TESTS COMPLETED SUCCESSFULLY. The AI Coach chat endpoint is fully functional with all requested features: (1) Health check works, (2) Basic chat without history works and returns session_id, (3) Conversation memory works perfectly - AI references previous context from conversation_history array, (4) Responses are appropriately concise (56-100 words), (5) Session persistence works correctly. No issues found. Backend API is production-ready."

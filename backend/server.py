@@ -55,10 +55,15 @@ class ChatContext(BaseModel):
     currentExercise: Optional[str] = None
     workoutExercises: Optional[List[Dict[str, Any]]] = None
 
+class ConversationMessage(BaseModel):
+    role: str  # 'user' or 'coach'
+    content: str
+
 class ChatRequest(BaseModel):
     message: str
     context: Optional[ChatContext] = None
     session_id: Optional[str] = None
+    conversation_history: Optional[List[ConversationMessage]] = None
 
 class WorkoutAction(BaseModel):
     type: str  # swap_exercise, modify_exercise, adjust_rest, skip_exercise
@@ -248,35 +253,40 @@ async def coach_chat(request: ChatRequest):
         if not api_key:
             raise HTTPException(status_code=500, detail="LLM API key not configured")
         
-        # Initialize chat
+        # Build conversation history from frontend (preferred) or fallback to DB
+        history_context = ""
+        if request.conversation_history and len(request.conversation_history) > 0:
+            # Use conversation history sent directly from the frontend
+            history_context = "\n\n--- CONVERSATION HISTORY (remember this context) ---"
+            for msg in request.conversation_history[-20:]:  # Last 20 messages
+                role = "User" if msg.role == 'user' else "Coach"
+                history_context += f"\n{role}: {msg.content}"
+            history_context += "\n--- END OF HISTORY ---"
+            logger.info(f"Using frontend conversation history: {len(request.conversation_history)} messages")
+        else:
+            # Fallback: Load previous messages from database
+            previous_messages = await db.chat_messages.find(
+                {"session_id": session_id}
+            ).sort("timestamp", -1).limit(20).to_list(20)
+            
+            if previous_messages:
+                history_context = "\n\n--- CONVERSATION HISTORY (remember this context) ---"
+                for msg in reversed(previous_messages):
+                    role = "User" if msg['role'] == 'user' else "Coach"
+                    history_context += f"\n{role}: {msg['content']}"
+                history_context += "\n--- END OF HISTORY ---"
+                logger.info(f"Using DB conversation history: {len(previous_messages)} messages")
+        
+        # Initialize chat with full system prompt including history
+        full_system_prompt = system_prompt + history_context
+        
         chat = LlmChat(
             api_key=api_key,
             session_id=session_id,
-            system_message=system_prompt
+            system_message=full_system_prompt
         )
         
-        # Use GPT-5.2 (newest available)
         chat.with_model("anthropic", "claude-sonnet-4-6")
-        
-        # Load previous messages for context (last 10 messages)
-        previous_messages = await db.chat_messages.find(
-            {"session_id": session_id}
-        ).sort("timestamp", -1).limit(10).to_list(10)
-        
-        # Build conversation history for context
-        if previous_messages:
-            history_context = "\n\nRecent conversation history:"
-            for msg in reversed(previous_messages):
-                role = "User" if msg['role'] == 'user' else "Coach"
-                history_context += f"\n{role}: {msg['content'][:200]}..."
-            
-            # Update system message with history
-            chat = LlmChat(
-                api_key=api_key,
-                session_id=session_id,
-                system_message=system_prompt + history_context
-            )
-            chat.with_model("anthropic", "claude-sonnet-4-6")
         
         # Create user message
         user_message = UserMessage(text=request.message)

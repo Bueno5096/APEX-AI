@@ -54,6 +54,7 @@ export default function CoachScreen() {
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text');
   const [isListening, setIsListening] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   
   const scrollViewRef = useRef<ScrollView>(null);
   const waveformAnim = useRef(new Animated.Value(0)).current;
@@ -75,7 +76,7 @@ export default function CoachScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://coach-ai-fitness.preview.emergentagent.com';
+      || 'https://coach-context-v1.preview.emergentagent.com';
     return backendUrl;
   };
   
@@ -89,16 +90,29 @@ export default function CoachScreen() {
       timestamp: new Date(),
     };
     
-    setMessages((prev) => [...prev, userMessage]);
+    // Build the updated messages array including the new user message
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInputText('');
     setIsLoading(true);
     
     try {
+      // Build conversation history from all messages (skip the initial welcome)
+      // Send last 20 messages for context
+      const conversationHistory = updatedMessages
+        .slice(-20)
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+      
       const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text.trim(),
+          session_id: sessionId,
+          conversation_history: conversationHistory,
           context: {
             recoveryScore: recoveryData?.score,
             sleepDuration: recoveryData?.metrics.sleepDuration,
@@ -110,6 +124,11 @@ export default function CoachScreen() {
       });
       
       const data = await response.json();
+      
+      // Persist session_id from backend for future messages
+      if (data.session_id && !sessionId) {
+        setSessionId(data.session_id);
+      }
       
       const coachMessage: Message = {
         id: (Date.now() + 1).toString(),
