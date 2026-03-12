@@ -99,7 +99,28 @@ export const DARK_THEME = {
   },
 };
 
-export const LIGHT_THEME = { ...DARK_THEME, name: 'light' };
+export const LIGHT_THEME = {
+  ...DARK_THEME,
+  name: 'light',
+  colors: {
+    ...DARK_THEME.colors,
+    background: '#f5f5f5',
+    backgroundSecondary: '#eeeeee',
+    card: '#ffffff',
+    cardSecondary: '#f8f8f8',
+    cardBorder: '#e0e0e0',
+    textPrimary: '#111111',
+    textSecondary: '#666666',
+    textMuted: '#999999',
+    metallic: '#cccccc',
+    metallicLight: '#dddddd',
+    metallicDark: '#e8e8e8',
+    readinessFatigued: '#DC2626',
+    input: '#f0f0f0',
+    divider: '#e5e5e5',
+    tabBar: '#ffffff',
+  },
+};
 
 // Default accent color — Silver/Gunmetal
 export const DEFAULT_ACCENT_COLOR = '#c0c0c0';
