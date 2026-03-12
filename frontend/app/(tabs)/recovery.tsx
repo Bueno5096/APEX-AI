@@ -137,7 +137,7 @@ const MetricCard = ({
       <View style={[styles.metricGlow, { backgroundColor: accentColor, opacity: 0.3 }]} />
       <Ionicons name={icon as any} size={18} color={accentColor} />
       <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>{value}</Text>
-      <Text style={[styles.metricLabel, { color: theme.colors.textMuted }]}>{label}</Text>
+      <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
     </Animated.View>
   );
 };
@@ -266,7 +266,7 @@ export default function RecoveryScreen() {
               {recommendation.reasoning.map((reason, i) => (
                 <View key={i} style={styles.reasoningItem}>
                   <View style={[styles.reasoningBullet, { backgroundColor: accentColor }]} />
-                  <Text style={[styles.reasoningText, { color: theme.colors.textMuted }]}>{reason}</Text>
+                  <Text style={[styles.reasoningText, { color: theme.colors.textSecondary }]}>{reason}</Text>
                 </View>
               ))}
             </View>

@@ -222,6 +222,7 @@ interface WorkoutState {
   setRestTimer: (seconds: number) => void;
   decrementRestTimer: () => void;
   swapExercise: (exerciseId: string, newExercise: Exercise) => void;
+  reorderExercise: (fromIndex: number, toIndex: number) => void;
 }
 
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
@@ -456,5 +457,18 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           break;
       }
     }
+  },
+
+  reorderExercise: (fromIndex: number, toIndex: number) => {
+    set((state) => {
+      if (!state.todayWorkout) return state;
+      const exercises = [...state.todayWorkout.exercises];
+      if (fromIndex < 0 || fromIndex >= exercises.length || toIndex < 0 || toIndex >= exercises.length) return state;
+      const [moved] = exercises.splice(fromIndex, 1);
+      exercises.splice(toIndex, 0, moved);
+      return {
+        todayWorkout: { ...state.todayWorkout, exercises },
+      };
+    });
   },
 }));

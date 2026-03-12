@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Body from 'react-native-body-highlighter';
 import { useThemeStore } from '../store/themeStore';
 import { useMuscleStore } from '../store/muscleStore';
@@ -153,24 +154,23 @@ export const ApexBodyMap: React.FC<ApexBodyMapProps> = ({
       {/* Legend */}
       <View style={styles.legend}>
         {mode === 'readiness' ? (
-          <>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: accentColor }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Recovered</Text>
+          <View style={styles.gradientBarContainer}>
+            <View style={styles.gradientBarLabels}>
+              <Text style={[styles.gradientBarLabel, { color: theme.colors.textMuted }]}>0</Text>
+              <Text style={[styles.gradientBarLabel, { color: theme.colors.textMuted }]}>50</Text>
+              <Text style={[styles.gradientBarLabel, { color: theme.colors.textMuted }]}>100</Text>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.readinessGood }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Good</Text>
+            <LinearGradient
+              colors={['#8B0000', accentColor]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientBar}
+            />
+            <View style={styles.gradientBarLabels}>
+              <Text style={[styles.gradientBarDesc, { color: theme.colors.textMuted }]}>Fatigued</Text>
+              <Text style={[styles.gradientBarDesc, { color: theme.colors.textMuted }]}>Recovered</Text>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.readinessModerate }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Moderate</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.readinessFatigued }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Fatigued</Text>
-            </View>
-          </>
+          </View>
         ) : (
           <>
             <View style={styles.legendItem}>
@@ -313,6 +313,30 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 11,
     fontWeight: '500',
+  },
+  gradientBarContainer: {
+    width: '100%',
+    paddingHorizontal: 16,
+  },
+  gradientBarLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  gradientBarLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  gradientBar: {
+    height: 10,
+    borderRadius: 5,
+    marginBottom: 4,
+  },
+  gradientBarDesc: {
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
   modalOverlay: {
     flex: 1,

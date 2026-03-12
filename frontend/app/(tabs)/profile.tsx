@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Switch,
   TextInput,
   Modal,
   Platform,
@@ -278,17 +277,41 @@ export default function ProfileScreen() {
           <MetallicCard style={styles.settingCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Ionicons name="moon" size={22} color={accentColor} />
+                <Ionicons name={themeName === 'dark' ? 'moon' : 'sunny'} size={22} color={accentColor} />
                 <Text style={[styles.settingLabel, { color: theme.colors.textPrimary }]}>
-                  Dark Metallic
+                  Theme
                 </Text>
               </View>
-              <Switch
-                value={themeName === 'dark'}
-                onValueChange={(value) => setTheme(value ? 'dark' : 'light')}
-                trackColor={{ false: theme.colors.metallic, true: accentColor + '60' }}
-                thumbColor={themeName === 'dark' ? accentColor : theme.colors.metallicLight}
-              />
+              <View style={styles.unitToggleContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.unitOption,
+                    themeName === 'dark' && { backgroundColor: accentColor + '25', borderColor: accentColor },
+                  ]}
+                  onPress={() => setTheme('dark')}
+                >
+                  <Text style={[
+                    styles.unitOptionText,
+                    { color: themeName === 'dark' ? accentColor : theme.colors.textSecondary },
+                  ]}>
+                    DARK
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.unitOption,
+                    themeName === 'light' && { backgroundColor: accentColor + '25', borderColor: accentColor },
+                  ]}
+                  onPress={() => setTheme('light')}
+                >
+                  <Text style={[
+                    styles.unitOptionText,
+                    { color: themeName === 'light' ? accentColor : theme.colors.textSecondary },
+                  ]}>
+                    LIGHT
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </MetallicCard>
           
@@ -310,168 +333,6 @@ export default function ProfileScreen() {
             </MetallicCard>
           </TouchableOpacity>
           
-          {/* Unit System Toggle */}
-          <MetallicCard style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Ionicons name="resize" size={22} color={accentColor} />
-                <View>
-                  <Text style={[styles.settingLabel, { color: theme.colors.textPrimary }]}>
-                    Units
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.unitToggleContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.unitOption,
-                    unitSystem === 'metric' && { backgroundColor: accentColor + '25', borderColor: accentColor },
-                  ]}
-                  onPress={() => setUnitSystem('metric')}
-                >
-                  <Text style={[
-                    styles.unitOptionText,
-                    { color: unitSystem === 'metric' ? accentColor : theme.colors.textSecondary },
-                  ]}>
-                    METRIC
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.unitOption,
-                    unitSystem === 'imperial' && { backgroundColor: accentColor + '25', borderColor: accentColor },
-                  ]}
-                  onPress={() => setUnitSystem('imperial')}
-                >
-                  <Text style={[
-                    styles.unitOptionText,
-                    { color: unitSystem === 'imperial' ? accentColor : theme.colors.textSecondary },
-                  ]}>
-                    IMPERIAL
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </MetallicCard>
-        </View>
-        
-        {/* Coach Settings */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
-            Coach Settings
-          </Text>
-          
-          {/* Coach Style */}
-          <MetallicCard style={styles.coachStyleCard}>
-            <Text style={[styles.coachStyleLabel, { color: theme.colors.textSecondary }]}>
-              Communication Style
-            </Text>
-            <View style={styles.coachStyleOptions}>
-              {coachStyles.map((style) => (
-                <TouchableOpacity
-                  key={style.key}
-                  style={[
-                    styles.coachStyleOption,
-                    {
-                      backgroundColor:
-                        settings.coachStyle === style.key
-                          ? accentColor + '20'
-                          : 'transparent',
-                      borderColor:
-                        settings.coachStyle === style.key
-                          ? accentColor
-                          : theme.colors.cardBorder,
-                    },
-                  ]}
-                  onPress={() => updateSettings({ coachStyle: style.key })}
-                >
-                  <Text
-                    style={[
-                      styles.coachStyleName,
-                      {
-                        color:
-                          settings.coachStyle === style.key
-                            ? accentColor
-                            : theme.colors.textPrimary,
-                      },
-                    ]}
-                  >
-                    {style.label}
-                  </Text>
-                  <Text style={[styles.coachStyleDesc, { color: theme.colors.textMuted }]}>
-                    {style.desc}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </MetallicCard>
-          
-          {/* Voice Settings */}
-          <MetallicCard style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Ionicons name="volume-high" size={22} color={accentColor} />
-                <Text style={[styles.settingLabel, { color: theme.colors.textPrimary }]}>
-                  Voice Responses
-                </Text>
-              </View>
-              <Switch
-                value={settings.voiceEnabled}
-                onValueChange={(value) => updateSettings({ voiceEnabled: value })}
-                trackColor={{ false: theme.colors.metallic, true: accentColor + '60' }}
-                thumbColor={settings.voiceEnabled ? accentColor : theme.colors.metallicLight}
-              />
-            </View>
-          </MetallicCard>
-          
-          {/* Speech Speed - Only show when voice is enabled */}
-          {settings.voiceEnabled && (
-            <MetallicCard style={styles.settingCard}>
-              <View style={styles.settingRow}>
-                <View style={styles.settingInfo}>
-                  <Ionicons name="speedometer" size={22} color={accentColor} />
-                  <Text style={[styles.settingLabel, { color: theme.colors.textPrimary }]}>
-                    Speech Speed
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.speedOptionsRow}>
-                {[
-                  { label: 'Slow', value: 0.75 },
-                  { label: 'Normal', value: 1.0 },
-                  { label: 'Fast', value: 1.25 },
-                  { label: '2x', value: 1.5 },
-                ].map((opt) => (
-                  <TouchableOpacity
-                    key={opt.value}
-                    style={[
-                      styles.speedOption,
-                      { borderColor: theme.colors.cardBorder },
-                      (settings.speechRate || 1.0) === opt.value && {
-                        borderColor: accentColor,
-                        backgroundColor: accentColor + '15',
-                      },
-                    ]}
-                    onPress={() => updateSettings({ speechRate: opt.value })}
-                  >
-                    <Text
-                      style={[
-                        styles.speedOptionText,
-                        {
-                          color:
-                            (settings.speechRate || 1.0) === opt.value
-                              ? accentColor
-                              : theme.colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </MetallicCard>
-          )}
         </View>
         
         {/* Notifications */}
@@ -488,12 +349,19 @@ export default function ProfileScreen() {
                   Workout Reminders
                 </Text>
               </View>
-              <Switch
-                value={settings.workoutReminders}
-                onValueChange={(value) => updateSettings({ workoutReminders: value })}
-                trackColor={{ false: theme.colors.metallic, true: accentColor + '60' }}
-                thumbColor={settings.workoutReminders ? accentColor : theme.colors.metallicLight}
-              />
+              <TouchableOpacity
+                style={[
+                  styles.customToggle,
+                  { backgroundColor: settings.workoutReminders ? accentColor : '#3a3a3a' },
+                ]}
+                onPress={() => updateSettings({ workoutReminders: !settings.workoutReminders })}
+                activeOpacity={0.8}
+              >
+                <View style={[
+                  styles.customToggleThumb,
+                  settings.workoutReminders && styles.customToggleThumbActive,
+                ]} />
+              </TouchableOpacity>
             </View>
           </MetallicCard>
           
@@ -505,12 +373,19 @@ export default function ProfileScreen() {
                   Recovery Alerts
                 </Text>
               </View>
-              <Switch
-                value={settings.recoveryAlerts}
-                onValueChange={(value) => updateSettings({ recoveryAlerts: value })}
-                trackColor={{ false: theme.colors.metallic, true: accentColor + '60' }}
-                thumbColor={settings.recoveryAlerts ? accentColor : theme.colors.metallicLight}
-              />
+              <TouchableOpacity
+                style={[
+                  styles.customToggle,
+                  { backgroundColor: settings.recoveryAlerts ? accentColor : '#3a3a3a' },
+                ]}
+                onPress={() => updateSettings({ recoveryAlerts: !settings.recoveryAlerts })}
+                activeOpacity={0.8}
+              >
+                <View style={[
+                  styles.customToggleThumb,
+                  settings.recoveryAlerts && styles.customToggleThumbActive,
+                ]} />
+              </TouchableOpacity>
             </View>
           </MetallicCard>
           
@@ -522,12 +397,19 @@ export default function ProfileScreen() {
                   Coach Suggestions
                 </Text>
               </View>
-              <Switch
-                value={settings.coachSuggestions}
-                onValueChange={(value) => updateSettings({ coachSuggestions: value })}
-                trackColor={{ false: theme.colors.metallic, true: accentColor + '60' }}
-                thumbColor={settings.coachSuggestions ? accentColor : theme.colors.metallicLight}
-              />
+              <TouchableOpacity
+                style={[
+                  styles.customToggle,
+                  { backgroundColor: settings.coachSuggestions ? accentColor : '#3a3a3a' },
+                ]}
+                onPress={() => updateSettings({ coachSuggestions: !settings.coachSuggestions })}
+                activeOpacity={0.8}
+              >
+                <View style={[
+                  styles.customToggleThumb,
+                  settings.coachSuggestions && styles.customToggleThumbActive,
+                ]} />
+              </TouchableOpacity>
             </View>
           </MetallicCard>
         </View>
@@ -817,6 +699,45 @@ export default function ProfileScreen() {
                 </View>
               </>
             )}
+            
+            {/* Unit System Toggle */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
+                Units
+              </Text>
+              <View style={styles.genderRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.genderButton,
+                    { borderColor: theme.colors.cardBorder },
+                    unitSystem === 'metric' && { borderColor: accentColor, backgroundColor: accentColor + '15' },
+                  ]}
+                  onPress={() => setUnitSystem('metric')}
+                >
+                  <Text style={[
+                    styles.genderButtonText,
+                    { color: unitSystem === 'metric' ? accentColor : theme.colors.textSecondary },
+                  ]}>
+                    Metric
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.genderButton,
+                    { borderColor: theme.colors.cardBorder },
+                    unitSystem === 'imperial' && { borderColor: accentColor, backgroundColor: accentColor + '15' },
+                  ]}
+                  onPress={() => setUnitSystem('imperial')}
+                >
+                  <Text style={[
+                    styles.genderButtonText,
+                    { color: unitSystem === 'imperial' ? accentColor : theme.colors.textSecondary },
+                  ]}>
+                    Imperial
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
             
             <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: accentColor }]}
@@ -1265,5 +1186,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  customToggle: {
+    width: 52,
+    height: 30,
+    borderRadius: 15,
+    padding: 3,
+    justifyContent: 'center',
+  },
+  customToggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    alignSelf: 'flex-start',
+  },
+  customToggleThumbActive: {
+    alignSelf: 'flex-end',
   },
 });

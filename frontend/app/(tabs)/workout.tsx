@@ -57,6 +57,7 @@ export default function WorkoutScreen() {
     completeSet,
     nextExercise,
     decrementRestTimer,
+    reorderExercise,
   } = useWorkoutStore();
   
   const [showCoachAssist, setShowCoachAssist] = useState(false);
@@ -713,11 +714,19 @@ export default function WorkoutScreen() {
                   </Text>
                 </View>
                 <View style={styles.exerciseActions}>
-                  <TouchableOpacity style={styles.exerciseAction}>
-                    <Ionicons name="swap-horizontal" size={18} color={theme.colors.textSecondary} />
+                  <TouchableOpacity
+                    style={[styles.exerciseAction, index === 0 && { opacity: 0.3 }]}
+                    onPress={() => index > 0 && reorderExercise(index, index - 1)}
+                    disabled={index === 0}
+                  >
+                    <Ionicons name="chevron-up" size={20} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.exerciseAction}>
-                    <Ionicons name="information-circle" size={18} color={theme.colors.textSecondary} />
+                  <TouchableOpacity
+                    style={[styles.exerciseAction, index === (todayWorkout?.exercises?.length || 0) - 1 && { opacity: 0.3 }]}
+                    onPress={() => index < (todayWorkout?.exercises?.length || 0) - 1 && reorderExercise(index, index + 1)}
+                    disabled={index === (todayWorkout?.exercises?.length || 0) - 1}
+                  >
+                    <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               </View>
