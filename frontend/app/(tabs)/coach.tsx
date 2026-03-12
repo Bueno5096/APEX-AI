@@ -53,9 +53,11 @@ export default function CoachScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text');
   const [isListening, setIsListening] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(false);
   
   const scrollViewRef = useRef<ScrollView>(null);
   const waveformAnim = useRef(new Animated.Value(0)).current;
+  const recognitionRef = useRef<any>(null);
   
   useEffect(() => {
     if (isListening) {
@@ -118,7 +120,7 @@ export default function CoachScreen() {
       
       setMessages((prev) => [...prev, coachMessage]);
       
-      if (settings.voiceEnabled) {
+      if (ttsEnabled) {
         const cleanForSpeech = (text: string): string => {
           return text
             .replace(/#{1,6}\s?/g, '')
@@ -162,17 +164,79 @@ export default function CoachScreen() {
   };
   
   const handleVoicePress = () => {
-    if (inputMode === 'voice') {
-      setIsListening(!isListening);
-      if (!isListening) {
-        setTimeout(() => {
-          setIsListening(false);
-          setInputText('What workout should I do today?');
-        }, 3000);
+    if (isListening) {
+      // Stop listening
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
       }
-    } else {
-      setInputMode('voice');
+      setIsListening(false);
+      setInputMode('text');
+      return;
     }
+
+    // Start speech recognition
+    if (Platform.OS === 'web') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        // Fallback: browser doesn't support speech recognition
+        setInputText('Speech recognition not supported in this browser. Please use Chrome.');
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+      recognition.maxAlternatives = 1;
+      recognitionRef.current = recognition;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setInputMode('voice');
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        setInputText(transcript);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        setInputMode('text');
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+        setInputMode('text');
+        if (event.error === 'not-allowed') {
+          setInputText('Microphone access denied. Please allow microphone permissions.');
+        }
+      };
+
+      recognition.start();
+    } else {
+      // Native platform — show voice mode UI
+      setInputMode('voice');
+      setIsListening(true);
+      // On native, expo-speech only does TTS. For STT on native,
+      // a native speech recognition library would be needed.
+      // For now, show the listening UI and stop after timeout.
+      setTimeout(() => {
+        setIsListening(false);
+        setInputMode('text');
+      }, 5000);
+    }
+  };
+
+  const toggleTts = () => {
+    if (ttsEnabled) {
+      Speech.stop();
+    }
+    setTtsEnabled(!ttsEnabled);
   };
   
   return (
@@ -313,14 +377,28 @@ export default function CoachScreen() {
               <TouchableOpacity
                 style={[
                   styles.modeButton,
-                  inputMode === 'voice' && { backgroundColor: accentColor + '15' },
+                  ttsEnabled && { backgroundColor: accentColor + '15' },
+                ]}
+                onPress={toggleTts}
+              >
+                <Ionicons
+                  name={ttsEnabled ? 'volume-high' : 'volume-mute'}
+                  size={18}
+                  color={ttsEnabled ? accentColor : theme.colors.textMuted}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  isListening && { backgroundColor: accentColor + '15' },
                 ]}
                 onPress={handleVoicePress}
               >
                 <Ionicons
                   name={isListening ? 'stop' : 'mic'}
                   size={18}
-                  color={inputMode === 'voice' ? accentColor : theme.colors.textMuted}
+                  color={isListening ? accentColor : theme.colors.textMuted}
                 />
               </TouchableOpacity>
               
