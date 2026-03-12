@@ -976,7 +976,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1.5,
     marginBottom: 16,
-    color: '#555555',
     textTransform: 'uppercase',
   },
   bodyMapCard: {

@@ -125,26 +125,26 @@ export default function ProgressScreen() {
         <View style={styles.overviewGrid}>
           <MetallicCard style={styles.overviewCard} delay={0} small>
             <Ionicons name="trending-up" size={22} color="#3A7A5A" />
-            <CountUp target="+12%" color="#ffffff" />
-            <Text style={styles.overviewLabel}>Strength</Text>
+            <CountUp target="+12%" color={theme.colors.textPrimary} />
+            <Text style={[styles.overviewLabel, { color: theme.colors.textMuted }]}>Strength</Text>
           </MetallicCard>
           
           <MetallicCard style={styles.overviewCard} delay={80} small>
             <Ionicons name="pulse" size={22} color={accentColor} />
-            <CountUp target="78%" color="#ffffff" />
-            <Text style={styles.overviewLabel}>Avg Recovery</Text>
+            <CountUp target="78%" color={theme.colors.textPrimary} />
+            <Text style={[styles.overviewLabel, { color: theme.colors.textMuted }]}>Avg Recovery</Text>
           </MetallicCard>
           
           <MetallicCard style={styles.overviewCard} delay={160} small>
             <Ionicons name="flame" size={22} color="#8A6A3A" />
-            <CountUp target="27" color="#ffffff" />
-            <Text style={styles.overviewLabel}>Workouts</Text>
+            <CountUp target="27" color={theme.colors.textPrimary} />
+            <Text style={[styles.overviewLabel, { color: theme.colors.textMuted }]}>Workouts</Text>
           </MetallicCard>
           
           <MetallicCard style={styles.overviewCard} delay={240} small>
             <Ionicons name="trophy" size={22} color="#8A6A3A" />
-            <CountUp target="12" color="#ffffff" />
-            <Text style={styles.overviewLabel}>Day Streak</Text>
+            <CountUp target="12" color={theme.colors.textPrimary} />
+            <Text style={[styles.overviewLabel, { color: theme.colors.textMuted }]}>Day Streak</Text>
           </MetallicCard>
         </View>
         
@@ -265,7 +265,6 @@ export default function ProgressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   scrollView: {
     flex: 1,
@@ -280,23 +279,19 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.5,
-    color: '#ffffff',
   },
   headerSubtitle: {
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 1.5,
     marginTop: 4,
-    color: '#555555',
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: '#111111',
     borderRadius: 14,
     padding: 4,
     marginBottom: 24,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
   },
   filterButton: {
     flex: 1,
@@ -305,7 +300,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   filterButtonActive: {
-    backgroundColor: '#242424',
     borderTopWidth: 1,
   },
   filterText: {
@@ -334,7 +328,6 @@ const styles = StyleSheet.create({
   overviewLabel: {
     fontSize: 11,
     marginTop: 4,
-    color: '#555555',
     fontWeight: '600',
     letterSpacing: 0.5,
   },
@@ -349,12 +342,10 @@ const styles = StyleSheet.create({
   chartTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#ffffff',
   },
   chartSubtitle: {
     fontSize: 12,
     marginTop: 2,
-    color: '#555555',
   },
   section: {
     marginBottom: 24,
@@ -363,7 +354,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 1.5,
-    color: '#555555',
     marginBottom: 16,
   },
   recordCard: {
@@ -387,12 +377,10 @@ const styles = StyleSheet.create({
   recordExercise: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ffffff',
   },
   recordDate: {
     fontSize: 12,
     marginTop: 2,
-    color: '#555555',
   },
   recordWeight: {
     fontSize: 22,
@@ -411,12 +399,10 @@ const styles = StyleSheet.create({
   insightTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ffffff',
   },
   insightText: {
     fontSize: 15,
     lineHeight: 22,
-    color: '#8a8a8a',
   },
   bottomSpacer: {
     height: 20,

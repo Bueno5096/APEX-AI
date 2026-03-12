@@ -87,7 +87,7 @@ export default function TabLayout() {
               <Ionicons 
                 name="sparkles" 
                 size={24} 
-                color={focused ? accentColor : '#555555'} 
+                color={focused ? accentColor : theme.colors.textMuted} 
               />
             </View>
           ),

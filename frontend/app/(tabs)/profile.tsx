@@ -106,7 +106,7 @@ export default function ProfileScreen() {
   ];
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#000000' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -114,10 +114,10 @@ export default function ProfileScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: '#ffffff' }]}>
+          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
             Profile
           </Text>
-          <Text style={[styles.headerSubtitle, { color: '#555555' }]}>
+          <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted }]}>
             SETTINGS
           </Text>
         </View>
@@ -856,7 +856,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 1.5,
-    color: '#555555',
     marginBottom: 12,
     textTransform: 'uppercase',
   },

@@ -227,7 +227,7 @@ export default function CoachScreen() {
               </View>
               {message.role === 'coach' && index > 0 && index === messages.length - 1 && !isLoading && (
                 <TouchableOpacity
-                  style={[styles.explainMoreChip, { borderColor: accentColor + '40' }]}
+                  style={[styles.explainMoreChip, { borderColor: accentColor + '40', backgroundColor: theme.colors.card }]}
                   onPress={() => sendMessage('Explain more about that')}
                   activeOpacity={0.7}
                 >
@@ -298,9 +298,9 @@ export default function CoachScreen() {
               </View>
             ) : (
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: theme.colors.textPrimary }]}
                 placeholder="Ask Coach anything..."
-                placeholderTextColor="#555555"
+                placeholderTextColor={theme.colors.textMuted}
                 value={inputText}
                 onChangeText={setInputText}
                 multiline
@@ -320,14 +320,14 @@ export default function CoachScreen() {
                 <Ionicons
                   name={isListening ? 'stop' : 'mic'}
                   size={18}
-                  color={inputMode === 'voice' ? accentColor : '#555555'}
+                  color={inputMode === 'voice' ? accentColor : theme.colors.textMuted}
                 />
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  { backgroundColor: inputText.trim() ? accentColor : '#242424' },
+                  { backgroundColor: inputText.trim() ? accentColor : theme.colors.metallic },
                 ]}
                 onPress={() => sendMessage(inputText)}
                 disabled={!inputText.trim() || isLoading}

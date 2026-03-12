@@ -29,11 +29,13 @@ const ApexCircularProgress = ({
   size = 200, 
   strokeWidth = 10,
   accentColor,
+  theme,
 }: {
   value: number;
   size?: number;
   strokeWidth?: number;
   accentColor: string;
+  theme: any;
 }) => {
   const radius = (size - strokeWidth * 2) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -78,13 +80,13 @@ const ApexCircularProgress = ({
         <Circle
           cx={size / 2} cy={size / 2}
           r={radius + strokeWidth * 0.6}
-          stroke="#3a3a3a" strokeWidth={1}
+          stroke={theme.colors.metallic} strokeWidth={1}
           fill="transparent" opacity={0.3}
         />
         {/* Background track */}
         <Circle
           cx={size / 2} cy={size / 2} r={radius}
-          stroke="#242424" strokeWidth={strokeWidth}
+          stroke={theme.colors.metallicDark} strokeWidth={strokeWidth}
           fill="transparent" opacity={0.5}
         />
         {/* Progress arc */}
@@ -100,7 +102,7 @@ const ApexCircularProgress = ({
         />
       </Svg>
       <View style={{ alignItems: 'center' }}>
-        <Text style={styles.scoreValue}>{displayVal}</Text>
+        <Text style={[styles.scoreValue, { color: theme.colors.textPrimary }]}>{displayVal}</Text>
         <Text style={[styles.scoreLabel, { color: accentColor }]}>{statusLabel}</Text>
       </View>
     </View>
@@ -211,6 +213,7 @@ export default function RecoveryScreen() {
             value={overallScore} 
             size={200}
             accentColor={accentColor}
+            theme={theme}
           />
         </View>
         
@@ -340,7 +343,6 @@ export default function RecoveryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   scrollView: {
     flex: 1,
@@ -358,14 +360,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.5,
-    color: '#ffffff',
   },
   headerSubtitle: {
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 1.5,
     marginTop: 4,
-    color: '#555555',
   },
   statusBadge: {
     flexDirection: 'row',
@@ -390,23 +390,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 32,
     marginBottom: 24,
-    backgroundColor: '#111111',
     borderRadius: 20,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 12,
   },
   scoreValue: {
     fontSize: 48,
     fontWeight: '700',
     letterSpacing: -2,
-    color: '#ffffff',
-    textShadowColor: 'rgba(255,255,255,0.15)',
-    textShadowRadius: 8,
   },
   scoreLabel: {
     fontSize: 11,
@@ -424,17 +414,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 18,
     paddingHorizontal: 8,
-    backgroundColor: '#111111',
     borderRadius: 14,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
   },
   metricGlow: {
     position: 'absolute',
@@ -447,16 +430,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginTop: 8,
-    color: '#ffffff',
-    textShadowColor: 'rgba(255,255,255,0.15)',
-    textShadowRadius: 8,
   },
   metricLabel: {
     fontSize: 9,
     fontWeight: '600',
     letterSpacing: 1.5,
     marginTop: 4,
-    color: '#555555',
   },
   section: {
     marginBottom: 24,
@@ -465,35 +444,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 1.5,
-    color: '#555555',
     marginBottom: 12,
   },
   bodyMapContainer: {
-    backgroundColor: '#111111',
     borderRadius: 20,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
     paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 12,
   },
   explanationCard: {
-    backgroundColor: '#111111',
     borderRadius: 20,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
     padding: 20,
     marginBottom: 16,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 12,
   },
   explanationGlow: {
     position: 'absolute',
@@ -518,7 +482,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 1.5,
-    color: '#555555',
   },
   aiTag: {
     paddingHorizontal: 10,
@@ -533,7 +496,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 16,
-    color: '#8a8a8a',
   },
   reasoningList: {
     marginBottom: 16,
@@ -554,12 +516,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     flex: 1,
-    color: '#555555',
   },
   muscleStatusSummary: {
     paddingTop: 12,
     borderTopWidth: 0.5,
-    borderTopColor: '#2e2e2e',
   },
   muscleStatusRow: {
     flexDirection: 'row',
@@ -574,19 +534,12 @@ const styles = StyleSheet.create({
   },
   muscleStatusText: {
     fontSize: 13,
-    color: '#8a8a8a',
   },
   workoutCard: {
     marginBottom: 16,
     borderWidth: 0.5,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#111111',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 12,
   },
   workoutContent: {
     flexDirection: 'row',
@@ -603,13 +556,11 @@ const styles = StyleSheet.create({
   workoutTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#ffffff',
     letterSpacing: -0.5,
   },
   workoutType: {
     fontSize: 13,
     marginTop: 4,
-    color: '#555555',
   },
   workoutArrow: {
     width: 44,
