@@ -1,27 +1,27 @@
-// APEX AI - Premium Dark UI Theme
-// Apple softness × Tesla futurism — OLED-optimized
+// COACH — Premium Dual-Theme System
+// Dark: Futuristic sci-fi • Light: Soft earth tones
 
 export const DARK_THEME = {
   name: 'dark',
   colors: {
-    // Backgrounds — Pure OLED black
-    background: '#000000',
-    backgroundSecondary: '#0a0a0a',
-    card: '#111111',
-    cardSecondary: '#1a1a1a',
-    cardBorder: '#2a2a2a',
-    cardHighlight: '#141414',
+    // Backgrounds — Deep futuristic black with blue tint
+    background: '#08080f',
+    backgroundSecondary: '#0c0c14',
+    card: '#12131a',
+    cardSecondary: '#181a24',
+    cardBorder: '#1e2030',
+    cardHighlight: '#161828',
 
-    // Text
-    textPrimary: '#ffffff',
-    textSecondary: '#8a8a8a',
-    textMuted: '#777777',
+    // Text — Cool whites and steel blues
+    textPrimary: '#e8eaf0',
+    textSecondary: '#7880a0',
+    textMuted: '#5a6080',
 
-    // Metallic accents
-    metallic: '#3a3a3a',
-    metallicLight: '#4a4a4a',
-    metallicDark: '#242424',
-    metallicShine: '#c0c0c0',
+    // Metallic accents — Blue-tinted futuristic
+    metallic: '#2a2d40',
+    metallicLight: '#3a3d55',
+    metallicDark: '#1a1d2e',
+    metallicShine: '#a0a8c8',
 
     // Readiness colors — status indicators
     readinessFatigued: '#8B0000',
@@ -30,22 +30,22 @@ export const DARK_THEME = {
     readinessRecovered: '#c0c0c0',
 
     // Body map base
-    bodyBase: '#2a2a2a',
-    bodyOutline: '#3a3a3a',
+    bodyBase: '#1e2030',
+    bodyOutline: '#2a2d40',
 
-    // Status colors — only for indicators
-    success: '#3A7A5A',
-    warning: '#8A6A3A',
+    // Status colors
+    success: '#3A8A5A',
+    warning: '#8A7A3A',
     danger: '#8B3A3A',
-    info: '#4A6A8A',
+    info: '#4A6A9A',
 
     // Navigation
-    tabBar: '#000000',
+    tabBar: '#08080f',
     tabBarBorder: 'transparent',
 
     // Surfaces
-    input: '#242424',
-    divider: '#2e2e2e',
+    input: '#1a1d2e',
+    divider: '#1e2030',
   },
 
   // Apple-style rounded corners
@@ -80,7 +80,7 @@ export const DARK_THEME = {
       elevation: 8,
     },
     glow: {
-      shadowColor: '#c0c0c0',
+      shadowColor: '#4060a0',
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.08,
       shadowRadius: 20,
@@ -104,30 +104,67 @@ export const LIGHT_THEME = {
   name: 'light',
   colors: {
     ...DARK_THEME.colors,
-    background: '#f5f5f7',
-    backgroundSecondary: '#ededf0',
-    card: '#eaeaee',
-    cardSecondary: '#e4e4e8',
-    cardBorder: '#d5d5da',
-    cardHighlight: '#e8e8ec',
-    textPrimary: '#1a1a1e',
-    textSecondary: '#6b6b75',
-    textMuted: '#9a9aa5',
-    metallic: '#c8c8d0',
-    metallicLight: '#d5d5dd',
-    metallicDark: '#dcdce2',
-    metallicShine: '#4a4a55',
-    readinessFatigued: '#C53030',
-    bodyBase: '#d0d0d8',
-    bodyOutline: '#b8b8c0',
-    input: '#e0e0e5',
-    divider: '#d5d5da',
-    tabBar: '#f5f5f7',
-    tabBarBorder: '#d5d5da',
-    success: '#2E8B57',
-    warning: '#B8860B',
-    danger: '#C53030',
-    info: '#4682B4',
+    // Backgrounds — Warm cream / sand
+    background: '#f5f2ed',
+    backgroundSecondary: '#ede9e2',
+    card: '#ebe6df',
+    cardSecondary: '#e3ddd5',
+    cardBorder: '#d5cec4',
+    cardHighlight: '#e8e3dc',
+
+    // Text — Warm browns
+    textPrimary: '#2c2418',
+    textSecondary: '#6b5e4e',
+    textMuted: '#8a7e6e',
+
+    // Metallic — Warm tones
+    metallic: '#c8c0b4',
+    metallicLight: '#d5cec4',
+    metallicDark: '#ddd7cc',
+    metallicShine: '#5a5040',
+
+    // Body map
+    readinessFatigued: '#B04040',
+    bodyBase: '#d0c8be',
+    bodyOutline: '#b8b0a4',
+
+    // Surfaces
+    input: '#e0d9d0',
+    divider: '#d5cec4',
+
+    // Navigation
+    tabBar: '#f5f2ed',
+    tabBarBorder: '#d5cec4',
+
+    // Status — Earth tones
+    success: '#4a7a52',
+    warning: '#b08a30',
+    danger: '#b04040',
+    info: '#4a6e8a',
+  },
+  shadows: {
+    ...DARK_THEME.shadows,
+    card: {
+      shadowColor: '#8a7e6e',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    cardSmall: {
+      shadowColor: '#8a7e6e',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    glow: {
+      shadowColor: '#b8b0a4',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
+      elevation: 2,
+    },
   },
 };
 
