@@ -44,13 +44,40 @@ export default function ProfileScreen() {
     setShowColorPicker(false);
   };
   
+  const openEditProfile = () => {
+    const isImperial = unitSystem === 'imperial';
+    setEditName(profile?.name || '');
+    setEditGender(gender || 'male');
+    if (isImperial) {
+      // Convert stored metric values to imperial for display
+      const weightLbs = Math.round((profile?.weight || 75) * 2.20462 / 5) * 5;
+      const heightIn = Math.round((profile?.height || 178) / 2.54);
+      setEditWeight(weightLbs.toString());
+      setEditHeight(heightIn.toString());
+    } else {
+      setEditWeight(profile?.weight?.toString() || '');
+      setEditHeight(profile?.height?.toString() || '');
+    }
+    setShowEditProfile(true);
+  };
+
   const handleSaveProfile = () => {
     if (profile) {
+      const isImperial = unitSystem === 'imperial';
+      let saveWeight = parseFloat(editWeight) || profile.weight;
+      let saveHeight = parseFloat(editHeight) || profile.height;
+      
+      if (isImperial) {
+        // Convert imperial input back to metric for storage
+        saveWeight = Math.round(saveWeight / 2.20462 * 10) / 10;
+        saveHeight = Math.round(saveHeight * 2.54);
+      }
+      
       setProfile({
         ...profile,
         name: editName,
-        weight: parseFloat(editWeight) || profile.weight,
-        height: parseFloat(editHeight) || profile.height,
+        weight: saveWeight,
+        height: saveHeight,
         gender: editGender,
       });
       setGender(editGender);
@@ -82,7 +109,7 @@ export default function ProfileScreen() {
         </View>
         
         {/* User Stats */}
-        <TouchableOpacity onPress={() => setShowEditProfile(true)}>
+        <TouchableOpacity onPress={openEditProfile}>
           <MetallicCard style={styles.profileCard} intensity="medium">
             <View style={styles.profileHeader}>
               <View style={[styles.avatar, { backgroundColor: accentColor }]}>
@@ -667,7 +694,7 @@ export default function ProfileScreen() {
             <View style={styles.inputRow}>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
-                  Height (cm)
+                  Height ({unitSystem === 'imperial' ? 'in' : 'cm'})
                 </Text>
                 <TextInput
                   style={[
@@ -677,14 +704,14 @@ export default function ProfileScreen() {
                   value={editHeight}
                   onChangeText={setEditHeight}
                   keyboardType="numeric"
-                  placeholder="178"
+                  placeholder={unitSystem === 'imperial' ? '70' : '178'}
                   placeholderTextColor={theme.colors.textMuted}
                 />
               </View>
               <View style={{ width: 16 }} />
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
-                  Weight (kg)
+                  Weight ({unitSystem === 'imperial' ? 'lbs' : 'kg'})
                 </Text>
                 <TextInput
                   style={[
@@ -694,7 +721,7 @@ export default function ProfileScreen() {
                   value={editWeight}
                   onChangeText={setEditWeight}
                   keyboardType="numeric"
-                  placeholder="75"
+                  placeholder={unitSystem === 'imperial' ? '165' : '75'}
                   placeholderTextColor={theme.colors.textMuted}
                 />
               </View>
