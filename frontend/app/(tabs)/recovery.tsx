@@ -15,6 +15,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-na
 import { useThemeStore } from '../../src/store/themeStore';
 import { useHealthStore } from '../../src/store/healthStore';
 import { useMuscleStore } from '../../src/store/muscleStore';
+import { useWorkoutStore } from '../../src/store/workoutStore';
 import { ApexBodyMap } from '../../src/components/ApexBodyMap';
 import { MUSCLE_REGIONS } from '../../src/constants/exerciseData';
 import { getReadinessColor, getReadinessLabel } from '../../src/constants/theme';
@@ -112,8 +113,10 @@ export default function RecoveryScreen() {
   const { theme, accentColor } = useThemeStore();
   const { recoveryData, isLoading, refreshData, fetchHealthData } = useHealthStore();
   const { muscles, loadState, getRecommendation, initializeMuscles } = useMuscleStore();
+  const { setTodayWorkoutByType } = useWorkoutStore();
   const router = useRouter();
   const [isInitialized, setIsInitialized] = useState(false);
+  const [workoutApplied, setWorkoutApplied] = useState(false);
   
   useEffect(() => {
     const init = async () => {
@@ -285,8 +288,17 @@ export default function RecoveryScreen() {
         </View>
         
         {/* Recommended Workout Card */}
-        <TouchableOpacity onPress={() => router.push('/(tabs)/workout')}>
-          <View style={[styles.workoutCard, { backgroundColor: theme.colors.card, borderColor: accentColor }]}>
+        <TouchableOpacity onPress={() => {
+          setTodayWorkoutByType(recommendation.type, recommendation.title);
+          setWorkoutApplied(true);
+          setTimeout(() => {
+            router.push('/(tabs)/workout');
+          }, 600);
+        }}>
+          <View style={[styles.workoutCard, { 
+            backgroundColor: theme.colors.card, 
+            borderColor: workoutApplied ? theme.colors.success : accentColor 
+          }]}>
             <LinearGradient
               colors={[accentColor + '15', 'transparent']}
               style={styles.workoutGradient}
@@ -302,11 +314,11 @@ export default function RecoveryScreen() {
                   {recommendation.title}
                 </Text>
                 <Text style={[styles.workoutType, { color: theme.colors.textSecondary }]}>
-                  Based on your recovery data
+                  {workoutApplied ? 'Workout set! Navigating...' : 'Tap to set as today\'s workout'}
                 </Text>
               </View>
-              <View style={[styles.workoutArrow, { backgroundColor: accentColor }]}>
-                <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
+              <View style={[styles.workoutArrow, { backgroundColor: workoutApplied ? theme.colors.success : accentColor }]}>
+                <Ionicons name={workoutApplied ? "checkmark" : "arrow-forward"} size={22} color="#FFFFFF" />
               </View>
             </View>
           </View>

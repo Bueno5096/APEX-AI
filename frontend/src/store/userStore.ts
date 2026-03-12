@@ -19,6 +19,7 @@ interface UserProfile {
 interface UserSettings {
   coachStyle: CoachStyle;
   voiceEnabled: boolean;
+  speechRate: number; // 0.5 to 2.0
   workoutReminders: boolean;
   recoveryAlerts: boolean;
   coachSuggestions: boolean;
@@ -36,7 +37,8 @@ interface UserState {
 
 const defaultSettings: UserSettings = {
   coachStyle: 'neutral',
-  voiceEnabled: true,
+  voiceEnabled: false,
+  speechRate: 1.0,
   workoutReminders: true,
   recoveryAlerts: true,
   coachSuggestions: true,

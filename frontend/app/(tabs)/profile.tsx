@@ -402,6 +402,55 @@ export default function ProfileScreen() {
               />
             </View>
           </MetallicCard>
+          
+          {/* Speech Speed - Only show when voice is enabled */}
+          {settings.voiceEnabled && (
+            <MetallicCard style={styles.settingCard}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Ionicons name="speedometer" size={22} color={accentColor} />
+                  <Text style={[styles.settingLabel, { color: theme.colors.textPrimary }]}>
+                    Speech Speed
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.speedOptionsRow}>
+                {[
+                  { label: 'Slow', value: 0.75 },
+                  { label: 'Normal', value: 1.0 },
+                  { label: 'Fast', value: 1.25 },
+                  { label: '2x', value: 1.5 },
+                ].map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[
+                      styles.speedOption,
+                      { borderColor: theme.colors.cardBorder },
+                      (settings.speechRate || 1.0) === opt.value && {
+                        borderColor: accentColor,
+                        backgroundColor: accentColor + '15',
+                      },
+                    ]}
+                    onPress={() => updateSettings({ speechRate: opt.value })}
+                  >
+                    <Text
+                      style={[
+                        styles.speedOptionText,
+                        {
+                          color:
+                            (settings.speechRate || 1.0) === opt.value
+                              ? accentColor
+                              : theme.colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </MetallicCard>
+          )}
         </View>
         
         {/* Notifications */}
@@ -1142,6 +1191,22 @@ const styles = StyleSheet.create({
   genderButtonText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  speedOptionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  speedOption: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center',
+  },
+  speedOptionText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   saveButton: {
     paddingVertical: 16,

@@ -154,7 +154,7 @@ export default function CoachScreen() {
         Speech.speak(cleanForSpeech(data.response), {
           language: 'en',
           pitch: 1.0,
-          rate: 0.9,
+          rate: settings.speechRate || 1.0,
         });
       }
     } catch (error) {
@@ -220,29 +220,42 @@ export default function CoachScreen() {
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
         >
-          {messages.map((message) => (
-            <View
-              key={message.id}
-              style={[
-                styles.messageBubble,
-                message.role === 'user'
-                  ? [styles.userMessage, { backgroundColor: accentColor }]
-                  : [styles.coachMessage, { backgroundColor: theme.colors.card }],
-              ]}
-            >
-              {message.role === 'coach' && (
-                <View style={styles.coachIcon}>
-                  <Ionicons name="sparkles" size={16} color={accentColor} />
-                </View>
-              )}
-              <Text
+          {messages.map((message, index) => (
+            <View key={message.id}>
+              <View
                 style={[
-                  styles.messageText,
-                  { color: message.role === 'user' ? '#FFFFFF' : theme.colors.textPrimary },
+                  styles.messageBubble,
+                  message.role === 'user'
+                    ? [styles.userMessage, { backgroundColor: accentColor }]
+                    : [styles.coachMessage, { backgroundColor: theme.colors.card }],
                 ]}
               >
-                {message.content}
-              </Text>
+                {message.role === 'coach' && (
+                  <View style={styles.coachIcon}>
+                    <Ionicons name="sparkles" size={16} color={accentColor} />
+                  </View>
+                )}
+                <Text
+                  style={[
+                    styles.messageText,
+                    { color: message.role === 'user' ? '#FFFFFF' : theme.colors.textPrimary },
+                  ]}
+                >
+                  {message.content}
+                </Text>
+              </View>
+              {/* "Explain more" chip after coach messages (not the loading or first message) */}
+              {message.role === 'coach' && index > 0 && index === messages.length - 1 && !isLoading && (
+                <TouchableOpacity
+                  style={[styles.explainMoreChip, { borderColor: accentColor + '60' }]}
+                  onPress={() => sendMessage('Explain more about that')}
+                >
+                  <Ionicons name="expand-outline" size={14} color={accentColor} />
+                  <Text style={[styles.explainMoreText, { color: accentColor }]}>
+                    Explain more
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))}
           
@@ -502,5 +515,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 8,
+  },
+  explainMoreChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: -4,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  explainMoreText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
