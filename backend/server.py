@@ -248,7 +248,7 @@ async def coach_chat(request: ChatRequest):
         )
         
         # Use GPT-5.2 (newest available)
-        chat.with_model("gemini", "gemini-2.5-pro")
+        chat.with_model("anthropic", "claude-sonnet-4-6")
         
         # Load previous messages for context (last 10 messages)
         previous_messages = await db.chat_messages.find(
@@ -268,7 +268,7 @@ async def coach_chat(request: ChatRequest):
                 session_id=session_id,
                 system_message=system_prompt + history_context
             )
-            chat.with_model("gemini", "gemini-2.5-pro")
+            chat.with_model("anthropic", "claude-sonnet-4-6")
         
         # Create user message
         user_message = UserMessage(text=request.message)
