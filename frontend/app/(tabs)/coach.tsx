@@ -82,7 +82,7 @@ export default function CoachScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://performance-coach-ai-1.preview.emergentagent.com';
+      || 'https://muscle-readiness-map.preview.emergentagent.com';
     return backendUrl;
   };
   

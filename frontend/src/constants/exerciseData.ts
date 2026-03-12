@@ -1,0 +1,253 @@
+// Exercise to Muscle Mapping - Structured Data
+// Each exercise maps to primary and secondary muscle regions
+
+export interface ExerciseMapping {
+  id: string;
+  name: string;
+  primary: string[];
+  secondary: string[];
+  fatigueLoad: number; // Base fatigue points per set
+  category: 'push' | 'pull' | 'legs' | 'core' | 'compound';
+}
+
+export const EXERCISE_MAPPINGS: { [key: string]: ExerciseMapping } = {
+  bench_press: {
+    id: 'bench_press',
+    name: 'Bench Press',
+    primary: ['chest'],
+    secondary: ['shoulders', 'triceps_left', 'triceps_right'],
+    fatigueLoad: 12,
+    category: 'push',
+  },
+  incline_dumbbell_press: {
+    id: 'incline_dumbbell_press',
+    name: 'Incline Dumbbell Press',
+    primary: ['chest'],
+    secondary: ['shoulders', 'triceps_left', 'triceps_right'],
+    fatigueLoad: 10,
+    category: 'push',
+  },
+  pushups: {
+    id: 'pushups',
+    name: 'Push-ups',
+    primary: ['chest'],
+    secondary: ['shoulders', 'triceps_left', 'triceps_right', 'core'],
+    fatigueLoad: 6,
+    category: 'push',
+  },
+  shoulder_press: {
+    id: 'shoulder_press',
+    name: 'Shoulder Press',
+    primary: ['shoulders'],
+    secondary: ['triceps_left', 'triceps_right'],
+    fatigueLoad: 10,
+    category: 'push',
+  },
+  lateral_raise: {
+    id: 'lateral_raise',
+    name: 'Lateral Raise',
+    primary: ['shoulders'],
+    secondary: [],
+    fatigueLoad: 6,
+    category: 'push',
+  },
+  rear_delt_fly: {
+    id: 'rear_delt_fly',
+    name: 'Rear Delt Fly',
+    primary: ['shoulders'],
+    secondary: [],
+    fatigueLoad: 5,
+    category: 'pull',
+  },
+  bicep_curl: {
+    id: 'bicep_curl',
+    name: 'Bicep Curl',
+    primary: ['biceps_left', 'biceps_right'],
+    secondary: ['forearms_left', 'forearms_right'],
+    fatigueLoad: 6,
+    category: 'pull',
+  },
+  hammer_curl: {
+    id: 'hammer_curl',
+    name: 'Hammer Curl',
+    primary: ['biceps_left', 'biceps_right'],
+    secondary: ['forearms_left', 'forearms_right'],
+    fatigueLoad: 6,
+    category: 'pull',
+  },
+  tricep_pushdown: {
+    id: 'tricep_pushdown',
+    name: 'Tricep Pushdown',
+    primary: ['triceps_left', 'triceps_right'],
+    secondary: [],
+    fatigueLoad: 5,
+    category: 'push',
+  },
+  overhead_tricep_extension: {
+    id: 'overhead_tricep_extension',
+    name: 'Overhead Tricep Extension',
+    primary: ['triceps_left', 'triceps_right'],
+    secondary: [],
+    fatigueLoad: 5,
+    category: 'push',
+  },
+  lat_pulldown: {
+    id: 'lat_pulldown',
+    name: 'Lat Pulldown',
+    primary: ['back'],
+    secondary: ['biceps_left', 'biceps_right'],
+    fatigueLoad: 10,
+    category: 'pull',
+  },
+  pullups: {
+    id: 'pullups',
+    name: 'Pull-ups',
+    primary: ['back'],
+    secondary: ['biceps_left', 'biceps_right', 'core'],
+    fatigueLoad: 10,
+    category: 'pull',
+  },
+  seated_row: {
+    id: 'seated_row',
+    name: 'Seated Row',
+    primary: ['back'],
+    secondary: ['biceps_left', 'biceps_right'],
+    fatigueLoad: 9,
+    category: 'pull',
+  },
+  barbell_row: {
+    id: 'barbell_row',
+    name: 'Barbell Row',
+    primary: ['back'],
+    secondary: ['biceps_left', 'biceps_right', 'core'],
+    fatigueLoad: 11,
+    category: 'pull',
+  },
+  deadlift: {
+    id: 'deadlift',
+    name: 'Deadlift',
+    primary: ['glutes', 'hamstrings'],
+    secondary: ['back', 'core'],
+    fatigueLoad: 15,
+    category: 'compound',
+  },
+  romanian_deadlift: {
+    id: 'romanian_deadlift',
+    name: 'Romanian Deadlift',
+    primary: ['hamstrings'],
+    secondary: ['glutes', 'back'],
+    fatigueLoad: 12,
+    category: 'legs',
+  },
+  barbell_squat: {
+    id: 'barbell_squat',
+    name: 'Barbell Squat',
+    primary: ['quads'],
+    secondary: ['glutes', 'hamstrings', 'core'],
+    fatigueLoad: 14,
+    category: 'legs',
+  },
+  leg_press: {
+    id: 'leg_press',
+    name: 'Leg Press',
+    primary: ['quads'],
+    secondary: ['glutes'],
+    fatigueLoad: 10,
+    category: 'legs',
+  },
+  leg_extension: {
+    id: 'leg_extension',
+    name: 'Leg Extension',
+    primary: ['quads'],
+    secondary: [],
+    fatigueLoad: 6,
+    category: 'legs',
+  },
+  leg_curl: {
+    id: 'leg_curl',
+    name: 'Leg Curl',
+    primary: ['hamstrings'],
+    secondary: [],
+    fatigueLoad: 6,
+    category: 'legs',
+  },
+  hip_thrust: {
+    id: 'hip_thrust',
+    name: 'Hip Thrust',
+    primary: ['glutes'],
+    secondary: ['hamstrings'],
+    fatigueLoad: 10,
+    category: 'legs',
+  },
+  glute_bridge: {
+    id: 'glute_bridge',
+    name: 'Glute Bridge',
+    primary: ['glutes'],
+    secondary: [],
+    fatigueLoad: 5,
+    category: 'legs',
+  },
+  calf_raise: {
+    id: 'calf_raise',
+    name: 'Calf Raise',
+    primary: ['calves'],
+    secondary: [],
+    fatigueLoad: 5,
+    category: 'legs',
+  },
+  seated_calf_raise: {
+    id: 'seated_calf_raise',
+    name: 'Seated Calf Raise',
+    primary: ['calves'],
+    secondary: [],
+    fatigueLoad: 4,
+    category: 'legs',
+  },
+  plank: {
+    id: 'plank',
+    name: 'Plank',
+    primary: ['core'],
+    secondary: [],
+    fatigueLoad: 4,
+    category: 'core',
+  },
+  ab_crunch: {
+    id: 'ab_crunch',
+    name: 'Ab Crunch',
+    primary: ['core'],
+    secondary: [],
+    fatigueLoad: 4,
+    category: 'core',
+  },
+  hanging_leg_raise: {
+    id: 'hanging_leg_raise',
+    name: 'Hanging Leg Raise',
+    primary: ['core'],
+    secondary: [],
+    fatigueLoad: 6,
+    category: 'core',
+  },
+};
+
+// Muscle region definitions with display names
+export const MUSCLE_REGIONS = {
+  // Front view muscles
+  shoulders: { id: 'shoulders', name: 'Shoulders', views: ['front', 'back'] },
+  chest: { id: 'chest', name: 'Chest', views: ['front'] },
+  biceps_left: { id: 'biceps_left', name: 'Left Bicep', views: ['front'] },
+  biceps_right: { id: 'biceps_right', name: 'Right Bicep', views: ['front'] },
+  forearms_left: { id: 'forearms_left', name: 'Left Forearm', views: ['front', 'back'] },
+  forearms_right: { id: 'forearms_right', name: 'Right Forearm', views: ['front', 'back'] },
+  core: { id: 'core', name: 'Core', views: ['front'] },
+  quads: { id: 'quads', name: 'Quadriceps', views: ['front'] },
+  calves: { id: 'calves', name: 'Calves', views: ['front', 'back'] },
+  // Back view muscles
+  traps: { id: 'traps', name: 'Trapezius', views: ['back'] },
+  triceps_left: { id: 'triceps_left', name: 'Left Tricep', views: ['back'] },
+  triceps_right: { id: 'triceps_right', name: 'Right Tricep', views: ['back'] },
+  back: { id: 'back', name: 'Back (Lats)', views: ['back'] },
+  glutes: { id: 'glutes', name: 'Glutes', views: ['back'] },
+  hamstrings: { id: 'hamstrings', name: 'Hamstrings', views: ['back'] },
+};
+
+export type MuscleRegionId = keyof typeof MUSCLE_REGIONS;

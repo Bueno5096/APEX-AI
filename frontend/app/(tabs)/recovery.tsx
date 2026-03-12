@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -10,30 +10,137 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useHealthStore } from '../../src/store/healthStore';
-import { MetallicCard } from '../../src/components/MetallicCard';
-import { CircularProgress } from '../../src/components/CircularProgress';
-import { BodyMapEnhanced } from '../../src/components/BodyMapEnhanced';
+import { useMuscleStore } from '../../src/store/muscleStore';
+import { ApexBodyMap } from '../../src/components/ApexBodyMap';
+import { MUSCLE_REGIONS } from '../../src/constants/exerciseData';
+import { getReadinessColor, getReadinessLabel } from '../../src/constants/theme';
+
+// Futuristic circular progress component
+const ApexCircularProgress = ({ 
+  value, 
+  size = 180, 
+  strokeWidth = 10,
+  accentColor,
+  theme,
+}: {
+  value: number;
+  size?: number;
+  strokeWidth?: number;
+  accentColor: string;
+  theme: any;
+}) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const progress = Math.min(Math.max(value, 0), 100);
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+  
+  const statusLabel = progress >= 75 ? 'READY TO TRAIN' : 
+                     progress >= 50 ? 'MODERATE' : 'RECOVERY NEEDED';
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Defs>
+          <SvgGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor={accentColor} stopOpacity={0.8} />
+            <Stop offset="100%" stopColor={accentColor} stopOpacity={0.4} />
+          </SvgGradient>
+        </Defs>
+        {/* Background track */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={theme.colors.metallic}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          opacity={0.4}
+        />
+        {/* Progress arc */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="url(#progressGrad)"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="square"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </Svg>
+      <View style={{ alignItems: 'center' }}>
+        <Text style={[styles.scoreValue, { color: theme.colors.textPrimary }]}>
+          {Math.round(progress)}
+        </Text>
+        <Text style={[styles.scoreLabel, { color: accentColor }]}>
+          {statusLabel}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+// Sharp-edged metric card
+const MetricCard = ({ 
+  icon, 
+  value, 
+  label, 
+  accentColor, 
+  theme 
+}: { 
+  icon: string; 
+  value: string; 
+  label: string; 
+  accentColor: string; 
+  theme: any;
+}) => (
+  <View style={[styles.metricCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+    <View style={[styles.metricGlow, { backgroundColor: accentColor }]} />
+    <Ionicons name={icon as any} size={18} color={accentColor} />
+    <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>{value}</Text>
+    <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
+  </View>
+);
 
 export default function RecoveryScreen() {
   const { theme, accentColor } = useThemeStore();
-  const { recoveryData, isLoading, refreshData } = useHealthStore();
+  const { recoveryData, isLoading, refreshData, fetchHealthData } = useHealthStore();
+  const { muscles, loadState, getRecommendation, initializeMuscles } = useMuscleStore();
   const router = useRouter();
+  const [isInitialized, setIsInitialized] = useState(false);
   
-  if (!recoveryData) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-            Loading recovery data...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  useEffect(() => {
+    const init = async () => {
+      await loadState();
+      await fetchHealthData();
+      setIsInitialized(true);
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (isInitialized && Object.keys(muscles).length === 0) {
+      initializeMuscles();
+    }
+  }, [isInitialized]);
+
+  const recommendation = getRecommendation();
   
-  const { score, statusLabel, metrics, muscles } = recoveryData;
+  // Calculate overall readiness from muscle states
+  const muscleReadiness = Object.values(muscles);
+  const avgReadiness = muscleReadiness.length > 0 
+    ? muscleReadiness.reduce((sum, m) => sum + m.readiness, 0) / muscleReadiness.length 
+    : 75;
+  
+  const overallScore = recoveryData 
+    ? Math.round((recoveryData.score * 0.6) + (avgReadiness * 0.4))
+    : Math.round(avgReadiness);
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -51,137 +158,158 @@ export default function RecoveryScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
-            Recovery
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-            Body Readiness Dashboard
-          </Text>
+          <View>
+            <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
+              RECOVERY
+            </Text>
+            <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
+              Body Readiness Analysis
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: accentColor + '20', borderColor: accentColor }]}>
+            <View style={[styles.statusDot, { backgroundColor: accentColor }]} />
+            <Text style={[styles.statusText, { color: accentColor }]}>LIVE</Text>
+          </View>
         </View>
         
         {/* Recovery Score */}
-        <View style={styles.scoreSection}>
-          <CircularProgress
-            value={score}
+        <View style={[styles.scoreSection, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+          <ApexCircularProgress 
+            value={overallScore} 
             size={200}
-            strokeWidth={14}
-            label={statusLabel}
+            accentColor={accentColor}
+            theme={theme}
           />
         </View>
         
         {/* Metrics Grid */}
         <View style={styles.metricsGrid}>
-          <MetallicCard style={styles.metricCard}>
-            <Ionicons name="moon" size={20} color={accentColor} />
-            <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>
-              {metrics.sleepDuration}h
-            </Text>
-            <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>
-              Sleep
-            </Text>
-          </MetallicCard>
-          
-          <MetallicCard style={styles.metricCard}>
-            <Ionicons name="star" size={20} color={accentColor} />
-            <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>
-              {metrics.sleepScore}
-            </Text>
-            <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>
-              Sleep Score
-            </Text>
-          </MetallicCard>
-          
-          <MetallicCard style={styles.metricCard}>
-            <Ionicons name="pulse" size={20} color={accentColor} />
-            <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>
-              {metrics.hrv}ms
-            </Text>
-            <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>
-              HRV
-            </Text>
-          </MetallicCard>
-          
-          <MetallicCard style={styles.metricCard}>
-            <Ionicons name="heart" size={20} color={accentColor} />
-            <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>
-              {metrics.restingHeartRate}
-            </Text>
-            <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>
-              Resting HR
-            </Text>
-          </MetallicCard>
-          
-          <MetallicCard style={styles.metricCard}>
-            <Ionicons name="footsteps" size={20} color={accentColor} />
-            <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>
-              {metrics.steps.toLocaleString()}
-            </Text>
-            <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>
-              Steps
-            </Text>
-          </MetallicCard>
-          
-          <MetallicCard style={styles.metricCard}>
-            <Ionicons name="flame" size={20} color={accentColor} />
-            <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>
-              {metrics.caloriesBurned}
-            </Text>
-            <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>
-              Calories
-            </Text>
-          </MetallicCard>
+          <MetricCard 
+            icon="moon" 
+            value={recoveryData?.metrics.sleepDuration ? `${recoveryData.metrics.sleepDuration}h` : '--'}
+            label="SLEEP"
+            accentColor={accentColor}
+            theme={theme}
+          />
+          <MetricCard 
+            icon="pulse" 
+            value={recoveryData?.metrics.hrv ? `${recoveryData.metrics.hrv}` : '--'}
+            label="HRV"
+            accentColor={accentColor}
+            theme={theme}
+          />
+          <MetricCard 
+            icon="heart" 
+            value={recoveryData?.metrics.restingHeartRate ? `${recoveryData.metrics.restingHeartRate}` : '--'}
+            label="RHR"
+            accentColor={accentColor}
+            theme={theme}
+          />
+          <MetricCard 
+            icon="footsteps" 
+            value={recoveryData?.metrics.steps ? `${(recoveryData.metrics.steps / 1000).toFixed(1)}k` : '--'}
+            label="STEPS"
+            accentColor={accentColor}
+            theme={theme}
+          />
         </View>
         
         {/* Body Map Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
-            Muscle Readiness
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
-            Tap muscles for details
-          </Text>
-          <MetallicCard style={styles.bodyMapCard}>
-            <BodyMapEnhanced muscles={muscles} mode="readiness" />
-          </MetallicCard>
-        </View>
-        
-        {/* Coach Insight */}
-        <MetallicCard style={styles.insightCard} intensity="medium">
-          <View style={styles.insightHeader}>
-            <Ionicons name="sparkles" size={24} color={accentColor} />
-            <Text style={[styles.insightTitle, { color: theme.colors.textPrimary }]}>
-              Coach Insight
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
+              MUSCLE READINESS
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+              Tap regions for details
             </Text>
           </View>
-          <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
-            {score >= 75
-              ? "Your body is well-recovered. You're primed for an intense training session today. Consider pushing your limits on compound lifts."
-              : score >= 50
-              ? "Moderate recovery detected. A standard workout is fine, but consider reducing volume on heavily fatigued muscle groups."
-              : "Your body needs more recovery. Consider a light mobility session or active recovery day to prevent overtraining."}
-          </Text>
-        </MetallicCard>
+          <View style={[styles.bodyMapContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            <ApexBodyMap mode="readiness" />
+          </View>
+        </View>
         
-        {/* Recommended Workout */}
+        {/* Why This Recommendation - AI Explanation Panel */}
+        <View style={[styles.explanationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+          <View style={[styles.explanationGlow, { backgroundColor: accentColor }]} />
+          <View style={styles.explanationHeader}>
+            <View style={styles.explanationTitleRow}>
+              <Ionicons name="sparkles" size={20} color={accentColor} />
+              <Text style={[styles.explanationTitle, { color: theme.colors.textPrimary }]}>
+                WHY THIS RECOMMENDATION
+              </Text>
+            </View>
+            <View style={[styles.aiTag, { backgroundColor: accentColor + '20' }]}>
+              <Text style={[styles.aiTagText, { color: accentColor }]}>AI</Text>
+            </View>
+          </View>
+          
+          <Text style={[styles.explanationText, { color: theme.colors.textSecondary }]}>
+            {recommendation.explanation}
+          </Text>
+          
+          {recommendation.reasoning.length > 0 && (
+            <View style={styles.reasoningList}>
+              {recommendation.reasoning.map((reason, i) => (
+                <View key={i} style={styles.reasoningItem}>
+                  <View style={[styles.reasoningBullet, { backgroundColor: accentColor }]} />
+                  <Text style={[styles.reasoningText, { color: theme.colors.textMuted }]}>
+                    {reason}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+          
+          {/* Muscle status summary */}
+          <View style={styles.muscleStatusSummary}>
+            {recommendation.readyMuscles.length > 0 && (
+              <View style={styles.muscleStatusRow}>
+                <View style={[styles.statusIndicator, { backgroundColor: accentColor }]} />
+                <Text style={[styles.muscleStatusText, { color: theme.colors.textSecondary }]}>
+                  Ready: {recommendation.readyMuscles.slice(0, 3).join(', ')}
+                  {recommendation.readyMuscles.length > 3 && ` +${recommendation.readyMuscles.length - 3}`}
+                </Text>
+              </View>
+            )}
+            {recommendation.fatiguedMuscles.length > 0 && (
+              <View style={styles.muscleStatusRow}>
+                <View style={[styles.statusIndicator, { backgroundColor: theme.colors.readinessFatigued }]} />
+                <Text style={[styles.muscleStatusText, { color: theme.colors.textSecondary }]}>
+                  Fatigued: {recommendation.fatiguedMuscles.slice(0, 3).join(', ')}
+                  {recommendation.fatiguedMuscles.length > 3 && ` +${recommendation.fatiguedMuscles.length - 3}`}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+        
+        {/* Recommended Workout Card */}
         <TouchableOpacity onPress={() => router.push('/(tabs)/workout')}>
-          <MetallicCard style={styles.workoutCard} intensity="high">
-            <View style={styles.workoutHeader}>
+          <View style={[styles.workoutCard, { backgroundColor: theme.colors.card, borderColor: accentColor }]}>
+            <LinearGradient
+              colors={[accentColor + '15', 'transparent']}
+              style={styles.workoutGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+            <View style={styles.workoutContent}>
               <View>
-                <Text style={[styles.workoutLabel, { color: theme.colors.textSecondary }]}>
-                  RECOMMENDED WORKOUT
+                <Text style={[styles.workoutLabel, { color: accentColor }]}>
+                  RECOMMENDED
                 </Text>
                 <Text style={[styles.workoutTitle, { color: theme.colors.textPrimary }]}>
-                  Push Day
+                  {recommendation.title}
                 </Text>
-                <Text style={[styles.workoutMeta, { color: theme.colors.textSecondary }]}>
-                  45 min • Moderate Intensity
+                <Text style={[styles.workoutType, { color: theme.colors.textSecondary }]}>
+                  Based on your recovery data
                 </Text>
               </View>
-              <View style={[styles.workoutArrow, { backgroundColor: accentColor + '20' }]}>
-                <Ionicons name="arrow-forward" size={24} color={accentColor} />
+              <View style={[styles.workoutArrow, { backgroundColor: accentColor }]}>
+                <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
               </View>
             </View>
-          </MetallicCard>
+          </View>
         </TouchableOpacity>
         
         <View style={styles.bottomSpacer} />
@@ -194,14 +322,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-  },
   scrollView: {
     flex: 1,
   },
@@ -209,20 +329,54 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 24,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
-    letterSpacing: -0.5,
+    letterSpacing: 3,
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     marginTop: 4,
+    letterSpacing: 1,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   scoreSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    paddingVertical: 32,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  scoreValue: {
+    fontSize: 56,
+    fontWeight: '700',
+    letterSpacing: -2,
+  },
+  scoreLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginTop: 4,
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -231,100 +385,168 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   metricCard: {
-    width: '30%',
+    width: '22%',
     marginHorizontal: '1.5%',
-    marginBottom: 12,
     alignItems: 'center',
     paddingVertical: 16,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  metricGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
   },
   metricValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     marginTop: 8,
   },
   metricLabel: {
-    fontSize: 11,
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 1,
     marginTop: 4,
   },
   section: {
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    marginBottom: 16,
-  },
-  bodyMapCard: {
-    paddingVertical: 24,
-    minHeight: 500,
-  },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    marginTop: 20,
-    gap: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
-  },
-  legendText: {
-    fontSize: 11,
-  },
-  insightCard: {
-    marginBottom: 16,
-  },
-  insightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sectionHeader: {
     marginBottom: 12,
   },
-  insightTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  insightText: {
+  sectionTitle: {
     fontSize: 14,
-    lineHeight: 22,
+    fontWeight: '700',
+    letterSpacing: 2,
   },
-  workoutCard: {
+  sectionSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  bodyMapContainer: {
+    borderWidth: 1,
+    paddingVertical: 16,
+  },
+  explanationCard: {
+    padding: 20,
     marginBottom: 16,
+    borderWidth: 1,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  workoutHeader: {
+  explanationGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+  },
+  explanationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  explanationTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  explanationTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  aiTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  aiTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  explanationText: {
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  reasoningList: {
+    marginBottom: 16,
+  },
+  reasoningItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  reasoningBullet: {
+    width: 4,
+    height: 4,
+    marginTop: 8,
+    marginRight: 10,
+  },
+  reasoningText: {
+    fontSize: 12,
+    lineHeight: 18,
+    flex: 1,
+  },
+  muscleStatusSummary: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  muscleStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  statusIndicator: {
+    width: 8,
+    height: 8,
+    marginRight: 10,
+  },
+  muscleStatusText: {
+    fontSize: 12,
+  },
+  workoutCard: {
+    marginBottom: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  workoutGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  workoutContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
   },
   workoutLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 1,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 2,
     marginBottom: 4,
   },
   workoutTitle: {
     fontSize: 24,
     fontWeight: '700',
   },
-  workoutMeta: {
-    fontSize: 13,
+  workoutType: {
+    fontSize: 12,
     marginTop: 4,
   },
   workoutArrow: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,18 @@ import {
   Switch,
   TextInput,
   Modal,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeStore } from '../../src/store/themeStore';
+import { useThemeStore, formatWeight, formatHeight } from '../../src/store/themeStore';
 import { useUserStore, CoachStyle } from '../../src/store/userStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import { ACCENT_PRESETS } from '../../src/constants/theme';
+import Svg, { Rect, Defs, LinearGradient, Stop, Circle as SvgCircle } from 'react-native-svg';
 
 export default function ProfileScreen() {
-  const { theme, themeName, accentColor, setTheme, setAccentColor } = useThemeStore();
+  const { theme, themeName, accentColor, unitSystem, setTheme, setAccentColor, setUnitSystem } = useThemeStore();
   const { profile, settings, updateSettings, setProfile } = useUserStore();
   
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -25,6 +27,42 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState(profile?.name || '');
   const [editWeight, setEditWeight] = useState(profile?.weight?.toString() || '');
   const [editHeight, setEditHeight] = useState(profile?.height?.toString() || '');
+  
+  // RGB color picker state
+  const [rgbR, setRgbR] = useState(74);
+  const [rgbG, setRgbG] = useState(175);
+  const [rgbB, setRgbB] = useState(204);
+  
+  // Parse current accent color to RGB
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16),
+    } : { r: 74, g: 175, b: 204 };
+  };
+  
+  const rgbToHex = (r: number, g: number, b: number) => {
+    return '#' + [r, g, b].map(x => {
+      const hex = Math.round(Math.max(0, Math.min(255, x))).toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    }).join('').toUpperCase();
+  };
+  
+  const openColorPicker = () => {
+    const currentRgb = hexToRgb(accentColor);
+    setRgbR(currentRgb.r);
+    setRgbG(currentRgb.g);
+    setRgbB(currentRgb.b);
+    setShowColorPicker(true);
+  };
+  
+  const applyRgbColor = () => {
+    const hex = rgbToHex(rgbR, rgbG, rgbB);
+    setAccentColor(hex);
+    setShowColorPicker(false);
+  };
   
   const handleSaveProfile = () => {
     if (profile) {
@@ -85,7 +123,7 @@ export default function ProfileScreen() {
             <View style={styles.statsGrid}>
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, { color: theme.colors.textPrimary }]}>
-                  {profile?.height}cm
+                  {formatHeight(profile?.height || 178, unitSystem === 'imperial')}
                 </Text>
                 <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
                   Height
@@ -94,7 +132,7 @@ export default function ProfileScreen() {
               <View style={[styles.statDivider, { backgroundColor: theme.colors.cardBorder }]} />
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, { color: theme.colors.textPrimary }]}>
-                  {profile?.weight}kg
+                  {formatWeight(profile?.weight || 75, unitSystem === 'imperial')}
                 </Text>
                 <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
                   Weight
@@ -231,7 +269,7 @@ export default function ProfileScreen() {
           </MetallicCard>
           
           {/* Accent Color */}
-          <TouchableOpacity onPress={() => setShowColorPicker(true)}>
+          <TouchableOpacity onPress={() => openColorPicker()}>
             <MetallicCard style={styles.settingCard}>
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
@@ -247,6 +285,50 @@ export default function ProfileScreen() {
               </View>
             </MetallicCard>
           </TouchableOpacity>
+          
+          {/* Unit System Toggle */}
+          <MetallicCard style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Ionicons name="resize" size={22} color={accentColor} />
+                <View>
+                  <Text style={[styles.settingLabel, { color: theme.colors.textPrimary }]}>
+                    Units
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.unitToggleContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.unitOption,
+                    unitSystem === 'metric' && { backgroundColor: accentColor + '25', borderColor: accentColor },
+                  ]}
+                  onPress={() => setUnitSystem('metric')}
+                >
+                  <Text style={[
+                    styles.unitOptionText,
+                    { color: unitSystem === 'metric' ? accentColor : theme.colors.textSecondary },
+                  ]}>
+                    METRIC
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.unitOption,
+                    unitSystem === 'imperial' && { backgroundColor: accentColor + '25', borderColor: accentColor },
+                  ]}
+                  onPress={() => setUnitSystem('imperial')}
+                >
+                  <Text style={[
+                    styles.unitOptionText,
+                    { color: unitSystem === 'imperial' ? accentColor : theme.colors.textSecondary },
+                  ]}>
+                    IMPERIAL
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </MetallicCard>
         </View>
         
         {/* Coach Settings */}
@@ -390,7 +472,7 @@ export default function ProfileScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
       
-      {/* Color Picker Modal */}
+      {/* Color Picker Modal with RGB Sliders */}
       <Modal
         visible={showColorPicker}
         transparent
@@ -407,6 +489,108 @@ export default function ProfileScreen() {
                 <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
+            
+            {/* Color Preview */}
+            <View style={styles.colorPreviewSection}>
+              <View style={[styles.colorPreviewLarge, { backgroundColor: rgbToHex(rgbR, rgbG, rgbB) }]} />
+              <Text style={[styles.colorHexText, { color: theme.colors.textPrimary }]}>
+                {rgbToHex(rgbR, rgbG, rgbB)}
+              </Text>
+            </View>
+            
+            {/* RGB Sliders */}
+            <View style={styles.sliderSection}>
+              {/* Red Slider */}
+              <View style={styles.sliderRow}>
+                <Text style={[styles.sliderLabel, { color: '#FF4444' }]}>R</Text>
+                <View style={styles.sliderTrackContainer}>
+                  <View style={[styles.sliderTrack, { backgroundColor: theme.colors.metallic }]}>
+                    <View style={[styles.sliderFill, { width: `${(rgbR / 255) * 100}%`, backgroundColor: '#FF4444' }]} />
+                  </View>
+                  <View style={styles.sliderButtonsRow}>
+                    <TouchableOpacity 
+                      style={[styles.sliderBtn, { borderColor: theme.colors.cardBorder }]}
+                      onPress={() => setRgbR(Math.max(0, rgbR - 15))}
+                    >
+                      <Ionicons name="remove" size={16} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.sliderValue, { color: theme.colors.textPrimary }]}>{rgbR}</Text>
+                    <TouchableOpacity 
+                      style={[styles.sliderBtn, { borderColor: theme.colors.cardBorder }]}
+                      onPress={() => setRgbR(Math.min(255, rgbR + 15))}
+                    >
+                      <Ionicons name="add" size={16} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+              
+              {/* Green Slider */}
+              <View style={styles.sliderRow}>
+                <Text style={[styles.sliderLabel, { color: '#44CC44' }]}>G</Text>
+                <View style={styles.sliderTrackContainer}>
+                  <View style={[styles.sliderTrack, { backgroundColor: theme.colors.metallic }]}>
+                    <View style={[styles.sliderFill, { width: `${(rgbG / 255) * 100}%`, backgroundColor: '#44CC44' }]} />
+                  </View>
+                  <View style={styles.sliderButtonsRow}>
+                    <TouchableOpacity 
+                      style={[styles.sliderBtn, { borderColor: theme.colors.cardBorder }]}
+                      onPress={() => setRgbG(Math.max(0, rgbG - 15))}
+                    >
+                      <Ionicons name="remove" size={16} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.sliderValue, { color: theme.colors.textPrimary }]}>{rgbG}</Text>
+                    <TouchableOpacity 
+                      style={[styles.sliderBtn, { borderColor: theme.colors.cardBorder }]}
+                      onPress={() => setRgbG(Math.min(255, rgbG + 15))}
+                    >
+                      <Ionicons name="add" size={16} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+              
+              {/* Blue Slider */}
+              <View style={styles.sliderRow}>
+                <Text style={[styles.sliderLabel, { color: '#4488FF' }]}>B</Text>
+                <View style={styles.sliderTrackContainer}>
+                  <View style={[styles.sliderTrack, { backgroundColor: theme.colors.metallic }]}>
+                    <View style={[styles.sliderFill, { width: `${(rgbB / 255) * 100}%`, backgroundColor: '#4488FF' }]} />
+                  </View>
+                  <View style={styles.sliderButtonsRow}>
+                    <TouchableOpacity 
+                      style={[styles.sliderBtn, { borderColor: theme.colors.cardBorder }]}
+                      onPress={() => setRgbB(Math.max(0, rgbB - 15))}
+                    >
+                      <Ionicons name="remove" size={16} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.sliderValue, { color: theme.colors.textPrimary }]}>{rgbB}</Text>
+                    <TouchableOpacity 
+                      style={[styles.sliderBtn, { borderColor: theme.colors.cardBorder }]}
+                      onPress={() => setRgbB(Math.min(255, rgbB + 15))}
+                    >
+                      <Ionicons name="add" size={16} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+            
+            {/* Apply Custom Color */}
+            <TouchableOpacity
+              style={[styles.applyColorButton, { backgroundColor: rgbToHex(rgbR, rgbG, rgbB) }]}
+              onPress={applyRgbColor}
+            >
+              <Text style={styles.applyColorText}>Apply Custom Color</Text>
+            </TouchableOpacity>
+            
+            {/* Divider */}
+            <View style={[styles.pickerDivider, { backgroundColor: theme.colors.cardBorder }]} />
+            
+            {/* Quick Presets */}
+            <Text style={[styles.presetsLabel, { color: theme.colors.textSecondary }]}>
+              PRESETS
+            </Text>
             <View style={styles.colorGrid}>
               {ACCENT_PRESETS.map((preset) => (
                 <TouchableOpacity
@@ -422,14 +606,11 @@ export default function ProfileScreen() {
                   }}
                 >
                   {accentColor === preset.color && (
-                    <Ionicons name="checkmark" size={24} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={20} color="#FFFFFF" />
                   )}
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={[styles.colorNote, { color: theme.colors.textMuted }]}>
-              Changes apply to highlights, glows, and accents throughout the app
-            </Text>
           </View>
         </View>
       </Modal>
@@ -752,13 +933,13 @@ const styles = StyleSheet.create({
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
     justifyContent: 'center',
   },
   colorOption: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -770,6 +951,107 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     marginTop: 20,
+  },
+  // Unit system toggle
+  unitToggleContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  unitOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  unitOptionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  // RGB Color picker styles
+  colorPreviewSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  colorPreviewLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 8,
+  },
+  colorHexText: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 2,
+  },
+  sliderSection: {
+    marginBottom: 16,
+  },
+  sliderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  sliderLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    width: 24,
+    textAlign: 'center',
+  },
+  sliderTrackContainer: {
+    flex: 1,
+  },
+  sliderTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  sliderFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  sliderButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sliderBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sliderValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    minWidth: 36,
+    textAlign: 'center',
+  },
+  applyColorButton: {
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  applyColorText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  pickerDivider: {
+    height: 1,
+    marginBottom: 16,
+  },
+  presetsLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   editProfileModal: {
     borderTopLeftRadius: 24,
