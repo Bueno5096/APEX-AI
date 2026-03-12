@@ -31,6 +31,24 @@ export default function WorkoutScreen() {
   
   const [showCoachAssist, setShowCoachAssist] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  
+  // Elapsed workout timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (activeWorkout.startTime) {
+      // Calculate initial elapsed time (handles tab switching)
+      const start = new Date(activeWorkout.startTime).getTime();
+      setElapsedSeconds(Math.floor((Date.now() - start) / 1000));
+      
+      interval = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - start) / 1000));
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => clearInterval(interval);
+  }, [activeWorkout.startTime]);
   
   // Rest timer countdown
   useEffect(() => {
@@ -52,6 +70,16 @@ export default function WorkoutScreen() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  const formatElapsed = (seconds: number): string => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
   
   if (!todayWorkout) {
@@ -102,6 +130,35 @@ export default function WorkoutScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+          
+          {/* Elapsed Timer Bar */}
+          <MetallicCard style={styles.timerBar}>
+            <View style={styles.timerRow}>
+              <View style={styles.timerItem}>
+                <Ionicons name="time-outline" size={16} color={accentColor} />
+                <Text style={[styles.timerLabel, { color: theme.colors.textSecondary }]}>ELAPSED</Text>
+                <Text style={[styles.timerValue, { color: theme.colors.textPrimary }]}>
+                  {formatElapsed(elapsedSeconds)}
+                </Text>
+              </View>
+              <View style={[styles.timerDivider, { backgroundColor: theme.colors.cardBorder }]} />
+              <View style={styles.timerItem}>
+                <Ionicons name="fitness-outline" size={16} color={accentColor} />
+                <Text style={[styles.timerLabel, { color: theme.colors.textSecondary }]}>EXERCISE</Text>
+                <Text style={[styles.timerValue, { color: theme.colors.textPrimary }]}>
+                  {activeWorkout.currentExerciseIndex + 1}/{workout.exercises.length}
+                </Text>
+              </View>
+              <View style={[styles.timerDivider, { backgroundColor: theme.colors.cardBorder }]} />
+              <View style={styles.timerItem}>
+                <Ionicons name="checkmark-circle-outline" size={16} color={accentColor} />
+                <Text style={[styles.timerLabel, { color: theme.colors.textSecondary }]}>SETS DONE</Text>
+                <Text style={[styles.timerValue, { color: theme.colors.textPrimary }]}>
+                  {workout.exercises.reduce((sum, e) => sum + e.completedSets, 0)}
+                </Text>
+              </View>
+            </View>
+          </MetallicCard>
           
           {/* Progress Bar */}
           <View style={styles.progressContainer}>
@@ -165,11 +222,34 @@ export default function WorkoutScreen() {
               <View style={styles.restTimerContainer}>
                 <CircularProgress
                   value={(activeWorkout.restTimer / 90) * 100}
-                  size={140}
-                  strokeWidth={10}
+                  size={160}
+                  strokeWidth={12}
                   label="REST"
                   sublabel={formatTime(activeWorkout.restTimer)}
                 />
+                
+                {/* Rest duration quick-adjust buttons */}
+                <View style={styles.restPresetsRow}>
+                  {[30, 60, 90, 120].map((sec) => (
+                    <TouchableOpacity
+                      key={sec}
+                      style={[
+                        styles.restPresetButton,
+                        { borderColor: theme.colors.cardBorder },
+                        activeWorkout.restTimer === sec && { borderColor: accentColor, backgroundColor: accentColor + '15' },
+                      ]}
+                      onPress={() => useWorkoutStore.getState().setRestTimer(sec)}
+                    >
+                      <Text style={[
+                        styles.restPresetText,
+                        { color: activeWorkout.restTimer === sec ? accentColor : theme.colors.textSecondary },
+                      ]}>
+                        {sec}s
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
                 <TouchableOpacity
                   style={[styles.skipRestButton, { borderColor: accentColor }]}
                   onPress={() => {
@@ -181,7 +261,7 @@ export default function WorkoutScreen() {
                   }}
                 >
                   <Text style={[styles.skipRestText, { color: accentColor }]}>
-                    {currentExercise.isCompleted ? 'Next Exercise' : 'Skip Rest'}
+                    {currentExercise.isCompleted ? 'Next Exercise →' : 'Skip Rest →'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -296,7 +376,7 @@ export default function WorkoutScreen() {
               <View style={[styles.bannerPulse, { backgroundColor: accentColor }]} />
               <View>
                 <Text style={[styles.bannerTitle, { color: accentColor }]}>
-                  WORKOUT IN PROGRESS
+                  WORKOUT IN PROGRESS • {formatElapsed(elapsedSeconds)}
                 </Text>
                 <Text style={[styles.bannerSubtitle, { color: theme.colors.textSecondary }]}>
                   {activeWorkout.workout?.title} — {currentExercise.name}
@@ -622,6 +702,53 @@ const styles = StyleSheet.create({
   },
   endButtonText: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+  // Elapsed timer bar
+  timerBar: {
+    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  timerItem: {
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  timerLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  timerValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  timerDivider: {
+    width: 1,
+    height: 36,
+  },
+  // Rest timer preset buttons
+  restPresetsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  restPresetButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  restPresetText: {
+    fontSize: 13,
     fontWeight: '600',
   },
   progressContainer: {
