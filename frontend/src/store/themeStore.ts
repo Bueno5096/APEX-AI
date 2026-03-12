@@ -79,7 +79,7 @@ export const convertHeight = (cm: number, toImperial: boolean): { feet: number; 
 
 export const formatWeight = (kg: number, isImperial: boolean): string => {
   if (isImperial) {
-    const lbs = Math.round(kg * 2.20462 / 5) * 5;
+    const lbs = Math.round(kg * 2.20462);
     return `${lbs} lbs`;
   }
   return `${kg} kg`;
