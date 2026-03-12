@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Body from 'react-native-body-highlighter';
 import { useThemeStore } from '../store/themeStore';
 import { useMuscleStore } from '../store/muscleStore';
+import { useUserStore } from '../store/userStore';
 import { MUSCLE_REGIONS, MuscleRegionId } from '../constants/exerciseData';
 import { getReadinessColor, getReadinessLabel } from '../constants/theme';
 
@@ -15,6 +16,23 @@ interface ApexBodyMapProps {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// Mapping from body-highlighter slugs back to our internal muscle IDs (for tap handling)
+const SLUG_TO_MUSCLE_ID: { [slug: string]: string } = {
+  'chest': 'chest',
+  'biceps': 'biceps_left',
+  'triceps': 'triceps_left',
+  'deltoids': 'shoulders',
+  'abs': 'core',
+  'obliques': 'obliques_left',
+  'quadriceps': 'quads',
+  'hamstring': 'hamstrings',
+  'gluteal': 'glutes',
+  'calves': 'calves',
+  'upper-back': 'back',
+  'lower-back': 'lower_back',
+  'trapezius': 'traps',
+};
+
 export const ApexBodyMap: React.FC<ApexBodyMapProps> = ({
   mode = 'readiness',
   highlightMuscles = [],
@@ -22,6 +40,7 @@ export const ApexBodyMap: React.FC<ApexBodyMapProps> = ({
 }) => {
   const { theme, accentColor } = useThemeStore();
   const { muscles, getMuscleReadiness } = useMuscleStore();
+  const { gender } = useUserStore();
   const [view, setView] = useState<'front' | 'back'>('front');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [flipAnim] = useState(new Animated.Value(0));
@@ -47,6 +66,13 @@ export const ApexBodyMap: React.FC<ApexBodyMapProps> = ({
     onMusclePress?.(muscleId);
   };
 
+  const handleBodyPress = (data: { slug: string; intensity: number }) => {
+    const internalId = SLUG_TO_MUSCLE_ID[data.slug];
+    if (internalId) {
+      handleMusclePress(internalId);
+    }
+  };
+
   const selectedMuscleData = selectedMuscle ? muscles[selectedMuscle] : null;
   const selectedMuscleInfo = selectedMuscle ? MUSCLE_REGIONS[selectedMuscle as MuscleRegionId] : null;
 
@@ -56,19 +82,38 @@ export const ApexBodyMap: React.FC<ApexBodyMapProps> = ({
   });
 
   // Build muscle data for Body component
-  const muscleData = [
-    { slug: 'chest', intensity: getMuscleReadiness('chest') > 60 ? 2 : 1 },
-    { slug: 'biceps', intensity: getMuscleReadiness('biceps_left') > 60 ? 2 : 1 },
-    { slug: 'triceps', intensity: getMuscleReadiness('triceps_left') > 60 ? 2 : 1 },
-    { slug: 'deltoids', intensity: getMuscleReadiness('shoulders') > 60 ? 2 : 1 },
-    { slug: 'abs', intensity: getMuscleReadiness('core') > 60 ? 2 : 1 },
-    { slug: 'quadriceps', intensity: getMuscleReadiness('quads') > 60 ? 2 : 1 },
-    { slug: 'hamstring', intensity: getMuscleReadiness('hamstrings') > 60 ? 2 : 1 },
-    { slug: 'gluteal', intensity: getMuscleReadiness('glutes') > 60 ? 2 : 1 },
-    { slug: 'calves', intensity: getMuscleReadiness('calves') > 60 ? 2 : 1 },
-    { slug: 'upper-back', intensity: getMuscleReadiness('back') > 60 ? 2 : 1 },
-    { slug: 'trapezius', intensity: getMuscleReadiness('traps') > 60 ? 2 : 1 },
-  ];
+  let muscleData: { slug: string; intensity: number }[];
+
+  if (mode === 'workout') {
+    // Workout mode: highlighted muscles get intensity 2, others get 0
+    const allSlugs = [
+      'chest', 'biceps', 'triceps', 'deltoids', 'abs', 'obliques',
+      'quadriceps', 'hamstring', 'gluteal', 'calves', 'upper-back',
+      'lower-back', 'trapezius',
+    ];
+    muscleData = allSlugs.map(slug => ({
+      slug,
+      intensity: highlightMuscles.includes(slug) || 
+        highlightMuscles.includes(SLUG_TO_MUSCLE_ID[slug] || '') ? 2 : 0,
+    }));
+  } else {
+    // Readiness mode: color based on readiness score
+    muscleData = [
+      { slug: 'chest', intensity: getMuscleReadiness('chest') > 60 ? 2 : 1 },
+      { slug: 'biceps', intensity: getMuscleReadiness('biceps_left') > 60 ? 2 : 1 },
+      { slug: 'triceps', intensity: getMuscleReadiness('triceps_left') > 60 ? 2 : 1 },
+      { slug: 'deltoids', intensity: getMuscleReadiness('shoulders') > 60 ? 2 : 1 },
+      { slug: 'abs', intensity: getMuscleReadiness('core') > 60 ? 2 : 1 },
+      { slug: 'obliques', intensity: getMuscleReadiness('obliques_left') > 60 ? 2 : 1 },
+      { slug: 'quadriceps', intensity: getMuscleReadiness('quads') > 60 ? 2 : 1 },
+      { slug: 'hamstring', intensity: getMuscleReadiness('hamstrings') > 60 ? 2 : 1 },
+      { slug: 'gluteal', intensity: getMuscleReadiness('glutes') > 60 ? 2 : 1 },
+      { slug: 'calves', intensity: getMuscleReadiness('calves') > 60 ? 2 : 1 },
+      { slug: 'upper-back', intensity: getMuscleReadiness('back') > 60 ? 2 : 1 },
+      { slug: 'lower-back', intensity: getMuscleReadiness('lower_back') > 60 ? 2 : 1 },
+      { slug: 'trapezius', intensity: getMuscleReadiness('traps') > 60 ? 2 : 1 },
+    ];
+  }
 
   return (
     <View style={styles.container}>
@@ -98,8 +143,10 @@ export const ApexBodyMap: React.FC<ApexBodyMapProps> = ({
         <Body
           data={muscleData}
           side={view}
+          gender={gender}
           scale={1.4}
-          colors={['#444', accentColor]}
+          colors={['#2e3348', accentColor]}
+          onMusclePress={handleBodyPress}
         />
       </Animated.View>
 

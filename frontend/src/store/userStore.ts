@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type CoachStyle = 'neutral' | 'direct' | 'supportive';
+export type Gender = 'male' | 'female';
 
 interface UserProfile {
   id: string;
@@ -12,6 +13,7 @@ interface UserProfile {
   bodyFat?: number;
   trainingExperience: 'beginner' | 'intermediate' | 'advanced';
   fitnessGoals: string[];
+  gender: Gender;
 }
 
 interface UserSettings {
@@ -25,7 +27,9 @@ interface UserSettings {
 interface UserState {
   profile: UserProfile | null;
   settings: UserSettings;
+  gender: Gender;
   setProfile: (profile: UserProfile) => void;
+  setGender: (gender: Gender) => void;
   updateSettings: (settings: Partial<UserSettings>) => void;
   loadUser: () => Promise<void>;
 }
@@ -47,15 +51,29 @@ const defaultProfile: UserProfile = {
   bodyFat: 15,
   trainingExperience: 'intermediate',
   fitnessGoals: ['Build Muscle', 'Improve Strength'],
+  gender: 'male',
 };
 
 export const useUserStore = create<UserState>((set) => ({
   profile: defaultProfile,
   settings: defaultSettings,
+  gender: 'male',
   
   setProfile: async (profile: UserProfile) => {
-    set({ profile });
+    set({ profile, gender: profile.gender });
     await AsyncStorage.setItem('coach_profile', JSON.stringify(profile));
+    await AsyncStorage.setItem('coach_gender', profile.gender);
+  },
+  
+  setGender: async (gender: Gender) => {
+    set((state) => {
+      const updatedProfile = state.profile ? { ...state.profile, gender } : null;
+      if (updatedProfile) {
+        AsyncStorage.setItem('coach_profile', JSON.stringify(updatedProfile));
+      }
+      AsyncStorage.setItem('coach_gender', gender);
+      return { gender, profile: updatedProfile };
+    });
   },
   
   updateSettings: async (newSettings: Partial<UserSettings>) => {
@@ -70,13 +88,19 @@ export const useUserStore = create<UserState>((set) => ({
     try {
       const savedProfile = await AsyncStorage.getItem('coach_profile');
       const savedSettings = await AsyncStorage.getItem('coach_settings');
+      const savedGender = await AsyncStorage.getItem('coach_gender');
       
       if (savedProfile) {
-        set({ profile: JSON.parse(savedProfile) });
+        const parsed = JSON.parse(savedProfile);
+        set({ profile: parsed, gender: parsed.gender || 'male' });
       }
       
       if (savedSettings) {
         set({ settings: JSON.parse(savedSettings) });
+      }
+      
+      if (savedGender) {
+        set({ gender: savedGender as Gender });
       }
     } catch (error) {
       console.log('Error loading user:', error);

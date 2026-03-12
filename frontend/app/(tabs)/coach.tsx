@@ -82,7 +82,7 @@ export default function CoachScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://muscle-readiness-map.preview.emergentagent.com';
+      || 'https://gender-ready.preview.emergentagent.com';
     return backendUrl;
   };
   

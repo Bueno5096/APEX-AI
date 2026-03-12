@@ -20,13 +20,14 @@ import Svg, { Rect, Defs, LinearGradient, Stop, Circle as SvgCircle } from 'reac
 
 export default function ProfileScreen() {
   const { theme, themeName, accentColor, unitSystem, setTheme, setAccentColor, setUnitSystem } = useThemeStore();
-  const { profile, settings, updateSettings, setProfile } = useUserStore();
+  const { profile, settings, updateSettings, setProfile, gender, setGender } = useUserStore();
   
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editName, setEditName] = useState(profile?.name || '');
   const [editWeight, setEditWeight] = useState(profile?.weight?.toString() || '');
   const [editHeight, setEditHeight] = useState(profile?.height?.toString() || '');
+  const [editGender, setEditGender] = useState<'male' | 'female'>(gender || 'male');
   
   // RGB color picker state
   const [rgbR, setRgbR] = useState(74);
@@ -71,7 +72,9 @@ export default function ProfileScreen() {
         name: editName,
         weight: parseFloat(editWeight) || profile.weight,
         height: parseFloat(editHeight) || profile.height,
+        gender: editGender,
       });
+      setGender(editGender);
     }
     setShowEditProfile(false);
   };
@@ -649,6 +652,55 @@ export default function ProfileScreen() {
               />
             </View>
             
+            {/* Gender Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
+                Gender
+              </Text>
+              <View style={styles.genderRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.genderButton,
+                    { borderColor: theme.colors.cardBorder },
+                    editGender === 'male' && { borderColor: accentColor, backgroundColor: accentColor + '15' },
+                  ]}
+                  onPress={() => setEditGender('male')}
+                >
+                  <Ionicons 
+                    name="male" 
+                    size={20} 
+                    color={editGender === 'male' ? accentColor : theme.colors.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.genderButtonText,
+                    { color: editGender === 'male' ? accentColor : theme.colors.textSecondary },
+                  ]}>
+                    Male
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.genderButton,
+                    { borderColor: theme.colors.cardBorder },
+                    editGender === 'female' && { borderColor: accentColor, backgroundColor: accentColor + '15' },
+                  ]}
+                  onPress={() => setEditGender('female')}
+                >
+                  <Ionicons 
+                    name="female" 
+                    size={20} 
+                    color={editGender === 'female' ? accentColor : theme.colors.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.genderButtonText,
+                    { color: editGender === 'female' ? accentColor : theme.colors.textSecondary },
+                  ]}>
+                    Female
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
             <View style={styles.inputRow}>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
@@ -1072,6 +1124,24 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: 'row',
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  genderButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  genderButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   saveButton: {
     paddingVertical: 16,
