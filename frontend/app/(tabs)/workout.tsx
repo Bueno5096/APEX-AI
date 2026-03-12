@@ -78,11 +78,12 @@ export default function WorkoutScreen() {
   const sendCoachMessage = async (text: string) => {
     if (!text.trim() || isChatLoading) return;
     
-    const exerciseName = currentExercise?.name || 'current exercise';
-    const workoutTitle = activeWorkout.workout?.title || 'workout';
+    const exerciseName = currentExercise?.name || 'not started yet';
+    const workoutTitle = activeWorkout.workout?.title || todayWorkout?.title || 'workout';
     
     // Build full workout context for the AI
-    const workoutExercises = activeWorkout.workout?.exercises.map(ex => ({
+    const sourceExercises = activeWorkout.workout?.exercises || todayWorkout?.exercises || [];
+    const workoutExercises = sourceExercises.map(ex => ({
       name: ex.name,
       sets: ex.sets,
       reps: ex.reps,
@@ -90,7 +91,7 @@ export default function WorkoutScreen() {
       targetMuscles: ex.targetMuscles,
       completedSets: ex.completedSets,
       isCompleted: ex.isCompleted,
-    })) || [];
+    }));
     
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -661,6 +662,7 @@ export default function WorkoutScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modifyButton, { borderColor: accentColor }]}
+              onPress={openCoachAssist}
             >
               <Ionicons name="sparkles" size={18} color={accentColor} />
               <Text style={[styles.modifyButtonText, { color: accentColor }]}>
@@ -731,6 +733,138 @@ export default function WorkoutScreen() {
         
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      
+      {/* Coach Mini-Chat Modal (pre-workout) */}
+      <Modal
+        visible={showCoachAssist}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCoachAssist(false)}
+      >
+        <KeyboardAvoidingView 
+          style={styles.chatModalWrapper}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <TouchableOpacity 
+            style={styles.chatModalDismiss} 
+            activeOpacity={1} 
+            onPress={() => setShowCoachAssist(false)} 
+          />
+          <View style={[styles.chatModal, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            <View style={[styles.chatHeader, { borderBottomColor: theme.colors.cardBorder }]}>
+              <View style={styles.chatHeaderLeft}>
+                <Ionicons name="sparkles" size={18} color={accentColor} />
+                <Text style={[styles.chatHeaderTitle, { color: theme.colors.textPrimary }]}>
+                  Modify with Coach
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowCoachAssist(false)}>
+                <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.suggestionsScroll}
+              contentContainerStyle={styles.suggestionsContent}
+            >
+              {WORKOUT_SUGGESTIONS.map((item, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.suggestionPill, { borderColor: theme.colors.cardBorder }]}
+                  onPress={() => sendCoachMessage(item.text)}
+                >
+                  <Ionicons name={item.icon as any} size={14} color={accentColor} />
+                  <Text style={[styles.suggestionText, { color: theme.colors.textSecondary }]}>
+                    {item.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            <ScrollView 
+              ref={chatScrollRef}
+              style={styles.chatMessages}
+              contentContainerStyle={styles.chatMessagesContent}
+            >
+              {chatMessages.map((msg) => (
+                <View key={msg.id}>
+                  {msg.content === '__ACTIONS__' ? (
+                    <TouchableOpacity
+                      style={[styles.applyChangesBtn, { backgroundColor: accentColor }]}
+                      onPress={() => {
+                        useWorkoutStore.getState().applyCoachActions(pendingActions);
+                        setPendingActions([]);
+                        setChatMessages(prev => prev.map(m => 
+                          m.id === msg.id 
+                            ? { ...m, content: '✅ Changes applied to your workout!' }
+                            : m
+                        ));
+                      }}
+                    >
+                      <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                      <Text style={styles.applyChangesText}>
+                        Apply Changes ({pendingActions.length})
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      style={[
+                        styles.chatBubble,
+                        msg.role === 'user'
+                          ? [styles.chatBubbleUser, { backgroundColor: accentColor + '20' }]
+                          : [styles.chatBubbleCoach, { backgroundColor: theme.colors.backgroundSecondary }],
+                      ]}
+                    >
+                      {msg.role === 'coach' && (
+                        <View style={styles.chatBubbleIcon}>
+                          <Ionicons name="sparkles" size={12} color={accentColor} />
+                        </View>
+                      )}
+                      <Text style={[styles.chatBubbleText, { color: theme.colors.textPrimary }]}>
+                        {msg.content}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+              {isChatLoading && (
+                <View style={[styles.chatBubble, styles.chatBubbleCoach, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                  <ActivityIndicator size="small" color={accentColor} />
+                  <Text style={[styles.chatBubbleText, { color: theme.colors.textSecondary, marginLeft: 8 }]}>
+                    Thinking...
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+            
+            <View style={[styles.chatInputRow, { borderTopColor: theme.colors.cardBorder }]}>
+              <TextInput
+                style={[styles.chatInput, { 
+                  color: theme.colors.textPrimary, 
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  borderColor: theme.colors.cardBorder,
+                }]}
+                placeholder="Ask your coach to modify..."
+                placeholderTextColor={theme.colors.textMuted}
+                value={chatInput}
+                onChangeText={setChatInput}
+                onSubmitEditing={() => sendCoachMessage(chatInput)}
+                returnKeyType="send"
+                multiline={false}
+              />
+              <TouchableOpacity
+                style={[styles.chatSendBtn, { backgroundColor: accentColor }]}
+                onPress={() => sendCoachMessage(chatInput)}
+                disabled={!chatInput.trim() || isChatLoading}
+              >
+                <Ionicons name="send" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
