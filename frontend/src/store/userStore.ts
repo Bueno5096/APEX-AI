@@ -14,12 +14,15 @@ interface UserProfile {
   trainingExperience: 'beginner' | 'intermediate' | 'advanced';
   fitnessGoals: string[];
   gender: Gender;
+  trainingDaysPerWeek?: number;
+  workoutLocation?: string;
+  injuries?: string | null;
 }
 
 interface UserSettings {
   coachStyle: CoachStyle;
   voiceEnabled: boolean;
-  speechRate: number; // 0.5 to 2.0
+  speechRate: number;
   workoutReminders: boolean;
   recoveryAlerts: boolean;
   coachSuggestions: boolean;
@@ -29,9 +32,12 @@ interface UserState {
   profile: UserProfile | null;
   settings: UserSettings;
   gender: Gender;
+  onboardingComplete: boolean;
+  isLoaded: boolean;
   setProfile: (profile: UserProfile) => void;
   setGender: (gender: Gender) => void;
   updateSettings: (settings: Partial<UserSettings>) => void;
+  setOnboardingComplete: (complete: boolean) => void;
   loadUser: () => Promise<void>;
 }
 
@@ -54,12 +60,17 @@ const defaultProfile: UserProfile = {
   trainingExperience: 'intermediate',
   fitnessGoals: ['Build Muscle', 'Improve Strength'],
   gender: 'male',
+  trainingDaysPerWeek: 4,
+  workoutLocation: 'Gym',
+  injuries: null,
 };
 
 export const useUserStore = create<UserState>((set) => ({
   profile: defaultProfile,
   settings: defaultSettings,
   gender: 'male',
+  onboardingComplete: false,
+  isLoaded: false,
   
   setProfile: async (profile: UserProfile) => {
     set({ profile, gender: profile.gender });
@@ -85,27 +96,43 @@ export const useUserStore = create<UserState>((set) => ({
       return { settings };
     });
   },
+
+  setOnboardingComplete: async (complete: boolean) => {
+    set({ onboardingComplete: complete });
+    await AsyncStorage.setItem('apex_onboarding_complete', complete ? 'true' : 'false');
+  },
   
   loadUser: async () => {
     try {
       const savedProfile = await AsyncStorage.getItem('coach_profile');
       const savedSettings = await AsyncStorage.getItem('coach_settings');
       const savedGender = await AsyncStorage.getItem('coach_gender');
+      const savedOnboarding = await AsyncStorage.getItem('apex_onboarding_complete');
       
+      const updates: Partial<UserState> = { isLoaded: true };
+
       if (savedProfile) {
         const parsed = JSON.parse(savedProfile);
-        set({ profile: parsed, gender: parsed.gender || 'male' });
+        updates.profile = parsed;
+        updates.gender = parsed.gender || 'male';
       }
       
       if (savedSettings) {
-        set({ settings: JSON.parse(savedSettings) });
+        updates.settings = JSON.parse(savedSettings);
       }
       
       if (savedGender) {
-        set({ gender: savedGender as Gender });
+        updates.gender = savedGender as Gender;
       }
+
+      if (savedOnboarding === 'true') {
+        updates.onboardingComplete = true;
+      }
+
+      set(updates);
     } catch (error) {
       console.log('Error loading user:', error);
+      set({ isLoaded: true });
     }
   },
 }));
