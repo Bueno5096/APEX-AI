@@ -145,7 +145,7 @@ export const ApexBodyMap: React.FC<ApexBodyMapProps> = ({
           side={view}
           gender={gender}
           scale={1.4}
-          colors={['#2e3348', accentColor]}
+          colors={['#8B0000', accentColor]}
           onMusclePress={handleBodyPress}
         />
       </Animated.View>
@@ -324,7 +324,8 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     maxWidth: 360,
-    borderWidth: 1,
+    borderWidth: 0.5,
+    borderRadius: 20,
     padding: 24,
   },
   modalHeader: {

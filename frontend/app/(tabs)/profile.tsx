@@ -86,7 +86,7 @@ export default function ProfileScreen() {
   ];
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#000000' }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -94,11 +94,11 @@ export default function ProfileScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
+          <Text style={[styles.headerTitle, { color: '#ffffff' }]}>
             Profile
           </Text>
-          <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-            System Configuration
+          <Text style={[styles.headerSubtitle, { color: '#555555' }]}>
+            SETTINGS
           </Text>
         </View>
         
@@ -813,12 +813,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.5,
     marginTop: 4,
   },
   profileCard: {
@@ -898,9 +900,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    color: '#555555',
     marginBottom: 12,
+    textTransform: 'uppercase',
   },
   integrationCard: {
     marginBottom: 10,
@@ -1063,6 +1068,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: 'transparent',
+    borderRadius: 10,
   },
   unitOptionText: {
     fontSize: 11,

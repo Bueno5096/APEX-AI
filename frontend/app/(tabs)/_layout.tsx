@@ -31,19 +31,19 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.colors.tabBar,
-          borderTopColor: theme.colors.tabBarBorder,
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : 70,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-          paddingTop: 10,
+          backgroundColor: '#000000',
+          borderTopColor: 'transparent',
+          borderTopWidth: 0,
+          height: Platform.OS === 'ios' ? 90 : 75,
+          paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+          paddingTop: 12,
         },
-        tabBarActiveTintColor: accentColor,
-        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarActiveTintColor: '#ffffff',
+        tabBarInactiveTintColor: '#444444',
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600',
-          letterSpacing: 1,
+          letterSpacing: 1.2,
           marginTop: 4,
         },
       }}
@@ -52,8 +52,11 @@ export default function TabLayout() {
         name="recovery"
         options={{
           title: 'RECOVERY',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="pulse" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.tabIconWrapper}>
+              <Ionicons name="pulse" size={22} color={color} />
+              {focused && <View style={[styles.activeDot, { backgroundColor: accentColor }]} />}
+            </View>
           ),
         }}
       />
@@ -61,8 +64,11 @@ export default function TabLayout() {
         name="workout"
         options={{
           title: 'WORKOUT',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="barbell" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.tabIconWrapper}>
+              <Ionicons name="barbell" size={22} color={color} />
+              {focused && <View style={[styles.activeDot, { backgroundColor: accentColor }]} />}
+            </View>
           ),
         }}
       />
@@ -70,18 +76,18 @@ export default function TabLayout() {
         name="coach"
         options={{
           title: '',
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ focused }) => (
             <View style={[
               styles.coachButton,
               { 
-                backgroundColor: focused ? accentColor : theme.colors.card,
-                borderColor: accentColor,
+                backgroundColor: focused ? '#1a1a1a' : '#111111',
+                borderColor: focused ? accentColor : '#2a2a2a',
               }
             ]}>
               <Ionicons 
                 name="sparkles" 
                 size={24} 
-                color={focused ? '#FFFFFF' : accentColor} 
+                color={focused ? accentColor : '#555555'} 
               />
             </View>
           ),
@@ -92,8 +98,11 @@ export default function TabLayout() {
         name="progress"
         options={{
           title: 'PROGRESS',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trending-up" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.tabIconWrapper}>
+              <Ionicons name="trending-up" size={22} color={color} />
+              {focused && <View style={[styles.activeDot, { backgroundColor: accentColor }]} />}
+            </View>
           ),
         }}
       />
@@ -101,8 +110,11 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'PROFILE',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.tabIconWrapper}>
+              <Ionicons name="person" size={22} color={color} />
+              {focused && <View style={[styles.activeDot, { backgroundColor: accentColor }]} />}
+            </View>
           ),
         }}
       />
@@ -111,12 +123,24 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabIconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 30,
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 4,
+  },
   coachButton: {
     width: 52,
     height: 52,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    borderWidth: 2,
+    borderWidth: 1,
   },
 });

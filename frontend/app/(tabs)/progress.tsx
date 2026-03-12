@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,11 +18,36 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type TimeFilter = '7d' | '30d' | '3m' | '1y';
 
+// Animated counter
+const CountUp = ({ target, color }: { target: string; color: string }) => {
+  const anim = useRef(new Animated.Value(0)).current;
+  const [val, setVal] = useState('0');
+  const numericPart = parseFloat(target.replace(/[^0-9.]/g, ''));
+  const suffix = target.replace(/[0-9.+-]/g, '');
+
+  useEffect(() => {
+    Animated.timing(anim, { toValue: numericPart, duration: 1000, useNativeDriver: false }).start();
+    const id = anim.addListener(({ value }) => {
+      setVal(Number.isInteger(numericPart) ? Math.round(value).toString() : value.toFixed(0));
+    });
+    return () => anim.removeListener(id);
+  }, [numericPart]);
+
+  return (
+    <Text style={[styles.overviewValue, {
+      color,
+      textShadowColor: 'rgba(255,255,255,0.15)',
+      textShadowRadius: 8,
+    }]}>
+      {target.startsWith('+') ? '+' : ''}{val}{suffix}
+    </Text>
+  );
+};
+
 export default function ProgressScreen() {
   const { theme, accentColor } = useThemeStore();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('30d');
   
-  // Sample data for charts
   const strengthData = [
     { value: 80, label: 'W1' },
     { value: 82.5, label: 'W2' },
@@ -58,7 +84,7 @@ export default function ProgressScreen() {
   ];
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -66,29 +92,26 @@ export default function ProgressScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
-            Progress
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-            Track your improvements
-          </Text>
+          <Text style={styles.headerTitle}>Progress</Text>
+          <Text style={styles.headerSubtitle}>PERFORMANCE TRACKING</Text>
         </View>
         
         {/* Time Filter */}
-        <View style={[styles.filterContainer, { backgroundColor: theme.colors.card }]}>
+        <View style={styles.filterContainer}>
           {(['7d', '30d', '3m', '1y'] as TimeFilter[]).map((filter) => (
             <TouchableOpacity
               key={filter}
               style={[
                 styles.filterButton,
-                timeFilter === filter && { backgroundColor: accentColor + '30' },
+                timeFilter === filter && [styles.filterButtonActive, { borderTopColor: accentColor }],
               ]}
               onPress={() => setTimeFilter(filter)}
+              activeOpacity={0.7}
             >
               <Text
                 style={[
                   styles.filterText,
-                  { color: timeFilter === filter ? accentColor : theme.colors.textSecondary },
+                  { color: timeFilter === filter ? '#ffffff' : '#555555' },
                 ]}
               >
                 {filter === '7d' ? '7 Days' : filter === '30d' ? '30 Days' : filter === '3m' ? '3 Months' : '1 Year'}
@@ -99,101 +122,77 @@ export default function ProgressScreen() {
         
         {/* Overview Cards */}
         <View style={styles.overviewGrid}>
-          <MetallicCard style={styles.overviewCard}>
-            <Ionicons name="trending-up" size={24} color={theme.colors.success} />
-            <Text style={[styles.overviewValue, { color: theme.colors.textPrimary }]}>
-              +12%
-            </Text>
-            <Text style={[styles.overviewLabel, { color: theme.colors.textSecondary }]}>
-              Strength
-            </Text>
+          <MetallicCard style={styles.overviewCard} delay={0} small>
+            <Ionicons name="trending-up" size={22} color="#3A7A5A" />
+            <CountUp target="+12%" color="#ffffff" />
+            <Text style={styles.overviewLabel}>Strength</Text>
           </MetallicCard>
           
-          <MetallicCard style={styles.overviewCard}>
-            <Ionicons name="pulse" size={24} color={accentColor} />
-            <Text style={[styles.overviewValue, { color: theme.colors.textPrimary }]}>
-              78%
-            </Text>
-            <Text style={[styles.overviewLabel, { color: theme.colors.textSecondary }]}>
-              Avg Recovery
-            </Text>
+          <MetallicCard style={styles.overviewCard} delay={80} small>
+            <Ionicons name="pulse" size={22} color={accentColor} />
+            <CountUp target="78%" color="#ffffff" />
+            <Text style={styles.overviewLabel}>Avg Recovery</Text>
           </MetallicCard>
           
-          <MetallicCard style={styles.overviewCard}>
-            <Ionicons name="flame" size={24} color={theme.colors.warning} />
-            <Text style={[styles.overviewValue, { color: theme.colors.textPrimary }]}>
-              27
-            </Text>
-            <Text style={[styles.overviewLabel, { color: theme.colors.textSecondary }]}>
-              Workouts
-            </Text>
+          <MetallicCard style={styles.overviewCard} delay={160} small>
+            <Ionicons name="flame" size={22} color="#8A6A3A" />
+            <CountUp target="27" color="#ffffff" />
+            <Text style={styles.overviewLabel}>Workouts</Text>
           </MetallicCard>
           
-          <MetallicCard style={styles.overviewCard}>
-            <Ionicons name="trophy" size={24} color={theme.colors.warning} />
-            <Text style={[styles.overviewValue, { color: theme.colors.textPrimary }]}>
-              12
-            </Text>
-            <Text style={[styles.overviewLabel, { color: theme.colors.textSecondary }]}>
-              Day Streak
-            </Text>
+          <MetallicCard style={styles.overviewCard} delay={240} small>
+            <Ionicons name="trophy" size={22} color="#8A6A3A" />
+            <CountUp target="12" color="#ffffff" />
+            <Text style={styles.overviewLabel}>Day Streak</Text>
           </MetallicCard>
         </View>
         
         {/* Strength Progress Chart */}
-        <MetallicCard style={styles.chartCard}>
+        <MetallicCard style={styles.chartCard} delay={320}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>
-              Strength Progress
-            </Text>
-            <Text style={[styles.chartSubtitle, { color: theme.colors.textSecondary }]}>
-              Bench Press (kg)
-            </Text>
+            <Text style={styles.chartTitle}>Strength Progress</Text>
+            <Text style={styles.chartSubtitle}>Bench Press (kg)</Text>
           </View>
           <LineChart
             data={strengthData}
             width={SCREEN_WIDTH - 100}
             height={180}
             color={accentColor}
-            thickness={3}
+            thickness={2}
             dataPointsColor={accentColor}
-            dataPointsRadius={5}
-            xAxisColor={theme.colors.metallic}
-            yAxisColor={theme.colors.metallic}
-            xAxisLabelTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
-            yAxisTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
+            dataPointsRadius={4}
+            xAxisColor="#2e2e2e"
+            yAxisColor="#2e2e2e"
+            xAxisLabelTextStyle={{ color: '#555555', fontSize: 10 }}
+            yAxisTextStyle={{ color: '#555555', fontSize: 10 }}
             hideRules
             curved
             areaChart
             startFillColor={accentColor}
             endFillColor={accentColor}
-            startOpacity={0.3}
-            endOpacity={0.05}
+            startOpacity={0.2}
+            endOpacity={0.02}
           />
         </MetallicCard>
         
-        {/* Recovery Trend Chart */}
-        <MetallicCard style={styles.chartCard}>
+        {/* Recovery Trend */}
+        <MetallicCard style={styles.chartCard} delay={400}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>
-              Recovery Trend
-            </Text>
-            <Text style={[styles.chartSubtitle, { color: theme.colors.textSecondary }]}>
-              This week
-            </Text>
+            <Text style={styles.chartTitle}>Recovery Trend</Text>
+            <Text style={styles.chartSubtitle}>This week</Text>
           </View>
           <LineChart
             data={recoveryData}
             width={SCREEN_WIDTH - 100}
             height={160}
-            color={theme.colors.success}
+            color="#c0c0c0"
             thickness={2}
-            dataPointsColor={theme.colors.success}
+            dataPointsColor="#c0c0c0"
             dataPointsRadius={4}
-            xAxisColor={theme.colors.metallic}
-            yAxisColor={theme.colors.metallic}
-            xAxisLabelTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
-            yAxisTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
+            xAxisColor="#2e2e2e"
+            yAxisColor="#2e2e2e"
+            xAxisLabelTextStyle={{ color: '#555555', fontSize: 10 }}
+            yAxisTextStyle={{ color: '#555555', fontSize: 10 }}
             hideRules
             curved
             maxValue={100}
@@ -201,14 +200,10 @@ export default function ProgressScreen() {
         </MetallicCard>
         
         {/* Workout Frequency */}
-        <MetallicCard style={styles.chartCard}>
+        <MetallicCard style={styles.chartCard} delay={480}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>
-              Workout Frequency
-            </Text>
-            <Text style={[styles.chartSubtitle, { color: theme.colors.textSecondary }]}>
-              Sessions per week
-            </Text>
+            <Text style={styles.chartTitle}>Workout Frequency</Text>
+            <Text style={styles.chartSubtitle}>Sessions per week</Text>
           </View>
           <BarChart
             data={workoutFrequencyData}
@@ -216,34 +211,28 @@ export default function ProgressScreen() {
             height={140}
             barWidth={32}
             spacing={24}
-            xAxisColor={theme.colors.metallic}
-            yAxisColor={theme.colors.metallic}
-            xAxisLabelTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
-            yAxisTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
+            xAxisColor="#2e2e2e"
+            yAxisColor="#2e2e2e"
+            xAxisLabelTextStyle={{ color: '#555555', fontSize: 10 }}
+            yAxisTextStyle={{ color: '#555555', fontSize: 10 }}
             hideRules
-            barBorderRadius={6}
+            barBorderRadius={8}
             maxValue={7}
           />
         </MetallicCard>
         
         {/* Personal Records */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
-            Personal Records
-          </Text>
+          <Text style={styles.sectionTitle}>PERSONAL RECORDS</Text>
           {personalRecords.map((record, index) => (
-            <MetallicCard key={index} style={styles.recordCard}>
+            <MetallicCard key={index} style={styles.recordCard} delay={560 + index * 80} small>
               <View style={styles.recordRow}>
-                <View style={[styles.recordIcon, { backgroundColor: accentColor + '20' }]}>
-                  <Ionicons name="trophy" size={20} color={accentColor} />
+                <View style={[styles.recordIcon, { backgroundColor: accentColor + '12' }]}>
+                  <Ionicons name="trophy" size={18} color={accentColor} />
                 </View>
                 <View style={styles.recordInfo}>
-                  <Text style={[styles.recordExercise, { color: theme.colors.textPrimary }]}>
-                    {record.exercise}
-                  </Text>
-                  <Text style={[styles.recordDate, { color: theme.colors.textMuted }]}>
-                    {record.date}
-                  </Text>
+                  <Text style={styles.recordExercise}>{record.exercise}</Text>
+                  <Text style={styles.recordDate}>{record.date}</Text>
                 </View>
                 <Text style={[styles.recordWeight, { color: accentColor }]}>
                   {record.weight}kg
@@ -254,18 +243,15 @@ export default function ProgressScreen() {
         </View>
         
         {/* AI Insight */}
-        <MetallicCard style={styles.insightCard} intensity="medium">
+        <MetallicCard style={styles.insightCard} intensity="medium" delay={800}>
           <View style={styles.insightHeader}>
-            <Ionicons name="sparkles" size={24} color={accentColor} />
-            <Text style={[styles.insightTitle, { color: theme.colors.textPrimary }]}>
-              Coach Analysis
-            </Text>
+            <Ionicons name="sparkles" size={20} color={accentColor} />
+            <Text style={styles.insightTitle}>Coach Analysis</Text>
           </View>
-          <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
+          <Text style={styles.insightText}>
             Strong progress this month! Your bench press has increased 12.5% over 6 weeks. 
             Your recovery scores are consistent, averaging 78%. Consider adding more leg 
-            training - your lower body volume is 23% below your upper body. Keep up the 
-            great work on maintaining your streak!
+            training - your lower body volume is 23% below your upper body.
           </Text>
         </MetallicCard>
         
@@ -278,6 +264,7 @@ export default function ProgressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
   },
   scrollView: {
     flex: 1,
@@ -286,28 +273,39 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.5,
+    color: '#ffffff',
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.5,
     marginTop: 4,
+    color: '#555555',
   },
   filterContainer: {
     flexDirection: 'row',
-    borderRadius: 12,
+    backgroundColor: '#111111',
+    borderRadius: 14,
     padding: 4,
-    marginBottom: 20,
+    marginBottom: 24,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
   },
   filterButton: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
+  },
+  filterButtonActive: {
+    backgroundColor: '#242424',
+    borderTopWidth: 1,
   },
   filterText: {
     fontSize: 13,
@@ -316,13 +314,13 @@ const styles = StyleSheet.create({
   overviewGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -6,
-    marginBottom: 20,
+    marginHorizontal: -5,
+    marginBottom: 24,
   },
   overviewCard: {
     width: '46%',
     marginHorizontal: '2%',
-    marginBottom: 12,
+    marginBottom: 10,
     alignItems: 'center',
     paddingVertical: 20,
   },
@@ -330,10 +328,14 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     marginTop: 8,
+    letterSpacing: -1,
   },
   overviewLabel: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 4,
+    color: '#555555',
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   chartCard: {
     marginBottom: 20,
@@ -344,23 +346,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   chartTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
+    color: '#ffffff',
   },
   chartSubtitle: {
     fontSize: 12,
     marginTop: 2,
+    color: '#555555',
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    color: '#555555',
     marginBottom: 16,
   },
   recordCard: {
-    marginBottom: 10,
+    marginBottom: 8,
   },
   recordRow: {
     flexDirection: 'row',
@@ -369,10 +375,10 @@ const styles = StyleSheet.create({
   recordIcon: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   recordInfo: {
     flex: 1,
@@ -380,14 +386,17 @@ const styles = StyleSheet.create({
   recordExercise: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#ffffff',
   },
   recordDate: {
     fontSize: 12,
     marginTop: 2,
+    color: '#555555',
   },
   recordWeight: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
+    letterSpacing: -0.5,
   },
   insightCard: {
     marginBottom: 20,
@@ -396,15 +405,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+    gap: 10,
   },
   insightTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
+    color: '#ffffff',
   },
   insightText: {
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 22,
+    color: '#8a8a8a',
   },
   bottomSpacer: {
     height: 20,

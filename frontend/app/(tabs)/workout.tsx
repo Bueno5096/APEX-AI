@@ -893,7 +893,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.5,
   },
@@ -963,9 +963,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.5,
     marginBottom: 16,
+    color: '#555555',
+    textTransform: 'uppercase',
   },
   bodyMapCard: {
     paddingVertical: 20,

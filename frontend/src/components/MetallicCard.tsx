@@ -1,14 +1,14 @@
-import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useRef, useEffect } from 'react';
+import { View, StyleSheet, ViewStyle, Animated } from 'react-native';
 import { useThemeStore } from '../store/themeStore';
 
 interface MetallicCardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
   glowColor?: string;
   intensity?: 'low' | 'medium' | 'high';
-  onPress?: () => void;
+  delay?: number; // stagger delay in ms
+  small?: boolean;
 }
 
 export const MetallicCard: React.FC<MetallicCardProps> = ({
@@ -16,56 +16,83 @@ export const MetallicCard: React.FC<MetallicCardProps> = ({
   style,
   glowColor,
   intensity = 'low',
+  delay = 0,
+  small = false,
 }) => {
-  const { theme, accentColor } = useThemeStore();
-  const glow = glowColor || accentColor;
-  
-  const glowOpacity = intensity === 'high' ? 0.3 : intensity === 'medium' ? 0.15 : 0.05;
-  
+  const { theme } = useThemeStore();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          tension: 80,
+          friction: 12,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const glowOpacity = intensity === 'high' ? 0.6 : intensity === 'medium' ? 0.4 : 0.2;
+  const borderRadius = small ? 14 : 20;
+
   return (
-    <View style={[styles.container, { borderColor: theme.colors.cardBorder }, style]}>
-      <LinearGradient
-        colors={[
-          theme.colors.cardHighlight,
-          theme.colors.card,
-          theme.colors.card,
-        ]}
-        locations={[0, 0.1, 1]}
-        style={styles.gradient}
-      >
-        {children}
-      </LinearGradient>
-      {/* Subtle glow effect */}
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          backgroundColor: small ? theme.colors.cardSecondary : theme.colors.card,
+          borderColor: theme.colors.cardBorder,
+          borderRadius,
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+          ...theme.shadows.card,
+        },
+        style,
+      ]}
+    >
+      {/* Silver top glow line */}
       <View
         style={[
-          styles.glowOverlay,
+          styles.topGlow,
           {
-            backgroundColor: glow,
+            backgroundColor: glowColor || theme.colors.metallicShine,
             opacity: glowOpacity,
+            borderTopLeftRadius: borderRadius,
+            borderTopRightRadius: borderRadius,
           },
         ]}
       />
-    </View>
+      <View style={styles.content}>
+        {children}
+      </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: 0.5,
     overflow: 'hidden',
     position: 'relative',
   },
-  gradient: {
-    padding: 16,
-  },
-  glowOverlay: {
+  topGlow: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 2,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    height: 1,
+  },
+  content: {
+    padding: 16,
   },
 });

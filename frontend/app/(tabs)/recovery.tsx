@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   ScrollView, 
   RefreshControl,
-  TouchableOpacity 
+  TouchableOpacity,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,94 +21,121 @@ import { ApexBodyMap } from '../../src/components/ApexBodyMap';
 import { MUSCLE_REGIONS } from '../../src/constants/exerciseData';
 import { getReadinessColor, getReadinessLabel } from '../../src/constants/theme';
 
-// Futuristic circular progress component
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+// Premium circular progress with animation
 const ApexCircularProgress = ({ 
   value, 
-  size = 180, 
+  size = 200, 
   strokeWidth = 10,
   accentColor,
-  theme,
 }: {
   value: number;
   size?: number;
   strokeWidth?: number;
   accentColor: string;
-  theme: any;
 }) => {
-  const radius = (size - strokeWidth) / 2;
+  const radius = (size - strokeWidth * 2) / 2;
   const circumference = radius * 2 * Math.PI;
   const progress = Math.min(Math.max(value, 0), 100);
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+  const animValue = useRef(new Animated.Value(0)).current;
+  const countAnim = useRef(new Animated.Value(0)).current;
+  const [displayVal, setDisplayVal] = useState(0);
+
+  useEffect(() => {
+    Animated.timing(animValue, { toValue: progress, duration: 1200, useNativeDriver: false }).start();
+    Animated.timing(countAnim, { toValue: progress, duration: 1200, useNativeDriver: false }).start();
+    const id = countAnim.addListener(({ value: v }) => setDisplayVal(Math.round(v)));
+    return () => countAnim.removeListener(id);
+  }, [progress]);
+
+  const dashOffset = animValue.interpolate({
+    inputRange: [0, 100],
+    outputRange: [circumference, 0],
+  });
   
   const statusLabel = progress >= 75 ? 'READY TO TRAIN' : 
                      progress >= 50 ? 'MODERATE' : 'RECOVERY NEEDED';
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Subtle radial glow */}
+      <View style={{
+        position: 'absolute',
+        width: size * 0.7,
+        height: size * 0.7,
+        borderRadius: size * 0.35,
+        backgroundColor: 'rgba(192,192,192,0.04)',
+      }} />
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
         <Defs>
           <SvgGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <Stop offset="0%" stopColor={accentColor} stopOpacity={0.8} />
+            <Stop offset="0%" stopColor={accentColor} stopOpacity={1} />
             <Stop offset="100%" stopColor={accentColor} stopOpacity={0.4} />
           </SvgGradient>
         </Defs>
+        {/* Outer gunmetal ring */}
+        <Circle
+          cx={size / 2} cy={size / 2}
+          r={radius + strokeWidth * 0.6}
+          stroke="#3a3a3a" strokeWidth={1}
+          fill="transparent" opacity={0.3}
+        />
         {/* Background track */}
         <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={theme.colors.metallic}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-          opacity={0.4}
+          cx={size / 2} cy={size / 2} r={radius}
+          stroke="#242424" strokeWidth={strokeWidth}
+          fill="transparent" opacity={0.5}
         />
         {/* Progress arc */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
+        <AnimatedCircle
+          cx={size / 2} cy={size / 2} r={radius}
           stroke="url(#progressGrad)"
           strokeWidth={strokeWidth}
           fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="square"
+          strokeDasharray={`${circumference}`}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
       <View style={{ alignItems: 'center' }}>
-        <Text style={[styles.scoreValue, { color: theme.colors.textPrimary }]}>
-          {Math.round(progress)}
-        </Text>
-        <Text style={[styles.scoreLabel, { color: accentColor }]}>
-          {statusLabel}
-        </Text>
+        <Text style={styles.scoreValue}>{displayVal}</Text>
+        <Text style={[styles.scoreLabel, { color: accentColor }]}>{statusLabel}</Text>
       </View>
     </View>
   );
 };
 
-// Sharp-edged metric card
+// Floating metric card
 const MetricCard = ({ 
-  icon, 
-  value, 
-  label, 
-  accentColor, 
-  theme 
+  icon, value, label, accentColor, delay = 0,
 }: { 
-  icon: string; 
-  value: string; 
-  label: string; 
-  accentColor: string; 
-  theme: any;
-}) => (
-  <View style={[styles.metricCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-    <View style={[styles.metricGlow, { backgroundColor: accentColor }]} />
-    <Ionicons name={icon as any} size={18} color={accentColor} />
-    <Text style={[styles.metricValue, { color: theme.colors.textPrimary }]}>{value}</Text>
-    <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
-  </View>
-);
+  icon: string; value: string; label: string; accentColor: string; delay?: number;
+}) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(12)).current;
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, tension: 80, friction: 12, useNativeDriver: true }),
+      ]).start();
+    }, delay);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <Animated.View style={[styles.metricCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      {/* Silver top glow */}
+      <View style={[styles.metricGlow, { backgroundColor: accentColor, opacity: 0.3 }]} />
+      <Ionicons name={icon as any} size={18} color={accentColor} />
+      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </Animated.View>
+  );
+};
 
 export default function RecoveryScreen() {
   const { theme, accentColor } = useThemeStore();
@@ -135,7 +163,6 @@ export default function RecoveryScreen() {
 
   const recommendation = getRecommendation();
   
-  // Calculate overall readiness from muscle states
   const muscleReadiness = Object.values(muscles);
   const avgReadiness = muscleReadiness.length > 0 
     ? muscleReadiness.reduce((sum, m) => sum + m.readiness, 0) / muscleReadiness.length 
@@ -146,7 +173,7 @@ export default function RecoveryScreen() {
     : Math.round(avgReadiness);
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -162,26 +189,21 @@ export default function RecoveryScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
-              RECOVERY
-            </Text>
-            <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-              Body Readiness Analysis
-            </Text>
+            <Text style={styles.headerTitle}>Recovery</Text>
+            <Text style={styles.headerSubtitle}>BODY READINESS</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: accentColor + '20', borderColor: accentColor }]}>
+          <View style={[styles.statusBadge, { borderColor: accentColor + '40' }]}>
             <View style={[styles.statusDot, { backgroundColor: accentColor }]} />
             <Text style={[styles.statusText, { color: accentColor }]}>LIVE</Text>
           </View>
         </View>
         
-        {/* Recovery Score */}
-        <View style={[styles.scoreSection, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+        {/* Recovery Score - floating card */}
+        <View style={styles.scoreSection}>
           <ApexCircularProgress 
             value={overallScore} 
             size={200}
             accentColor={accentColor}
-            theme={theme}
           />
         </View>
         
@@ -190,86 +212,64 @@ export default function RecoveryScreen() {
           <MetricCard 
             icon="moon" 
             value={recoveryData?.metrics.sleepDuration ? `${recoveryData.metrics.sleepDuration}h` : '--'}
-            label="SLEEP"
-            accentColor={accentColor}
-            theme={theme}
+            label="SLEEP" accentColor={accentColor} delay={0}
           />
           <MetricCard 
             icon="pulse" 
             value={recoveryData?.metrics.hrv ? `${recoveryData.metrics.hrv}` : '--'}
-            label="HRV"
-            accentColor={accentColor}
-            theme={theme}
+            label="HRV" accentColor={accentColor} delay={80}
           />
           <MetricCard 
             icon="heart" 
             value={recoveryData?.metrics.restingHeartRate ? `${recoveryData.metrics.restingHeartRate}` : '--'}
-            label="RHR"
-            accentColor={accentColor}
-            theme={theme}
+            label="RHR" accentColor={accentColor} delay={160}
           />
           <MetricCard 
             icon="footsteps" 
             value={recoveryData?.metrics.steps ? `${(recoveryData.metrics.steps / 1000).toFixed(1)}k` : '--'}
-            label="STEPS"
-            accentColor={accentColor}
-            theme={theme}
+            label="STEPS" accentColor={accentColor} delay={240}
           />
         </View>
         
         {/* Body Map Section */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
-              MUSCLE READINESS
-            </Text>
-            <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
-              Tap regions for details
-            </Text>
-          </View>
-          <View style={[styles.bodyMapContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+          <Text style={styles.sectionTitle}>MUSCLE READINESS</Text>
+          <View style={styles.bodyMapContainer}>
             <ApexBodyMap mode="readiness" />
           </View>
         </View>
         
-        {/* Why This Recommendation - AI Explanation Panel */}
-        <View style={[styles.explanationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+        {/* AI Explanation Panel */}
+        <View style={styles.explanationCard}>
           <View style={[styles.explanationGlow, { backgroundColor: accentColor }]} />
           <View style={styles.explanationHeader}>
             <View style={styles.explanationTitleRow}>
-              <Ionicons name="sparkles" size={20} color={accentColor} />
-              <Text style={[styles.explanationTitle, { color: theme.colors.textPrimary }]}>
-                WHY THIS RECOMMENDATION
-              </Text>
+              <Ionicons name="sparkles" size={18} color={accentColor} />
+              <Text style={styles.explanationTitle}>AI ANALYSIS</Text>
             </View>
-            <View style={[styles.aiTag, { backgroundColor: accentColor + '20' }]}>
+            <View style={[styles.aiTag, { backgroundColor: accentColor + '15' }]}>
               <Text style={[styles.aiTagText, { color: accentColor }]}>AI</Text>
             </View>
           </View>
           
-          <Text style={[styles.explanationText, { color: theme.colors.textSecondary }]}>
-            {recommendation.explanation}
-          </Text>
+          <Text style={styles.explanationText}>{recommendation.explanation}</Text>
           
           {recommendation.reasoning.length > 0 && (
             <View style={styles.reasoningList}>
               {recommendation.reasoning.map((reason, i) => (
                 <View key={i} style={styles.reasoningItem}>
                   <View style={[styles.reasoningBullet, { backgroundColor: accentColor }]} />
-                  <Text style={[styles.reasoningText, { color: theme.colors.textMuted }]}>
-                    {reason}
-                  </Text>
+                  <Text style={styles.reasoningText}>{reason}</Text>
                 </View>
               ))}
             </View>
           )}
           
-          {/* Muscle status summary */}
           <View style={styles.muscleStatusSummary}>
             {recommendation.readyMuscles.length > 0 && (
               <View style={styles.muscleStatusRow}>
                 <View style={[styles.statusIndicator, { backgroundColor: accentColor }]} />
-                <Text style={[styles.muscleStatusText, { color: theme.colors.textSecondary }]}>
+                <Text style={styles.muscleStatusText}>
                   Ready: {recommendation.readyMuscles.slice(0, 3).join(', ')}
                   {recommendation.readyMuscles.length > 3 && ` +${recommendation.readyMuscles.length - 3}`}
                 </Text>
@@ -277,8 +277,8 @@ export default function RecoveryScreen() {
             )}
             {recommendation.fatiguedMuscles.length > 0 && (
               <View style={styles.muscleStatusRow}>
-                <View style={[styles.statusIndicator, { backgroundColor: theme.colors.readinessFatigued }]} />
-                <Text style={[styles.muscleStatusText, { color: theme.colors.textSecondary }]}>
+                <View style={[styles.statusIndicator, { backgroundColor: '#8B0000' }]} />
+                <Text style={styles.muscleStatusText}>
                   Fatigued: {recommendation.fatiguedMuscles.slice(0, 3).join(', ')}
                   {recommendation.fatiguedMuscles.length > 3 && ` +${recommendation.fatiguedMuscles.length - 3}`}
                 </Text>
@@ -287,38 +287,37 @@ export default function RecoveryScreen() {
           </View>
         </View>
         
-        {/* Recommended Workout Card */}
-        <TouchableOpacity onPress={() => {
-          setTodayWorkoutByType(recommendation.type, recommendation.title);
-          setWorkoutApplied(true);
-          setTimeout(() => {
-            router.push('/(tabs)/workout');
-          }, 600);
-        }}>
+        {/* Recommended Workout */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            setTodayWorkoutByType(recommendation.type, recommendation.title);
+            setWorkoutApplied(true);
+            setTimeout(() => { router.push('/(tabs)/workout'); }, 600);
+          }}
+        >
           <View style={[styles.workoutCard, { 
-            backgroundColor: theme.colors.card, 
-            borderColor: workoutApplied ? theme.colors.success : accentColor 
+            borderColor: workoutApplied ? '#3A7A5A' : accentColor + '40',
           }]}>
             <LinearGradient
-              colors={[accentColor + '15', 'transparent']}
-              style={styles.workoutGradient}
+              colors={[accentColor + '08', 'transparent']}
+              style={StyleSheet.absoluteFillObject}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             />
             <View style={styles.workoutContent}>
               <View>
-                <Text style={[styles.workoutLabel, { color: accentColor }]}>
-                  RECOMMENDED
-                </Text>
-                <Text style={[styles.workoutTitle, { color: theme.colors.textPrimary }]}>
-                  {recommendation.title}
-                </Text>
-                <Text style={[styles.workoutType, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.workoutLabel, { color: accentColor }]}>RECOMMENDED</Text>
+                <Text style={styles.workoutTitle}>{recommendation.title}</Text>
+                <Text style={styles.workoutType}>
                   {workoutApplied ? 'Workout set! Navigating...' : 'Tap to set as today\'s workout'}
                 </Text>
               </View>
-              <View style={[styles.workoutArrow, { backgroundColor: workoutApplied ? theme.colors.success : accentColor }]}>
-                <Ionicons name={workoutApplied ? "checkmark" : "arrow-forward"} size={22} color="#FFFFFF" />
+              <View style={[styles.workoutArrow, { 
+                backgroundColor: workoutApplied ? '#3A7A5A' : '#1a1a1a',
+                borderColor: workoutApplied ? '#3A7A5A' : accentColor + '30',
+              }]}>
+                <Ionicons name={workoutApplied ? "checkmark" : "arrow-forward"} size={20} color="#fff" />
               </View>
             </View>
           </View>
@@ -333,6 +332,7 @@ export default function RecoveryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
   },
   scrollView: {
     flex: 1,
@@ -344,45 +344,61 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 28,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
-    letterSpacing: 3,
+    letterSpacing: -0.5,
+    color: '#ffffff',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.5,
     marginTop: 4,
-    letterSpacing: 1,
+    color: '#555555',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
+    borderRadius: 20,
   },
   statusDot: {
     width: 6,
     height: 6,
+    borderRadius: 3,
     marginRight: 6,
   },
   statusText: {
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
   scoreSection: {
     alignItems: 'center',
     paddingVertical: 32,
-    marginBottom: 20,
-    borderWidth: 1,
+    marginBottom: 24,
+    backgroundColor: '#111111',
+    borderRadius: 20,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 12,
   },
   scoreValue: {
-    fontSize: 56,
+    fontSize: 48,
     fontWeight: '700',
     letterSpacing: -2,
+    color: '#ffffff',
+    textShadowColor: 'rgba(255,255,255,0.15)',
+    textShadowRadius: 8,
   },
   scoreLabel: {
     fontSize: 11,
@@ -392,70 +408,92 @@ const styles = StyleSheet.create({
   },
   metricsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -6,
-    marginBottom: 24,
+    gap: 10,
+    marginBottom: 28,
   },
   metricCard: {
-    width: '22%',
-    marginHorizontal: '1.5%',
+    flex: 1,
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 8,
-    borderWidth: 1,
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
     position: 'relative',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   metricGlow: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 2,
+    height: 1,
   },
   metricValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     marginTop: 8,
+    color: '#ffffff',
+    textShadowColor: 'rgba(255,255,255,0.15)',
+    textShadowRadius: 8,
   },
   metricLabel: {
     fontSize: 9,
     fontWeight: '600',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
     marginTop: 4,
+    color: '#555555',
   },
   section: {
     marginBottom: 24,
   },
-  sectionHeader: {
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    color: '#555555',
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 2,
-  },
-  sectionSubtitle: {
-    fontSize: 11,
-    marginTop: 2,
-  },
   bodyMapContainer: {
-    borderWidth: 1,
+    backgroundColor: '#111111',
+    borderRadius: 20,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
     paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 12,
   },
   explanationCard: {
+    backgroundColor: '#111111',
+    borderRadius: 20,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
     padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
     position: 'relative',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 12,
   },
   explanationGlow: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 2,
+    height: 1,
+    opacity: 0.3,
   },
   explanationHeader: {
     flexDirection: 'row',
@@ -469,22 +507,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   explanationTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    color: '#555555',
   },
   aiTag: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
+    borderRadius: 8,
   },
   aiTagText: {
     fontSize: 10,
     fontWeight: '700',
   },
   explanationText: {
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 22,
     marginBottom: 16,
+    color: '#8a8a8a',
   },
   reasoningList: {
     marginBottom: 16,
@@ -497,18 +538,20 @@ const styles = StyleSheet.create({
   reasoningBullet: {
     width: 4,
     height: 4,
+    borderRadius: 2,
     marginTop: 8,
     marginRight: 10,
   },
   reasoningText: {
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 18,
     flex: 1,
+    color: '#555555',
   },
   muscleStatusSummary: {
     paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopWidth: 0.5,
+    borderTopColor: '#2e2e2e',
   },
   muscleStatusRow: {
     flexDirection: 'row',
@@ -518,23 +561,24 @@ const styles = StyleSheet.create({
   statusIndicator: {
     width: 8,
     height: 8,
+    borderRadius: 4,
     marginRight: 10,
   },
   muscleStatusText: {
-    fontSize: 12,
+    fontSize: 13,
+    color: '#8a8a8a',
   },
   workoutCard: {
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 0.5,
+    borderRadius: 20,
     overflow: 'hidden',
-    position: 'relative',
-  },
-  workoutGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    backgroundColor: '#111111',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 12,
   },
   workoutContent: {
     flexDirection: 'row',
@@ -543,24 +587,29 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   workoutLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 2,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.5,
     marginBottom: 4,
   },
   workoutTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: -0.5,
   },
   workoutType: {
-    fontSize: 12,
+    fontSize: 13,
     marginTop: 4,
+    color: '#555555',
   },
   workoutArrow: {
     width: 44,
     height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   bottomSpacer: {
     height: 20,

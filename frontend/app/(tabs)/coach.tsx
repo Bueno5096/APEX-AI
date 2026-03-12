@@ -57,21 +57,12 @@ export default function CoachScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const waveformAnim = useRef(new Animated.Value(0)).current;
   
-  // Waveform animation for voice mode
   useEffect(() => {
     if (isListening) {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(waveformAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(waveformAnim, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }),
+          Animated.timing(waveformAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+          Animated.timing(waveformAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
         ])
       ).start();
     } else {
@@ -103,9 +94,7 @@ export default function CoachScreen() {
     try {
       const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text.trim(),
           context: {
@@ -129,25 +118,23 @@ export default function CoachScreen() {
       
       setMessages((prev) => [...prev, coachMessage]);
       
-      // Speak response if voice is enabled
       if (settings.voiceEnabled) {
-        // Strip markdown formatting and emojis for natural TTS
         const cleanForSpeech = (text: string): string => {
           return text
-            .replace(/#{1,6}\s?/g, '')           // Remove ## headings
-            .replace(/\*{1,3}(.*?)\*{1,3}/g, '$1') // Remove **bold** and *italic*
-            .replace(/_{1,3}(.*?)_{1,3}/g, '$1')    // Remove __bold__ and _italic_
-            .replace(/~~(.*?)~~/g, '$1')           // Remove ~~strikethrough~~
-            .replace(/`{1,3}[^`]*`{1,3}/g, '')    // Remove `code` and ```blocks```
-            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [link text](url) → link text
-            .replace(/^[-*+]\s+/gm, '')            // Remove bullet points
-            .replace(/^\d+\.\s+/gm, '')            // Remove numbered lists
-            .replace(/^>\s+/gm, '')                // Remove blockquotes
-            .replace(/\|/g, '')                    // Remove table pipes
-            .replace(/---+/g, '')                  // Remove horizontal rules
-            .replace(/\p{Emoji_Presentation}/gu, '') // Remove emojis
-            .replace(/[\u2600-\u27BF\u{1F300}-\u{1F9FF}\u{2702}-\u{27B0}]/gu, '') // More emojis
-            .replace(/\n{3,}/g, '\n\n')            // Collapse extra newlines
+            .replace(/#{1,6}\s?/g, '')
+            .replace(/\*{1,3}(.*?)\*{1,3}/g, '$1')
+            .replace(/_{1,3}(.*?)_{1,3}/g, '$1')
+            .replace(/~~(.*?)~~/g, '$1')
+            .replace(/`{1,3}[^`]*`{1,3}/g, '')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            .replace(/^[-*+]\s+/gm, '')
+            .replace(/^\d+\.\s+/gm, '')
+            .replace(/^>\s+/gm, '')
+            .replace(/\|/g, '')
+            .replace(/---+/g, '')
+            .replace(/\p{Emoji_Presentation}/gu, '')
+            .replace(/[\u2600-\u27BF\u{1F300}-\u{1F9FF}\u{2702}-\u{27B0}]/gu, '')
+            .replace(/\n{3,}/g, '\n\n')
             .trim();
         };
         
@@ -177,9 +164,7 @@ export default function CoachScreen() {
   const handleVoicePress = () => {
     if (inputMode === 'voice') {
       setIsListening(!isListening);
-      // In production, this would use expo-speech-recognition
       if (!isListening) {
-        // Simulate voice input after 3 seconds
         setTimeout(() => {
           setIsListening(false);
           setInputText('What workout should I do today?');
@@ -191,24 +176,20 @@ export default function CoachScreen() {
   };
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
+        <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={[styles.statusDot, { backgroundColor: accentColor }]} />
-            <Text style={[styles.headerTitle, { color: accentColor }]}>
-              COACH ONLINE
-            </Text>
+            <Text style={[styles.headerTitle, { color: accentColor }]}>COACH</Text>
           </View>
-          <View style={[styles.headerBadge, { backgroundColor: accentColor + '20' }]}>
-            <Text style={[styles.headerBadgeText, { color: accentColor }]}>
-              AI Active
-            </Text>
+          <View style={[styles.headerBadge, { backgroundColor: accentColor + '12' }]}>
+            <Text style={[styles.headerBadgeText, { color: accentColor }]}>Online</Text>
           </View>
         </View>
         
@@ -226,29 +207,29 @@ export default function CoachScreen() {
                 style={[
                   styles.messageBubble,
                   message.role === 'user'
-                    ? [styles.userMessage, { backgroundColor: accentColor }]
-                    : [styles.coachMessage, { backgroundColor: theme.colors.card }],
+                    ? styles.userMessage
+                    : styles.coachMessage,
                 ]}
               >
                 {message.role === 'coach' && (
                   <View style={styles.coachIcon}>
-                    <Ionicons name="sparkles" size={16} color={accentColor} />
+                    <Ionicons name="sparkles" size={14} color={accentColor} />
                   </View>
                 )}
                 <Text
                   style={[
                     styles.messageText,
-                    { color: message.role === 'user' ? '#FFFFFF' : theme.colors.textPrimary },
+                    { color: message.role === 'user' ? '#ffffff' : '#ffffff' },
                   ]}
                 >
                   {message.content}
                 </Text>
               </View>
-              {/* "Explain more" chip after coach messages (not the loading or first message) */}
               {message.role === 'coach' && index > 0 && index === messages.length - 1 && !isLoading && (
                 <TouchableOpacity
-                  style={[styles.explainMoreChip, { borderColor: accentColor + '60' }]}
+                  style={[styles.explainMoreChip, { borderColor: accentColor + '40' }]}
                   onPress={() => sendMessage('Explain more about that')}
+                  activeOpacity={0.7}
                 >
                   <Ionicons name="expand-outline" size={14} color={accentColor} />
                   <Text style={[styles.explainMoreText, { color: accentColor }]}>
@@ -260,11 +241,9 @@ export default function CoachScreen() {
           ))}
           
           {isLoading && (
-            <View style={[styles.loadingBubble, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.loadingBubble}>
               <ActivityIndicator size="small" color={accentColor} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-                Coach is thinking...
-              </Text>
+              <Text style={styles.loadingText}>Coach is thinking...</Text>
             </View>
           )}
         </ScrollView>
@@ -280,85 +259,82 @@ export default function CoachScreen() {
               {SUGGESTED_PROMPTS.map((prompt, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={[styles.suggestionChip, { borderColor: accentColor }]}
+                  style={styles.suggestionChip}
                   onPress={() => sendMessage(prompt)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={[styles.suggestionText, { color: accentColor }]}>
-                    {prompt}
-                  </Text>
+                  <Text style={styles.suggestionText}>{prompt}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
         )}
         
-        {/* Input Area */}
-        <View style={[styles.inputContainer, { backgroundColor: theme.colors.card }]}>
-          {inputMode === 'voice' && isListening ? (
-            <View style={styles.voiceContainer}>
-              <View style={styles.waveformContainer}>
-                {[...Array(5)].map((_, i) => (
-                  <Animated.View
-                    key={i}
-                    style={[
-                      styles.waveformBar,
-                      {
-                        backgroundColor: accentColor,
-                        transform: [
-                          {
+        {/* Input Bar - floating pill */}
+        <View style={styles.inputWrapper}>
+          <View style={styles.inputContainer}>
+            {inputMode === 'voice' && isListening ? (
+              <View style={styles.voiceContainer}>
+                <View style={styles.waveformContainer}>
+                  {[...Array(5)].map((_, i) => (
+                    <Animated.View
+                      key={i}
+                      style={[
+                        styles.waveformBar,
+                        {
+                          backgroundColor: accentColor,
+                          transform: [{
                             scaleY: waveformAnim.interpolate({
                               inputRange: [0, 1],
                               outputRange: [0.3, 0.3 + Math.random() * 0.7],
                             }),
-                          },
-                        ],
-                      },
-                    ]}
-                  />
-                ))}
+                          }],
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+                <Text style={[styles.listeningText, { color: accentColor }]}>Listening...</Text>
               </View>
-              <Text style={[styles.listeningText, { color: accentColor }]}>
-                Listening...
-              </Text>
-            </View>
-          ) : (
-            <TextInput
-              style={[styles.input, { color: theme.colors.textPrimary }]}
-              placeholder="Ask Coach anything..."
-              placeholderTextColor={theme.colors.textMuted}
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-              maxLength={500}
-              onSubmitEditing={() => sendMessage(inputText)}
-            />
-          )}
-          
-          <View style={styles.inputActions}>
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                inputMode === 'voice' && { backgroundColor: accentColor + '20' },
-              ]}
-              onPress={handleVoicePress}
-            >
-              <Ionicons
-                name={isListening ? 'stop' : 'mic'}
-                size={20}
-                color={inputMode === 'voice' ? accentColor : theme.colors.textSecondary}
+            ) : (
+              <TextInput
+                style={styles.input}
+                placeholder="Ask Coach anything..."
+                placeholderTextColor="#555555"
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+                maxLength={500}
+                onSubmitEditing={() => sendMessage(inputText)}
               />
-            </TouchableOpacity>
+            )}
             
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                { backgroundColor: inputText.trim() ? accentColor : theme.colors.metallic },
-              ]}
-              onPress={() => sendMessage(inputText)}
-              disabled={!inputText.trim() || isLoading}
-            >
-              <Ionicons name="send" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
+            <View style={styles.inputActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  inputMode === 'voice' && { backgroundColor: accentColor + '15' },
+                ]}
+                onPress={handleVoicePress}
+              >
+                <Ionicons
+                  name={isListening ? 'stop' : 'mic'}
+                  size={18}
+                  color={inputMode === 'voice' ? accentColor : '#555555'}
+                />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  { backgroundColor: inputText.trim() ? accentColor : '#242424' },
+                ]}
+                onPress={() => sendMessage(inputText)}
+                disabled={!inputText.trim() || isLoading}
+              >
+                <Ionicons name="send" size={16} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -369,6 +345,7 @@ export default function CoachScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
   },
   keyboardView: {
     flex: 1,
@@ -379,7 +356,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#2e2e2e',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -389,17 +367,17 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: 8,
+    marginRight: 10,
   },
   headerTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 2,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.5,
   },
   headerBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   headerBadgeText: {
     fontSize: 11,
@@ -413,17 +391,26 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: '85%',
-    padding: 14,
-    borderRadius: 16,
+    padding: 16,
     marginBottom: 12,
   },
   userMessage: {
     alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 18,
+    borderBottomRightRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
   },
   coachMessage: {
     alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
+    backgroundColor: '#0f0f0f',
+    borderRadius: 18,
+    borderBottomLeftRadius: 6,
+    borderLeftWidth: 1.5,
+    borderLeftColor: 'rgba(192,192,192,0.15)',
+    borderWidth: 0.5,
+    borderColor: '#1a1a1a',
   },
   coachIcon: {
     marginBottom: 8,
@@ -436,62 +423,82 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    padding: 14,
-    borderRadius: 16,
+    padding: 16,
+    borderRadius: 18,
     gap: 10,
+    backgroundColor: '#0f0f0f',
+    borderWidth: 0.5,
+    borderColor: '#1a1a1a',
   },
   loadingText: {
     fontSize: 14,
+    color: '#8a8a8a',
   },
   suggestionsContainer: {
     paddingVertical: 12,
   },
   suggestionsContent: {
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 8,
   },
   suggestionChip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 50,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
+    backgroundColor: '#111111',
     marginRight: 8,
   },
   suggestionText: {
     fontSize: 13,
     fontWeight: '500',
+    color: '#8a8a8a',
+  },
+  inputWrapper: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    paddingTop: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    gap: 12,
+    paddingVertical: 10,
+    backgroundColor: '#111111',
+    borderRadius: 24,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     maxHeight: 100,
-    paddingVertical: 8,
+    paddingVertical: 6,
+    color: '#ffffff',
   },
   inputActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   modeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -523,11 +530,12 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 50,
+    borderWidth: 0.5,
     marginTop: -4,
     marginBottom: 12,
     marginLeft: 4,
+    backgroundColor: '#0a0a0a',
   },
   explainMoreText: {
     fontSize: 12,
