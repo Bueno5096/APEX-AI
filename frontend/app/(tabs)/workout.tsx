@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
-import { BodyMapEnhanced } from '../../src/components/BodyMapEnhanced';
+import { ApexBodyMap } from '../../src/components/ApexBodyMap';
 import { useHealthStore } from '../../src/store/healthStore';
 import { CircularProgress } from '../../src/components/CircularProgress';
 
@@ -224,8 +224,7 @@ export default function WorkoutScreen() {
             <Text style={[styles.miniBodyMapTitle, { color: theme.colors.textSecondary }]}>
               Training: {workout.targetMuscles.join(', ')}
             </Text>
-            <BodyMapEnhanced
-              muscles={recoveryData?.muscles || []}
+            <ApexBodyMap
               highlightMuscles={currentExercise.targetMuscles}
               mode="workout"
             />
@@ -338,8 +337,7 @@ export default function WorkoutScreen() {
             Target Muscles
           </Text>
           <MetallicCard style={styles.bodyMapCard}>
-            <BodyMapEnhanced
-              muscles={recoveryData?.muscles || []}
+            <ApexBodyMap
               highlightMuscles={todayWorkout.targetMuscles}
               mode="workout"
             />
