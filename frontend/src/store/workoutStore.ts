@@ -205,6 +205,53 @@ const WORKOUT_TEMPLATES: { [key: string]: Workout } = {
       { id: 'rest_2', name: 'Glute Bridge', targetMuscles: ['glutes'], sets: 3, reps: '15', isCompleted: false, completedSets: 0 },
     ],
   },
+  full: {
+    id: 'workout_full',
+    title: 'Full Body',
+    type: 'full',
+    duration: 55,
+    intensity: 'moderate',
+    targetMuscles: ['chest', 'back', 'shoulders', 'quads', 'hamstrings', 'glutes', 'core'],
+    exercises: [
+      { id: 'full_1', name: 'Barbell Squat', targetMuscles: ['quads', 'glutes'], sets: 4, reps: '6-8', weight: 100, isCompleted: false, completedSets: 0 },
+      { id: 'full_2', name: 'Bench Press', targetMuscles: ['chest', 'triceps'], sets: 4, reps: '8-10', weight: 80, isCompleted: false, completedSets: 0 },
+      { id: 'full_3', name: 'Barbell Row', targetMuscles: ['back', 'biceps'], sets: 3, reps: '8-10', weight: 70, isCompleted: false, completedSets: 0 },
+      { id: 'full_4', name: 'Overhead Press', targetMuscles: ['shoulders', 'triceps'], sets: 3, reps: '8-10', weight: 50, isCompleted: false, completedSets: 0 },
+      { id: 'full_5', name: 'Romanian Deadlift', targetMuscles: ['hamstrings', 'glutes'], sets: 3, reps: '8-10', weight: 80, isCompleted: false, completedSets: 0 },
+      { id: 'full_6', name: 'Plank', targetMuscles: ['core'], sets: 3, reps: '45-60s', isCompleted: false, completedSets: 0 },
+    ],
+  },
+};
+
+// Normalize AI workout type strings to template keys
+const normalizeWorkoutType = (type: string): string => {
+  const t = type.toLowerCase().trim();
+  const aliases: { [key: string]: string } = {
+    'push': 'push',
+    'push day': 'push',
+    'chest': 'push',
+    'pull': 'pull',
+    'pull day': 'pull',
+    'back': 'pull',
+    'legs': 'legs',
+    'leg': 'legs',
+    'leg day': 'legs',
+    'upper': 'upper',
+    'upper body': 'upper',
+    'lower': 'lower',
+    'lower body': 'lower',
+    'full': 'full',
+    'full body': 'full',
+    'full_body': 'full',
+    'fullbody': 'full',
+    'light': 'light',
+    'recovery': 'light',
+    'active recovery': 'light',
+    'rest': 'rest',
+    'rest day': 'rest',
+    'cardio': 'light',
+  };
+  return aliases[t] || t;
 };
 
 interface WorkoutState {
@@ -222,6 +269,8 @@ interface WorkoutState {
   setRestTimer: (seconds: number) => void;
   decrementRestTimer: () => void;
   swapExercise: (exerciseId: string, newExercise: Exercise) => void;
+  modifyExercise: (exerciseName: string, changes: { sets?: number; reps?: string; weight?: number }) => void;
+  applyCoachActions: (actions: any[]) => void;
   reorderExercise: (fromIndex: number, toIndex: number) => void;
 }
 
@@ -241,16 +290,24 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
   
   setTodayWorkoutByType: (type: string, title: string) => {
-    const template = WORKOUT_TEMPLATES[type];
+    const normalizedType = normalizeWorkoutType(type);
+    const template = WORKOUT_TEMPLATES[normalizedType];
     if (template) {
       const workout = {
         ...template,
         id: `workout_${Date.now()}`,
         title: title || template.title,
+        exercises: template.exercises.map((ex, i) => ({
+          ...ex,
+          id: `${normalizedType}_${Date.now()}_${i}`,
+          isCompleted: false,
+          completedSets: 0,
+        })),
       };
+      console.log(`[WorkoutStore] Setting workout: ${workout.title} (type: ${normalizedType}, ${workout.exercises.length} exercises)`);
       set({ todayWorkout: workout });
     } else {
-      // Fallback to default push day
+      console.log(`[WorkoutStore] Unknown workout type: "${type}" (normalized: "${normalizedType}"), falling back to Push Day`);
       set({ todayWorkout: generateTodayWorkout() });
     }
   },
@@ -416,6 +473,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   
   applyCoachActions: (actions: any[]) => {
     const { modifyExercise, swapExercise, setRestTimer, todayWorkout, nextExercise, setTodayWorkoutByType } = get();
+    console.log(`[WorkoutStore] applyCoachActions called with ${actions.length} actions:`, JSON.stringify(actions));
     
     for (const action of actions) {
       switch (action.type) {
