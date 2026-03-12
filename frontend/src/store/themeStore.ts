@@ -60,8 +60,11 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 }));
 
 // Unit conversion helpers
+// Round to nearest 5 lbs for US gym plates (5 lb increments)
+const roundToNearest5 = (lbs: number): number => Math.round(lbs / 5) * 5;
+
 export const convertWeight = (kg: number, toImperial: boolean): number => {
-  return toImperial ? kg * 2.20462 : kg;
+  return toImperial ? roundToNearest5(kg * 2.20462) : kg;
 };
 
 export const convertHeight = (cm: number, toImperial: boolean): { feet: number; inches: number } | number => {
@@ -76,7 +79,8 @@ export const convertHeight = (cm: number, toImperial: boolean): { feet: number; 
 
 export const formatWeight = (kg: number, isImperial: boolean): string => {
   if (isImperial) {
-    return `${Math.round(kg * 2.20462)} lbs`;
+    const lbs = Math.round(kg * 2.20462 / 5) * 5;
+    return `${lbs} lbs`;
   }
   return `${kg} kg`;
 };

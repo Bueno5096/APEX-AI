@@ -25,7 +25,9 @@ import Constants from 'expo-constants';
 const displayWeight = (kg: number | undefined, isImperial: boolean): string => {
   if (!kg) return '';
   if (isImperial) {
-    return `${Math.round(kg * 2.20462)} lbs`;
+    // Round to nearest 5 lbs to match US gym plate increments
+    const lbs = Math.round(kg * 2.20462 / 5) * 5;
+    return `${lbs} lbs`;
   }
   return `${kg}kg`;
 };
