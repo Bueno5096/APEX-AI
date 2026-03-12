@@ -131,7 +131,27 @@ export default function CoachScreen() {
       
       // Speak response if voice is enabled
       if (settings.voiceEnabled) {
-        Speech.speak(data.response, {
+        // Strip markdown formatting and emojis for natural TTS
+        const cleanForSpeech = (text: string): string => {
+          return text
+            .replace(/#{1,6}\s?/g, '')           // Remove ## headings
+            .replace(/\*{1,3}(.*?)\*{1,3}/g, '$1') // Remove **bold** and *italic*
+            .replace(/_{1,3}(.*?)_{1,3}/g, '$1')    // Remove __bold__ and _italic_
+            .replace(/~~(.*?)~~/g, '$1')           // Remove ~~strikethrough~~
+            .replace(/`{1,3}[^`]*`{1,3}/g, '')    // Remove `code` and ```blocks```
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [link text](url) → link text
+            .replace(/^[-*+]\s+/gm, '')            // Remove bullet points
+            .replace(/^\d+\.\s+/gm, '')            // Remove numbered lists
+            .replace(/^>\s+/gm, '')                // Remove blockquotes
+            .replace(/\|/g, '')                    // Remove table pipes
+            .replace(/---+/g, '')                  // Remove horizontal rules
+            .replace(/\p{Emoji_Presentation}/gu, '') // Remove emojis
+            .replace(/[\u2600-\u27BF\u{1F300}-\u{1F9FF}\u{2702}-\u{27B0}]/gu, '') // More emojis
+            .replace(/\n{3,}/g, '\n\n')            // Collapse extra newlines
+            .trim();
+        };
+        
+        Speech.speak(cleanForSpeech(data.response), {
           language: 'en',
           pitch: 1.0,
           rate: 0.9,
