@@ -17,6 +17,7 @@ import * as Speech from 'expo-speech';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useUserStore } from '../../src/store/userStore';
 import { useHealthStore } from '../../src/store/healthStore';
+import { useWorkoutStore } from '../../src/store/workoutStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import Constants from 'expo-constants';
 
@@ -25,6 +26,7 @@ interface Message {
   role: 'user' | 'coach';
   content: string;
   timestamp: Date;
+  actions?: any[];
 }
 
 const SUGGESTED_PROMPTS = [
@@ -40,6 +42,7 @@ export default function CoachScreen() {
   const { theme, accentColor } = useThemeStore();
   const { profile, settings } = useUserStore();
   const { recoveryData } = useHealthStore();
+  const { todayWorkout } = useWorkoutStore();
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -106,6 +109,15 @@ export default function CoachScreen() {
           content: msg.content,
         }));
       
+      // Build workout exercises context for the AI
+      const workoutExercises = todayWorkout?.exercises?.map(ex => ({
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        weight: ex.weight,
+        targetMuscles: ex.targetMuscles,
+      })) || [];
+      
       const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -119,6 +131,8 @@ export default function CoachScreen() {
             hrv: recoveryData?.metrics.hrv,
             coachStyle: settings.coachStyle,
             userProfile: profile,
+            activeWorkout: todayWorkout?.title,
+            workoutExercises: workoutExercises.length > 0 ? workoutExercises : undefined,
           },
         }),
       });
@@ -135,9 +149,15 @@ export default function CoachScreen() {
         role: 'coach',
         content: data.response || "I'm having trouble connecting right now. Please try again.",
         timestamp: new Date(),
+        actions: data.actions || undefined,
       };
       
       setMessages((prev) => [...prev, coachMessage]);
+      
+      // Auto-apply workout actions if returned
+      if (data.actions && data.actions.length > 0) {
+        useWorkoutStore.getState().applyCoachActions(data.actions);
+      }
       
       if (ttsEnabled) {
         const cleanForSpeech = (text: string): string => {
@@ -308,6 +328,14 @@ export default function CoachScreen() {
                   {message.content}
                 </Text>
               </View>
+              {message.role === 'coach' && message.actions && message.actions.length > 0 && (
+                <View style={[styles.actionsAppliedChip, { backgroundColor: accentColor + '15', borderColor: accentColor + '30' }]}>
+                  <Ionicons name="checkmark-circle" size={14} color={accentColor} />
+                  <Text style={[styles.actionsAppliedText, { color: accentColor }]}>
+                    Workout updated — check Workout tab
+                  </Text>
+                </View>
+              )}
               {message.role === 'coach' && index > 0 && index === messages.length - 1 && !isLoading && (
                 <TouchableOpacity
                   style={[styles.explainMoreChip, { borderColor: accentColor + '40', backgroundColor: theme.colors.card }]}
@@ -635,6 +663,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0a0a',
   },
   explainMoreText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  actionsAppliedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 50,
+    borderWidth: 0.5,
+    marginTop: -4,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  actionsAppliedText: {
     fontSize: 12,
     fontWeight: '600',
   },

@@ -156,12 +156,13 @@ When the user asks you to change, swap, modify, add, or remove exercises, sets, 
 [/ACTIONS]
 
 Available action types:
+- "set_workout": Set/create an entire workout plan. Include "workout_type" (one of: "push", "pull", "legs", "upper", "lower", "full", "light", "rest") and optionally "title" (custom title string). Use this when the user asks to create, generate, or switch to a new workout.
 - "swap_exercise": Replace an exercise. Include "exercise_name" (current) and "new_exercise_name", "new_sets", "new_reps", "new_weight", "target_muscles" (array)
 - "modify_exercise": Change sets/reps/weight. Include "exercise_name" and any of "new_sets", "new_reps", "new_weight"
 - "adjust_rest": Change rest time. Include "new_rest_seconds"
 - "skip_exercise": Skip current exercise. Include "exercise_name"
 
-Always provide your coaching explanation FIRST, then the action block. Only include actions when the user explicitly asks for changes. For general questions or advice, do NOT include actions.
+CRITICAL: When the user asks you to create, build, generate, or set up a workout, you MUST include a "set_workout" action. This is how workouts get applied. Always provide your coaching explanation FIRST, then the action block. Only include actions when the user explicitly asks for changes or a new workout. For general questions or advice, do NOT include actions.
 
 If the user says "explain more" or asks for a deeper explanation, THEN provide a thorough, detailed response about the previous topic."""
 

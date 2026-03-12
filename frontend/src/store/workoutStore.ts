@@ -415,10 +415,17 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
   
   applyCoachActions: (actions: any[]) => {
-    const { modifyExercise, swapExercise, setRestTimer, todayWorkout, nextExercise } = get();
+    const { modifyExercise, swapExercise, setRestTimer, todayWorkout, nextExercise, setTodayWorkoutByType } = get();
     
     for (const action of actions) {
       switch (action.type) {
+        case 'set_workout': {
+          const workoutType = action.workout_type || 'push';
+          const title = action.title || '';
+          setTodayWorkoutByType(workoutType, title);
+          break;
+        }
+        
         case 'modify_exercise':
           modifyExercise(action.exercise_name, {
             sets: action.new_sets,
