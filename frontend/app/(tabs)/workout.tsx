@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +19,21 @@ import { MetallicCard } from '../../src/components/MetallicCard';
 import { ApexBodyMap } from '../../src/components/ApexBodyMap';
 import { useHealthStore } from '../../src/store/healthStore';
 import { CircularProgress } from '../../src/components/CircularProgress';
+import Constants from 'expo-constants';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'coach';
+  content: string;
+}
+
+const WORKOUT_SUGGESTIONS = [
+  { icon: 'swap-horizontal', text: 'Swap this exercise' },
+  { icon: 'bandage', text: 'Something hurts' },
+  { icon: 'time', text: 'Short on time' },
+  { icon: 'arrow-down', text: 'Lower intensity' },
+  { icon: 'help-circle', text: 'Form check tips' },
+];
 
 export default function WorkoutScreen() {
   const { theme, accentColor } = useThemeStore();
@@ -32,6 +51,78 @@ export default function WorkoutScreen() {
   const [showCoachAssist, setShowCoachAssist] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  
+  // Mini coach chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatScrollRef = useRef<ScrollView>(null);
+  
+  const getBackendUrl = () => {
+    const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
+      || process.env.EXPO_PUBLIC_BACKEND_URL 
+      || 'https://muscle-readiness-map.preview.emergentagent.com';
+    return backendUrl;
+  };
+  
+  const sendCoachMessage = async (text: string) => {
+    if (!text.trim() || isChatLoading) return;
+    
+    const exerciseName = currentExercise?.name || 'current exercise';
+    const workoutContext = `Currently doing: ${exerciseName} (${activeWorkout.workout?.title || 'workout'})`;
+    
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: text.trim(),
+    };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setIsChatLoading(true);
+    
+    try {
+      const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `[Workout context: ${workoutContext}] ${text.trim()}`,
+          context: {
+            recoveryScore: recoveryData?.score,
+            activeWorkout: activeWorkout.workout?.title,
+            currentExercise: exerciseName,
+          },
+        }),
+      });
+      
+      const data = await response.json();
+      const coachMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'coach',
+        content: data.response || "I couldn't process that. Try again.",
+      };
+      setChatMessages(prev => [...prev, coachMsg]);
+    } catch (error) {
+      setChatMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'coach',
+        content: "Connection issue. Check your network and try again.",
+      }]);
+    } finally {
+      setIsChatLoading(false);
+      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  };
+  
+  const openCoachAssist = () => {
+    if (chatMessages.length === 0) {
+      setChatMessages([{
+        id: '0',
+        role: 'coach',
+        content: `I'm here to help during your workout. Ask me about form, alternatives, rest times, or anything else.`,
+      }]);
+    }
+    setShowCoachAssist(true);
+  };
   
   // Elapsed workout timer
   useEffect(() => {
@@ -300,7 +391,7 @@ export default function WorkoutScreen() {
           {/* Quick Coach Assist */}
           <TouchableOpacity
             style={[styles.coachAssist, { borderColor: accentColor }]}
-            onPress={() => setShowCoachAssist(true)}
+            onPress={openCoachAssist}
           >
             <Ionicons name="sparkles" size={20} color={accentColor} />
             <Text style={[styles.coachAssistText, { color: accentColor }]}>
@@ -320,43 +411,122 @@ export default function WorkoutScreen() {
           </MetallicCard>
         </ScrollView>
         
-        {/* Coach Assist Modal */}
+        {/* Coach Mini-Chat Modal */}
         <Modal
           visible={showCoachAssist}
           transparent
           animationType="slide"
           onRequestClose={() => setShowCoachAssist(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.assistModal, { backgroundColor: theme.colors.card }]}>
-              <View style={styles.assistHeader}>
-                <Text style={[styles.assistTitle, { color: theme.colors.textPrimary }]}>
-                  Quick Assist
-                </Text>
+          <KeyboardAvoidingView 
+            style={styles.chatModalWrapper}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <TouchableOpacity 
+              style={styles.chatModalDismiss} 
+              activeOpacity={1} 
+              onPress={() => setShowCoachAssist(false)} 
+            />
+            <View style={[styles.chatModal, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+              {/* Chat Header */}
+              <View style={[styles.chatHeader, { borderBottomColor: theme.colors.cardBorder }]}>
+                <View style={styles.chatHeaderLeft}>
+                  <Ionicons name="sparkles" size={18} color={accentColor} />
+                  <Text style={[styles.chatHeaderTitle, { color: theme.colors.textPrimary }]}>
+                    Coach Assist
+                  </Text>
+                </View>
                 <TouchableOpacity onPress={() => setShowCoachAssist(false)}>
-                  <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+                  <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
               </View>
-              {[
-                { icon: 'arrow-down', text: 'Reduce intensity' },
-                { icon: 'swap-horizontal', text: 'Swap exercise' },
-                { icon: 'people', text: 'Gym is crowded' },
-                { icon: 'time', text: 'Short on time' },
-                { icon: 'bandage', text: 'Something hurts' },
-              ].map((item, i) => (
+              
+              {/* Quick Suggestions */}
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.suggestionsScroll}
+                contentContainerStyle={styles.suggestionsContent}
+              >
+                {WORKOUT_SUGGESTIONS.map((item, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.suggestionPill, { borderColor: theme.colors.cardBorder }]}
+                    onPress={() => sendCoachMessage(item.text)}
+                  >
+                    <Ionicons name={item.icon as any} size={14} color={accentColor} />
+                    <Text style={[styles.suggestionText, { color: theme.colors.textSecondary }]}>
+                      {item.text}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              
+              {/* Chat Messages */}
+              <ScrollView 
+                ref={chatScrollRef}
+                style={styles.chatMessages}
+                contentContainerStyle={styles.chatMessagesContent}
+              >
+                {chatMessages.map((msg) => (
+                  <View
+                    key={msg.id}
+                    style={[
+                      styles.chatBubble,
+                      msg.role === 'user'
+                        ? [styles.chatBubbleUser, { backgroundColor: accentColor + '20' }]
+                        : [styles.chatBubbleCoach, { backgroundColor: theme.colors.backgroundSecondary }],
+                    ]}
+                  >
+                    {msg.role === 'coach' && (
+                      <View style={styles.chatBubbleIcon}>
+                        <Ionicons name="sparkles" size={12} color={accentColor} />
+                      </View>
+                    )}
+                    <Text style={[
+                      styles.chatBubbleText,
+                      { color: theme.colors.textPrimary },
+                    ]}>
+                      {msg.content}
+                    </Text>
+                  </View>
+                ))}
+                {isChatLoading && (
+                  <View style={[styles.chatBubble, styles.chatBubbleCoach, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                    <ActivityIndicator size="small" color={accentColor} />
+                    <Text style={[styles.chatBubbleText, { color: theme.colors.textSecondary, marginLeft: 8 }]}>
+                      Thinking...
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+              
+              {/* Chat Input */}
+              <View style={[styles.chatInputRow, { borderTopColor: theme.colors.cardBorder }]}>
+                <TextInput
+                  style={[styles.chatInput, { 
+                    color: theme.colors.textPrimary, 
+                    backgroundColor: theme.colors.backgroundSecondary,
+                    borderColor: theme.colors.cardBorder,
+                  }]}
+                  placeholder="Ask your coach..."
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={chatInput}
+                  onChangeText={setChatInput}
+                  onSubmitEditing={() => sendCoachMessage(chatInput)}
+                  returnKeyType="send"
+                  multiline={false}
+                />
                 <TouchableOpacity
-                  key={i}
-                  style={[styles.assistOption, { borderColor: theme.colors.cardBorder }]}
-                  onPress={() => setShowCoachAssist(false)}
+                  style={[styles.chatSendBtn, { backgroundColor: accentColor }]}
+                  onPress={() => sendCoachMessage(chatInput)}
+                  disabled={!chatInput.trim() || isChatLoading}
                 >
-                  <Ionicons name={item.icon as any} size={20} color={accentColor} />
-                  <Text style={[styles.assistOptionText, { color: theme.colors.textPrimary }]}>
-                    {item.text}
-                  </Text>
+                  <Ionicons name="send" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
-              ))}
+              </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       </SafeAreaView>
     );
@@ -871,35 +1041,113 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 8,
   },
-  modalOverlay: {
+  // Coach Mini Chat Modal
+  chatModalWrapper: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
-  assistModal: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
+  chatModalDismiss: {
+    flex: 1,
   },
-  assistHeader: {
+  chatModal: {
+    maxHeight: '70%',
+    borderTopWidth: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
   },
-  assistTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  assistOption: {
+  chatHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    gap: 12,
+    gap: 8,
   },
-  assistOptionText: {
+  chatHeaderTitle: {
     fontSize: 16,
+    fontWeight: '700',
+  },
+  suggestionsScroll: {
+    maxHeight: 44,
+    borderBottomWidth: 0,
+  },
+  suggestionsContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  suggestionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  suggestionText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  chatMessages: {
+    flex: 1,
+    minHeight: 180,
+  },
+  chatMessagesContent: {
+    padding: 12,
+    gap: 10,
+  },
+  chatBubble: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 12,
+    maxWidth: '88%',
+  },
+  chatBubbleUser: {
+    alignSelf: 'flex-end',
+    borderBottomRightRadius: 4,
+  },
+  chatBubbleCoach: {
+    alignSelf: 'flex-start',
+    borderBottomLeftRadius: 4,
+  },
+  chatBubbleIcon: {
+    marginRight: 8,
+    marginTop: 2,
+  },
+  chatBubbleText: {
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
+  },
+  chatInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 8,
+    borderTopWidth: 1,
+  },
+  chatInput: {
+    flex: 1,
+    height: 42,
+    borderRadius: 21,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    borderWidth: 1,
+  },
+  chatSendBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Active workout minimized banner
   activeBanner: {
