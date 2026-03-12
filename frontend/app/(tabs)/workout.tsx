@@ -30,6 +30,7 @@ export default function WorkoutScreen() {
   } = useWorkoutStore();
   
   const [showCoachAssist, setShowCoachAssist] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   
   // Rest timer countdown
   useEffect(() => {
@@ -66,7 +67,7 @@ export default function WorkoutScreen() {
   }
   
   // Active Workout Mode
-  if (isWorkoutActive && currentExercise) {
+  if (isWorkoutActive && currentExercise && !isMinimized) {
     const workout = activeWorkout.workout!;
     const completedCount = workout.exercises.filter((e) => e.isCompleted).length;
     const progress = (completedCount / workout.exercises.length) * 100;
@@ -74,15 +75,23 @@ export default function WorkoutScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          {/* Active Header */}
+          {/* Active Header with Minimize + End */}
           <View style={styles.activeHeader}>
-            <View>
-              <Text style={[styles.activeTitle, { color: accentColor }]}>
-                ACTIVE WORKOUT
-              </Text>
-              <Text style={[styles.workoutName, { color: theme.colors.textPrimary }]}>
-                {workout.title}
-              </Text>
+            <View style={styles.activeHeaderLeft}>
+              <TouchableOpacity
+                style={[styles.minimizeButton, { borderColor: theme.colors.cardBorder }]}
+                onPress={() => setIsMinimized(true)}
+              >
+                <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+              <View>
+                <Text style={[styles.activeTitle, { color: accentColor }]}>
+                  ACTIVE WORKOUT
+                </Text>
+                <Text style={[styles.workoutName, { color: theme.colors.textPrimary }]}>
+                  {workout.title}
+                </Text>
+              </View>
             </View>
             <TouchableOpacity
               style={[styles.endButton, { borderColor: theme.colors.danger }]}
@@ -273,10 +282,34 @@ export default function WorkoutScreen() {
     );
   }
   
-  // Pre-workout View
+  // Pre-workout View (also shows when active workout is minimized)
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Active Workout Banner (when minimized) */}
+        {isWorkoutActive && isMinimized && currentExercise && (
+          <TouchableOpacity
+            style={[styles.activeBanner, { backgroundColor: accentColor + '15', borderColor: accentColor }]}
+            onPress={() => setIsMinimized(false)}
+          >
+            <View style={styles.bannerLeft}>
+              <View style={[styles.bannerPulse, { backgroundColor: accentColor }]} />
+              <View>
+                <Text style={[styles.bannerTitle, { color: accentColor }]}>
+                  WORKOUT IN PROGRESS
+                </Text>
+                <Text style={[styles.bannerSubtitle, { color: theme.colors.textSecondary }]}>
+                  {activeWorkout.workout?.title} — {currentExercise.name}
+                  {activeWorkout.isResting ? ` • Rest ${formatTime(activeWorkout.restTimer)}` : ''}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.bannerRight}>
+              <Ionicons name="chevron-up" size={20} color={accentColor} />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
@@ -558,6 +591,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  activeHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  minimizeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   activeTitle: {
     fontSize: 12,
     fontWeight: '700',
@@ -726,5 +773,39 @@ const styles = StyleSheet.create({
   },
   assistOptionText: {
     fontSize: 16,
+  },
+  // Active workout minimized banner
+  activeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  bannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  bannerPulse: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  bannerTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  bannerSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  bannerRight: {
+    paddingLeft: 12,
   },
 });
