@@ -115,10 +115,10 @@ export default function ProfileScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
-            Profile
+            Settings
           </Text>
           <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted }]}>
-            SETTINGS
+            PREFERENCES
           </Text>
         </View>
         
@@ -417,10 +417,10 @@ export default function ProfileScreen() {
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={[styles.appName, { color: theme.colors.textSecondary }]}>
-            COACH
+            APEX AI FITNESS
           </Text>
           <Text style={[styles.appVersion, { color: theme.colors.textMuted }]}>
-            AI Fitness System v1.0.0
+            v1.0.0
           </Text>
         </View>
         

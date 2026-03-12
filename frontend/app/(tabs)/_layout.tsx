@@ -109,10 +109,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'PROFILE',
+          title: 'SETTINGS',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.tabIconWrapper}>
-              <Ionicons name="person" size={22} color={color} />
+              <Ionicons name="settings-sharp" size={22} color={color} />
               {focused && <View style={[styles.activeDot, { backgroundColor: accentColor }]} />}
             </View>
           ),
