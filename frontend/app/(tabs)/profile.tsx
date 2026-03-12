@@ -12,9 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
+// Picker removed — using TextInput for height/weight
 import { useThemeStore, formatWeight, formatHeight } from '../../src/store/themeStore';
-import { WheelPicker } from '../../src/components/WheelPicker';
 import { useUserStore, CoachStyle } from '../../src/store/userStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import { ACCENT_PRESETS } from '../../src/constants/theme';
@@ -32,12 +31,11 @@ export default function ProfileScreen() {
   const [editGender, setEditGender] = useState<'male' | 'female'>(gender || 'male');
   const [pickerColor, setPickerColor] = useState(accentColor);
   
-  // Scroll wheel picker states
+  // Editable picker states
+  const [editHeightFt, setEditHeightFt] = useState('5');
+  const [editHeightIn, setEditHeightIn] = useState('10');
   const [pickerHeightCm, setPickerHeightCm] = useState(profile?.height || 178);
-  const [pickerHeightFt, setPickerHeightFt] = useState(5);
-  const [pickerHeightIn, setPickerHeightIn] = useState(10);
   const [pickerWeightKg, setPickerWeightKg] = useState(profile?.weight || 75);
-  const [pickerWeightLbs, setPickerWeightLbs] = useState(165);
   
   const openColorPicker = () => {
     setPickerColor(accentColor);
@@ -63,16 +61,14 @@ export default function ProfileScreen() {
     
     if (isImperial) {
       const totalInches = Math.round(heightCm / 2.54);
-      setPickerHeightFt(Math.floor(totalInches / 12));
-      setPickerHeightIn(totalInches % 12);
-      setPickerWeightLbs(Math.round(weightKg * 2.20462 / 5) * 5);
+      setEditHeightFt(Math.floor(totalInches / 12).toString());
+      setEditHeightIn((totalInches % 12).toString());
+      setEditWeight(Math.round(weightKg * 2.20462).toString());
     } else {
-      setPickerHeightCm(Math.round(heightCm));
-      setPickerWeightKg(Math.round(weightKg));
+      setEditHeight(heightCm.toString());
+      setEditWeight(weightKg.toString());
     }
     
-    setEditWeight(weightKg.toString());
-    setEditHeight(heightCm.toString());
     setShowEditProfile(true);
   };
 
@@ -83,12 +79,13 @@ export default function ProfileScreen() {
       let saveHeight: number;
       
       if (isImperial) {
-        // Convert imperial picker values back to metric for storage
-        saveHeight = Math.round((pickerHeightFt * 12 + pickerHeightIn) * 2.54);
-        saveWeight = Math.round(pickerWeightLbs / 2.20462 * 10) / 10;
+        const ft = parseInt(editHeightFt) || 5;
+        const inches = parseInt(editHeightIn) || 0;
+        saveHeight = Math.round((ft * 12 + inches) * 2.54);
+        saveWeight = Math.round((parseFloat(editWeight) || 165) / 2.20462 * 10) / 10;
       } else {
-        saveHeight = pickerHeightCm;
-        saveWeight = pickerWeightKg;
+        saveHeight = parseFloat(editHeight) || profile.height;
+        saveWeight = parseFloat(editWeight) || profile.weight;
       }
       
       setProfile({
@@ -709,90 +706,114 @@ export default function ProfileScreen() {
               </View>
             </View>
             
-            {/* Height & Weight Scroll Wheels */}
+            {/* Height & Weight Inputs */}
             {unitSystem === 'imperial' ? (
               <>
-                {/* Imperial Height: ft + in pickers */}
-                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, marginBottom: 4 }]}>
-                  Height (ft)
-                </Text>
-                <View style={styles.pickerRow}>
-                  <View style={[styles.pickerContainer, { backgroundColor: theme.colors.backgroundSecondary, borderColor: theme.colors.cardBorder }]}>
-                    <WheelPicker
-                      data={[3, 4, 5, 6, 7].map((ft) => ({ label: `${ft} ft`, value: ft }))}
-                      selectedValue={pickerHeightFt}
-                      onValueChange={setPickerHeightFt}
-                      selectedColor={theme.colors.textPrimary}
-                      textColor={theme.colors.textMuted}
-                      highlightColor={accentColor + '10'}
-                    />
-                  </View>
-                  <View style={[styles.pickerContainer, { backgroundColor: theme.colors.backgroundSecondary, borderColor: theme.colors.cardBorder }]}>
-                    <WheelPicker
-                      data={Array.from({ length: 12 }, (_, i) => ({ label: `${i} in`, value: i }))}
-                      selectedValue={pickerHeightIn}
-                      onValueChange={setPickerHeightIn}
-                      selectedColor={theme.colors.textPrimary}
-                      textColor={theme.colors.textMuted}
-                      highlightColor={accentColor + '10'}
-                    />
+                {/* Imperial Height: ft + in */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
+                    Height
+                  </Text>
+                  <View style={styles.pickerRow}>
+                    <View style={styles.imperialFieldGroup}>
+                      <TextInput
+                        style={[
+                          styles.imperialInput,
+                          { backgroundColor: theme.colors.backgroundSecondary, color: theme.colors.textPrimary, borderColor: theme.colors.cardBorder },
+                        ]}
+                        value={editHeightFt}
+                        onChangeText={setEditHeightFt}
+                        keyboardType="numeric"
+                        placeholder="5"
+                        placeholderTextColor={theme.colors.textMuted}
+                        maxLength={1}
+                      />
+                      <Text style={[styles.imperialUnitLabel, { color: theme.colors.textSecondary }]}>ft</Text>
+                    </View>
+                    <View style={styles.imperialFieldGroup}>
+                      <TextInput
+                        style={[
+                          styles.imperialInput,
+                          { backgroundColor: theme.colors.backgroundSecondary, color: theme.colors.textPrimary, borderColor: theme.colors.cardBorder },
+                        ]}
+                        value={editHeightIn}
+                        onChangeText={setEditHeightIn}
+                        keyboardType="numeric"
+                        placeholder="10"
+                        placeholderTextColor={theme.colors.textMuted}
+                        maxLength={2}
+                      />
+                      <Text style={[styles.imperialUnitLabel, { color: theme.colors.textSecondary }]}>in</Text>
+                    </View>
                   </View>
                 </View>
-                
-                {/* Imperial Weight: lbs picker */}
-                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, marginTop: 16, marginBottom: 4 }]}>
-                  Weight (lbs)
-                </Text>
-                <View style={[styles.pickerContainerFull, { backgroundColor: theme.colors.backgroundSecondary, borderColor: theme.colors.cardBorder }]}>
-                  <WheelPicker
-                    data={Array.from({ length: 65 }, (_, i) => {
-                      const lbs = 80 + i * 5;
-                      return { label: `${lbs} lbs`, value: lbs };
-                    })}
-                    selectedValue={pickerWeightLbs}
-                    onValueChange={setPickerWeightLbs}
-                    selectedColor={theme.colors.textPrimary}
-                    textColor={theme.colors.textMuted}
-                    highlightColor={accentColor + '10'}
-                  />
+
+                {/* Imperial Weight */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
+                    Weight
+                  </Text>
+                  <View style={styles.metricInputRow}>
+                    <TextInput
+                      style={[
+                        styles.metricInput,
+                        { backgroundColor: theme.colors.backgroundSecondary, color: theme.colors.textPrimary, borderColor: theme.colors.cardBorder },
+                      ]}
+                      value={editWeight}
+                      onChangeText={setEditWeight}
+                      keyboardType="numeric"
+                      placeholder="165"
+                      placeholderTextColor={theme.colors.textMuted}
+                      maxLength={4}
+                    />
+                    <Text style={[styles.unitLabel, { color: theme.colors.textSecondary }]}>lbs</Text>
+                  </View>
                 </View>
               </>
             ) : (
               <>
-                {/* Metric Height: cm picker */}
-                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, marginBottom: 4 }]}>
-                  Height (cm)
-                </Text>
-                <View style={[styles.pickerContainerFull, { backgroundColor: theme.colors.backgroundSecondary, borderColor: theme.colors.cardBorder }]}>
-                  <WheelPicker
-                    data={Array.from({ length: 81 }, (_, i) => {
-                      const cm = 140 + i;
-                      return { label: `${cm} cm`, value: cm };
-                    })}
-                    selectedValue={pickerHeightCm}
-                    onValueChange={setPickerHeightCm}
-                    selectedColor={theme.colors.textPrimary}
-                    textColor={theme.colors.textMuted}
-                    highlightColor={accentColor + '10'}
-                  />
+                {/* Metric Height */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
+                    Height
+                  </Text>
+                  <View style={styles.metricInputRow}>
+                    <TextInput
+                      style={[
+                        styles.metricInput,
+                        { backgroundColor: theme.colors.backgroundSecondary, color: theme.colors.textPrimary, borderColor: theme.colors.cardBorder },
+                      ]}
+                      value={editHeight}
+                      onChangeText={setEditHeight}
+                      keyboardType="numeric"
+                      placeholder="178"
+                      placeholderTextColor={theme.colors.textMuted}
+                      maxLength={3}
+                    />
+                    <Text style={[styles.unitLabel, { color: theme.colors.textSecondary }]}>cm</Text>
+                  </View>
                 </View>
-                
-                {/* Metric Weight: kg picker */}
-                <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, marginTop: 16, marginBottom: 4 }]}>
-                  Weight (kg)
-                </Text>
-                <View style={[styles.pickerContainerFull, { backgroundColor: theme.colors.backgroundSecondary, borderColor: theme.colors.cardBorder }]}>
-                  <WheelPicker
-                    data={Array.from({ length: 171 }, (_, i) => {
-                      const kg = 30 + i;
-                      return { label: `${kg} kg`, value: kg };
-                    })}
-                    selectedValue={pickerWeightKg}
-                    onValueChange={setPickerWeightKg}
-                    selectedColor={theme.colors.textPrimary}
-                    textColor={theme.colors.textMuted}
-                    highlightColor={accentColor + '10'}
-                  />
+
+                {/* Metric Weight */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
+                    Weight
+                  </Text>
+                  <View style={styles.metricInputRow}>
+                    <TextInput
+                      style={[
+                        styles.metricInput,
+                        { backgroundColor: theme.colors.backgroundSecondary, color: theme.colors.textPrimary, borderColor: theme.colors.cardBorder },
+                      ]}
+                      value={editWeight}
+                      onChangeText={setEditWeight}
+                      keyboardType="numeric"
+                      placeholder="75"
+                      placeholderTextColor={theme.colors.textMuted}
+                      maxLength={4}
+                    />
+                    <Text style={[styles.unitLabel, { color: theme.colors.textSecondary }]}>kg</Text>
+                  </View>
                 </View>
               </>
             )}
@@ -1156,25 +1177,49 @@ const styles = StyleSheet.create({
   },
   pickerRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 16,
+    alignItems: 'flex-start',
   },
-  pickerContainer: {
+  imperialFieldGroup: {
     flex: 1,
+    alignItems: 'center',
+  },
+  imperialInput: {
+    fontSize: 22,
+    fontWeight: '700',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 14,
     borderWidth: 0.5,
-    overflow: 'hidden',
-    height: 150,
-  },
-  pickerContainerFull: {
-    borderRadius: 14,
-    borderWidth: 0.5,
-    overflow: 'hidden',
-    height: 150,
-  },
-  picker: {
-    height: 150,
+    textAlign: 'center',
     width: '100%',
-    backgroundColor: 'transparent',
+  },
+  imperialUnitLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 6,
+    letterSpacing: 1,
+  },
+  metricInput: {
+    fontSize: 22,
+    fontWeight: '700',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    textAlign: 'center',
+    flex: 1,
+  },
+  unitLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    minWidth: 24,
+  },
+  metricInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   genderRow: {
     flexDirection: 'row',
