@@ -85,6 +85,10 @@ const INITIAL_MUSCLE_DATA: { [key: string]: { readiness: number; fatigue: number
   calves: { readiness: 85, fatigue: 15, hoursAgo: 72, exercises: ['Calf Raise'] },
   forearms_left: { readiness: 65, fatigue: 35, hoursAgo: 48, exercises: ['Bicep Curl'] },
   forearms_right: { readiness: 65, fatigue: 35, hoursAgo: 48, exercises: ['Bicep Curl'] },
+  obliques_left: { readiness: 70, fatigue: 30, hoursAgo: 24, exercises: ['Plank', 'Ab Crunch'] },
+  obliques_right: { readiness: 70, fatigue: 30, hoursAgo: 24, exercises: ['Plank', 'Ab Crunch'] },
+  adductors: { readiness: 82, fatigue: 18, hoursAgo: 96, exercises: ['Barbell Squat'] },
+  lower_back: { readiness: 58, fatigue: 42, hoursAgo: 48, exercises: ['Barbell Row', 'Deadlift'] },
 };
 
 // Initialize default muscle states with realistic varied readiness
