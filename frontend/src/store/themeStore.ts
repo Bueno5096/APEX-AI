@@ -17,7 +17,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   themeName: 'dark',
   theme: DARK_THEME,
   accentColor: DEFAULT_ACCENT_COLOR,
-  unitSystem: 'metric',
+  unitSystem: 'imperial',
   
   setTheme: async (name: ThemeName) => {
     const theme = name === 'dark' ? DARK_THEME : LIGHT_THEME;
@@ -60,7 +60,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 }));
 
 // Unit conversion helpers
-// Round to nearest 5 lbs for US gym plates (5 lb increments)
+// For gym exercises, round to nearest 5 lbs (plate increments)
 const roundToNearest5 = (lbs: number): number => Math.round(lbs / 5) * 5;
 
 export const convertWeight = (kg: number, toImperial: boolean): number => {
@@ -77,12 +77,21 @@ export const convertHeight = (cm: number, toImperial: boolean): { feet: number; 
   return cm;
 };
 
+// Display formatters — 1 decimal precision for body comp, whole numbers for gym
 export const formatWeight = (kg: number, isImperial: boolean): string => {
   if (isImperial) {
-    const lbs = Math.round(kg * 2.20462);
+    const lbs = Math.round(kg * 2.20462 * 10) / 10;
     return `${lbs} lbs`;
   }
   return `${kg} kg`;
+};
+
+export const formatWeightGym = (kg: number, isImperial: boolean): string => {
+  if (isImperial) {
+    const lbs = roundToNearest5(kg * 2.20462);
+    return `${lbs} lbs`;
+  }
+  return `${kg}kg`;
 };
 
 export const formatHeight = (cm: number, isImperial: boolean): string => {
@@ -94,3 +103,9 @@ export const formatHeight = (cm: number, isImperial: boolean): string => {
   }
   return `${cm} cm`;
 };
+
+// Raw conversion for input fields (1 decimal)
+export const kgToLbsDisplay = (kg: number): number => Math.round(kg * 2.20462 * 10) / 10;
+export const lbsToKgRaw = (lbs: number): number => Math.round(lbs * 0.453592 * 10) / 10;
+export const cmToInDisplay = (cm: number): number => Math.round(cm * 0.393701 * 10) / 10;
+export const inToCmRaw = (inches: number): number => Math.round(inches * 2.54 * 10) / 10;

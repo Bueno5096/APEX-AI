@@ -84,7 +84,7 @@ const SUGGESTED_PROMPTS = [
 ];
 
 export default function CoachScreen() {
-  const { theme, accentColor } = useThemeStore();
+  const { theme, accentColor, unitSystem } = useThemeStore();
   const { profile, settings, pendingCoachMessage, setPendingCoachMessage, gender } = useUserStore();
   const { recoveryData } = useHealthStore();
   const { todayWorkout } = useWorkoutStore();
@@ -268,6 +268,7 @@ export default function CoachScreen() {
             muscleReadiness: muscleReadinessContext,
             strengthProgress: strengthProgressContext,
             goalLayeringActive: hasActiveGoalLayeringPlan,
+            unitSystem: unitSystem,
           },
         }),
       });

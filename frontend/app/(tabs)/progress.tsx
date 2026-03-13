@@ -171,7 +171,7 @@ const GoalProgressCard = ({ goal, accentColor, theme }: { goal: any; accentColor
 
 // ─── Main Component ─────────────────────────────────────
 export default function ProgressScreen() {
-  const { theme, accentColor } = useThemeStore();
+  const { theme, accentColor, unitSystem } = useThemeStore();
   const { workoutHistory } = useWorkoutStore();
   const { recoveryData } = useHealthStore();
   const { profile, setPendingCoachMessage } = useUserStore();
@@ -406,7 +406,7 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
               <Text style={[styles.prExercise, { color: theme.colors.textPrimary }]}>{record.exercise}</Text>
               <Text style={[styles.prDate, { color: theme.colors.textMuted }]}>{formatDate(record.date)}</Text>
             </View>
-            <Text style={[styles.prWeight, { color: accentColor }]}>{record.weight}kg</Text>
+            <Text style={[styles.prWeight, { color: accentColor }]}>{unitSystem === 'imperial' ? `${Math.round(record.weight * 2.20462)} lbs` : `${record.weight}kg`}</Text>
           </View>
         </MetallicCard>
       ))}

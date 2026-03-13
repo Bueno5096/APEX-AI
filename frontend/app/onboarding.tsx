@@ -235,7 +235,7 @@ export default function OnboardingScreen() {
   const [textValue, setTextValue] = useState('');
   const [showSummary, setShowSummary] = useState(false);
   const [showLoading, setShowLoading] = useState(false);
-  const [unitSystem, setLocalUnitSystem] = useState<'metric' | 'imperial'>('metric');
+  const [unitSystem, setLocalUnitSystem] = useState<'metric' | 'imperial'>('imperial');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
   const [heightFt, setHeightFt] = useState('');

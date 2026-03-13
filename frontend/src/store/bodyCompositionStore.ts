@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type ActivityLevel = 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active' | 'athlete';
-export type UnitType = 'imperial' | 'metric';
 
 export interface Measurements {
   weight: number; // kg internally
@@ -13,7 +12,6 @@ export interface Measurements {
   waist: number; // cm
   hip: number; // cm (women only)
   activityLevel: ActivityLevel;
-  unit: UnitType;
 }
 
 export interface BodyCompResults {
@@ -60,7 +58,6 @@ const defaultMeasurements: Measurements = {
   waist: 85,
   hip: 95,
   activityLevel: 'moderately_active',
-  unit: 'metric',
 };
 
 // US Navy body fat formula (correct reciprocal form)

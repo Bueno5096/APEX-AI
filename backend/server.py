@@ -62,6 +62,7 @@ class ChatContext(BaseModel):
     muscleReadiness: Optional[List[Dict[str, Any]]] = None # Per-muscle recovery data
     strengthProgress: Optional[Dict[str, Any]] = None      # Gains, PRs, streak, workouts
     goalLayeringActive: Optional[bool] = False
+    unitSystem: Optional[str] = "imperial"                 # "imperial" or "metric"
 
 class ConversationMessage(BaseModel):
     role: str  # 'user' or 'coach'
@@ -147,6 +148,17 @@ def get_coach_system_prompt(style: str, context: Optional[ChatContext] = None) -
     workout_style = p.get('workoutLocation', 'Unknown')
     injuries = p.get('injuries') or 'None'
 
+    # ─── Determine unit system for display (must be before bc_block) ───
+    unit_sys = context.unitSystem if context and context.unitSystem else 'imperial'
+    if unit_sys == 'imperial':
+        unit_instruction = "Always refer to measurements in Imperial units: use lbs for weight, feet and inches for height (e.g. 5'10\"), and inches for circumference measurements."
+        weight_display = f"{round(weight_kg * 2.20462, 1)} lbs" if weight_kg else "Unknown"
+        height_display = f"{int(height_cm / 2.54 / 12)}'{round(height_cm / 2.54 % 12)}\"" if height_cm else "Unknown"
+    else:
+        unit_instruction = "Always refer to measurements in Metric units: use kg for weight, cm for height and circumference measurements."
+        weight_display = f"{weight_kg} kg" if weight_kg else "Unknown"
+        height_display = f"{height_cm} cm" if height_cm else "Unknown"
+
     # ─── Extract body composition data ───
     bc = context.bodyComposition if context and context.bodyComposition else None
     if bc and bc.get('hasCalculated'):
@@ -157,29 +169,42 @@ def get_coach_system_prompt(style: str, context: Optional[ChatContext] = None) -
         ffmi_val = bc.get('ffmi', 'Not yet measured')
         ffmi_cat = bc.get('ffmiCategory', '')
         tdee = bc.get('tdee', 'Not yet measured')
-        ideal_min = bc.get('idealWeightMinKg', '?')
-        ideal_max = bc.get('idealWeightMaxKg', '?')
+        # Display weights in user's unit
+        ideal_min_kg = bc.get('idealWeightMinKg', 0)
+        ideal_max_kg = bc.get('idealWeightMaxKg', 0)
+        lean_kg = bc.get('leanMassKg', 0)
+        fat_kg = bc.get('fatMassKg', 0)
+        if unit_sys == 'imperial':
+            ideal_range = f"{round(ideal_min_kg * 2.20462, 1)} lbs to {round(ideal_max_kg * 2.20462, 1)} lbs"
+            lean_display = f"{round(lean_kg * 2.20462, 1)} lbs"
+            fat_display = f"{round(fat_kg * 2.20462, 1)} lbs"
+        else:
+            ideal_range = f"{ideal_min_kg} kg to {ideal_max_kg} kg"
+            lean_display = f"{lean_kg} kg"
+            fat_display = f"{fat_kg} kg"
         m2f_ratio = bc.get('muscleToFatRatio', 'Not yet measured')
         m2f_cat = bc.get('muscleToFatCategory', '')
         last_measured = bc.get('lastUpdated', 'Unknown')
         bc_trend = bc.get('trend', 'Not enough data')
         bc_block = f"""
 THEIR PHYSICAL PROFILE:
-- Height: {height_cm} cm
-- Weight: {weight_kg} kg
+- Height: {height_display}
+- Weight: {weight_display}
 - Body Fat: {bf_pct}% ({bf_cat})
 - Lean BMI: {lean_bmi} ({lean_bmi_cat})
 - FFMI: {ffmi_val} ({ffmi_cat})
+- Lean Mass: {lean_display}
+- Fat Mass: {fat_display}
 - Muscle to Fat Ratio: {m2f_ratio} ({m2f_cat})
 - TDEE: {tdee} calories/day
-- Ideal Weight Range: {ideal_min} kg to {ideal_max} kg
+- Ideal Weight Range: {ideal_range}
 - Body composition trend: {bc_trend} over last 3 measurements
 - Last measured: {last_measured}"""
     else:
         bc_block = f"""
 THEIR PHYSICAL PROFILE:
-- Height: {height_cm} cm
-- Weight: {weight_kg} kg
+- Height: {height_display}
+- Weight: {weight_display}
 - Body Fat: Not yet measured (user has not completed body composition analysis)
 - Lean BMI: Not yet measured
 - FFMI: Not yet measured
@@ -291,6 +316,9 @@ STRENGTH PROGRESS THIS MONTH:
 {training_block}
 {muscle_block}
 {progress_block}{workout_block}{recovery_block}
+
+MEASUREMENT UNITS:
+- {unit_instruction}
 
 IMPORTANT RULES FOR YOUR RESPONSES:
 - Always reference the user's specific numbers — never give generic advice

@@ -28,7 +28,6 @@ import {
   cmToFtIn,
   ftInToCm,
   ActivityLevel,
-  UnitType,
 } from '../src/store/bodyCompositionStore';
 import { MetallicCard } from '../src/components/MetallicCard';
 import Constants from 'expo-constants';
@@ -166,13 +165,13 @@ const getBFPosition = (bf: number, gender: string) => {
 };
 
 export default function BodyCompositionScreen() {
-  const { theme, accentColor } = useThemeStore();
+  const { theme, accentColor, unitSystem, setUnitSystem } = useThemeStore();
   const { profile, gender } = useUserStore();
   const { secondaryGoal, coachSuggestionDismissed, dismissCoachSuggestion, hasActiveGoalLayeringPlan } = useGoalStore();
   const { measurements, results, history, hasCalculated, setMeasurements, setResults, saveEntry, loadData } = useBodyCompStore();
   const router = useRouter();
 
-  const [unit, setUnit] = useState<UnitType>(measurements.unit);
+  const isImperial = unitSystem === 'imperial';
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
   const [heightFt, setHeightFt] = useState('');
@@ -201,119 +200,79 @@ export default function BodyCompositionScreen() {
     loadData();
   }, []);
 
-  // Initialize inputs from stored measurements
+  // Initialize inputs from stored measurements (always metric internally)
+  // Re-converts whenever unitSystem changes globally
   useEffect(() => {
     const m = measurements;
-    const isImp = m.unit === 'imperial';
-    setUnit(m.unit);
-    setWeight(isImp ? String(kgToLbs(m.weight)) : String(m.weight));
-    if (isImp) {
+    if (isImperial) {
+      setWeight(m.weight ? String(kgToLbs(m.weight)) : '');
       const { ft, inches } = cmToFtIn(m.height);
       setHeightFt(String(ft));
       setHeightIn(String(inches));
-      setHeight(''); // not used in imperial
-    } else {
-      setHeight(String(m.height));
-      setHeightFt('');
-      setHeightIn('');
-    }
-    setAge(String(m.age));
-    setNeck(isImp ? String(cmToIn(m.neck)) : String(m.neck));
-    setWaist(isImp ? String(cmToIn(m.waist)) : String(m.waist));
-    setHip(isImp ? String(cmToIn(m.hip)) : String(m.hip));
-    setActivity(m.activityLevel);
-    if (m.gender) {
-      // already set from profile
-    }
-  }, [measurements]);
-
-  // Toggle unit and convert
-  const toggleUnit = (newUnit: UnitType) => {
-    if (newUnit === unit) return;
-    const w = parseFloat(weight) || 0;
-    const n = parseFloat(neck) || 0;
-    const wa = parseFloat(waist) || 0;
-    const hi = parseFloat(hip) || 0;
-
-    if (newUnit === 'imperial') {
-      setWeight(w ? String(kgToLbs(w)) : '');
-      // Convert cm height to ft/in
-      const hCm = parseFloat(height) || 0;
-      if (hCm) {
-        const { ft, inches } = cmToFtIn(hCm);
-        setHeightFt(String(ft));
-        setHeightIn(String(inches));
-      } else {
-        setHeightFt('');
-        setHeightIn('');
-      }
       setHeight('');
-      setNeck(n ? String(cmToIn(n)) : '');
-      setWaist(wa ? String(cmToIn(wa)) : '');
-      setHip(hi ? String(cmToIn(hi)) : '');
+      setNeck(m.neck ? String(cmToIn(m.neck)) : '');
+      setWaist(m.waist ? String(cmToIn(m.waist)) : '');
+      setHip(m.hip ? String(cmToIn(m.hip)) : '');
     } else {
-      setWeight(w ? String(lbsToKg(w)) : '');
-      // Convert ft/in to cm
-      const ft = parseInt(heightFt) || 0;
-      const inches = parseInt(heightIn) || 0;
-      if (ft || inches) {
-        setHeight(String(ftInToCm(ft, inches)));
-      } else {
-        setHeight('');
-      }
+      setWeight(m.weight ? String(m.weight) : '');
+      setHeight(m.height ? String(m.height) : '');
       setHeightFt('');
       setHeightIn('');
-      setNeck(n ? String(inToCm(n)) : '');
-      setWaist(wa ? String(inToCm(wa)) : '');
-      setHip(hi ? String(inToCm(hi)) : '');
+      setNeck(m.neck ? String(m.neck) : '');
+      setWaist(m.waist ? String(m.waist) : '');
+      setHip(m.hip ? String(m.hip) : '');
     }
-    setUnit(newUnit);
+    setAge(m.age ? String(m.age) : '');
+    setActivity(m.activityLevel);
+  }, [measurements, unitSystem]);
+
+  // Toggle unit — updates global store, useEffect above re-converts display values
+  const toggleUnit = (newUnit: 'metric' | 'imperial') => {
+    if (newUnit === unitSystem) return;
+    // Save current inputs to metric in store before switching
+    const currentMetric = inputsToMetric();
+    if (currentMetric) setMeasurements(currentMetric);
+    setUnitSystem(newUnit);
   };
 
-  // Calculate
-  const handleCalculate = () => {
+  // Helper: convert current display inputs to metric measurements object
+  const inputsToMetric = () => {
     const w = parseFloat(weight) || 0;
     const a = parseInt(age) || 0;
     const n = parseFloat(neck) || 0;
     const wa = parseFloat(waist) || 0;
     const hi = parseFloat(hip) || 0;
-
-    // Get height based on unit system
-    let hValue: number;
-    if (unit === 'imperial') {
+    let hCm: number;
+    if (isImperial) {
       const ft = parseInt(heightFt) || 0;
       const inches = parseInt(heightIn) || 0;
-      hValue = (ft * 12) + inches; // total inches
+      hCm = inToCm((ft * 12) + inches);
     } else {
-      hValue = parseFloat(height) || 0;
+      hCm = parseFloat(height) || 0;
     }
-
-    if (!w || !hValue || !a || !n || !wa) {
-      Alert.alert('Missing Info', 'Please fill in weight, height, age, neck, and waist measurements.');
-      return;
-    }
-    if (isFemale && !hi) {
-      Alert.alert('Missing Info', 'Please fill in hip measurement.');
-      return;
-    }
-
-    const wKg = unit === 'imperial' ? lbsToKg(w) : w;
-    const hCm = unit === 'imperial' ? inToCm(hValue) : hValue;
-    const nCm = unit === 'imperial' ? inToCm(n) : n;
-    const waCm = unit === 'imperial' ? inToCm(wa) : wa;
-    const hiCm = unit === 'imperial' ? inToCm(hi) : hi;
-
-    const m = {
-      weight: wKg,
+    return {
+      weight: isImperial ? lbsToKg(w) : w,
       height: hCm,
       age: a,
       gender: isFemale ? 'female' : 'male',
-      neck: nCm,
-      waist: waCm,
-      hip: hiCm,
+      neck: isImperial ? inToCm(n) : n,
+      waist: isImperial ? inToCm(wa) : wa,
+      hip: isImperial ? inToCm(hi) : hi,
       activityLevel: activity,
-      unit,
     };
+  };
+
+  // Calculate — always converts inputs to metric before running Navy formula
+  const handleCalculate = () => {
+    const m = inputsToMetric();
+    if (!m.weight || !m.height || !m.age || !m.neck || !m.waist) {
+      Alert.alert('Missing Info', 'Please fill in weight, height, age, neck, and waist measurements.');
+      return;
+    }
+    if (isFemale && !m.hip) {
+      Alert.alert('Missing Info', 'Please fill in hip measurement.');
+      return;
+    }
 
     setMeasurements(m);
     const r = calcAllResults(m);
@@ -367,7 +326,7 @@ export default function BodyCompositionScreen() {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const displayWeight = (kg: number) => unit === 'imperial' ? `${kgToLbs(kg)} lbs` : `${kg} kg`;
+  const displayWeight = (kg: number) => isImperial ? `${kgToLbs(kg)} lbs` : `${kg} kg`;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -409,24 +368,24 @@ export default function BodyCompositionScreen() {
           {/* Unit Toggle */}
           <View style={[styles.unitToggle, { backgroundColor: theme.colors.cardSecondary }]}>
             <TouchableOpacity
-              style={[styles.unitBtn, unit === 'imperial' && { backgroundColor: accentColor + '20', borderColor: accentColor }]}
+              style={[styles.unitBtn, isImperial && { backgroundColor: accentColor + '20', borderColor: accentColor }]}
               onPress={() => toggleUnit('imperial')}
             >
-              <Text style={[styles.unitBtnText, { color: unit === 'imperial' ? accentColor : theme.colors.textMuted }]}>Imperial (lbs/ft)</Text>
+              <Text style={[styles.unitBtnText, { color: isImperial ? accentColor : theme.colors.textMuted }]}>Imperial (lbs/ft)</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.unitBtn, unit === 'metric' && { backgroundColor: accentColor + '20', borderColor: accentColor }]}
+              style={[styles.unitBtn, !isImperial && { backgroundColor: accentColor + '20', borderColor: accentColor }]}
               onPress={() => toggleUnit('metric')}
             >
-              <Text style={[styles.unitBtnText, { color: unit === 'metric' ? accentColor : theme.colors.textMuted }]}>Metric (kg/cm)</Text>
+              <Text style={[styles.unitBtnText, { color: !isImperial ? accentColor : theme.colors.textMuted }]}>Metric (kg/cm)</Text>
             </TouchableOpacity>
           </View>
 
           {/* Weight row */}
-          <InputField label={`Weight (${unit === 'imperial' ? 'lbs' : 'kg'})`} value={weight} onChangeText={setWeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
+          <InputField label={`Weight (${isImperial ? 'lbs' : 'kg'})`} value={weight} onChangeText={setWeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
 
           {/* Height: ft/in in imperial, cm in metric */}
-          {unit === 'imperial' ? (
+          {isImperial ? (
             <HeightImperialInput ftValue={heightFt} inValue={heightIn} onChangeFt={setHeightFt} onChangeIn={setHeightIn} theme={theme} />
           ) : (
             <InputField label="Height (cm)" value={height} onChangeText={setHeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
@@ -434,10 +393,10 @@ export default function BodyCompositionScreen() {
 
           <InputField label="Age" value={age} onChangeText={setAge} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
           <View style={styles.inputsGrid}>
-            <InputField label={`Neck (${unit === 'imperial' ? 'in' : 'cm'})`} value={neck} onChangeText={setNeck} placeholder="0" infoText="Measure around the narrowest part of your neck" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
-            <InputField label={`Waist (${unit === 'imperial' ? 'in' : 'cm'})`} value={waist} onChangeText={setWaist} placeholder="0" infoText="Measure around your navel at its widest point" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
+            <InputField label={`Neck (${isImperial ? 'in' : 'cm'})`} value={neck} onChangeText={setNeck} placeholder="0" infoText="Measure around the narrowest part of your neck" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
+            <InputField label={`Waist (${isImperial ? 'in' : 'cm'})`} value={waist} onChangeText={setWaist} placeholder="0" infoText="Measure around your navel at its widest point" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
           </View>
-          <InputField label={`Hip (${unit === 'imperial' ? 'in' : 'cm'})`} value={hip} onChangeText={setHip} placeholder="0" show={isFemale} infoText="Measure around the widest part of your hips" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
+          <InputField label={`Hip (${isImperial ? 'in' : 'cm'})`} value={hip} onChangeText={setHip} placeholder="0" show={isFemale} infoText="Measure around the widest part of your hips" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
 
           {/* Activity Level */}
           <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, marginTop: 12 }]}>Activity Level</Text>
