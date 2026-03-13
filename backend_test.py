@@ -11,7 +11,7 @@ import os
 from typing import Dict, Any, List
 
 # Backend URL from frontend .env
-BACKEND_URL = "https://draggable-fitness-ui.preview.emergentagent.com"
+BACKEND_URL = "https://smart-workout-ai-14.preview.emergentagent.com"
 
 class Colors:
     GREEN = '\033[92m'

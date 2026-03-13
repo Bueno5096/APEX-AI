@@ -430,15 +430,14 @@ async def coach_chat(request: ChatRequest):
             raise HTTPException(status_code=500, detail="LLM API key not configured")
         
         # Build conversation history from frontend (preferred) or fallback to DB
-        history_context = ""
+        llm_messages = [{"role": "system", "content": system_prompt}]
+        
         if request.conversation_history and len(request.conversation_history) > 0:
-            # Use conversation history sent directly from the frontend
-            history_context = "\n\n--- CONVERSATION HISTORY (remember this context) ---"
-            for msg in request.conversation_history[-20:]:  # Last 20 messages
-                role = "User" if msg.role == 'user' else "Coach"
-                history_context += f"\n{role}: {msg.content}"
-            history_context += "\n--- END OF HISTORY ---"
-            logger.info(f"Using frontend conversation history: {len(request.conversation_history)} messages")
+            # Build proper alternating messages for the LLM
+            for msg in request.conversation_history[-20:]:
+                role = "user" if msg.role == "user" else "assistant"
+                llm_messages.append({"role": role, "content": msg.content})
+            logger.info(f"Using frontend conversation history: {len(request.conversation_history)} messages in proper format")
         else:
             # Fallback: Load previous messages from database
             previous_messages = await db.chat_messages.find(
@@ -446,29 +445,28 @@ async def coach_chat(request: ChatRequest):
             ).sort("timestamp", -1).limit(20).to_list(20)
             
             if previous_messages:
-                history_context = "\n\n--- CONVERSATION HISTORY (remember this context) ---"
                 for msg in reversed(previous_messages):
-                    role = "User" if msg['role'] == 'user' else "Coach"
-                    history_context += f"\n{role}: {msg['content']}"
-                history_context += "\n--- END OF HISTORY ---"
-                logger.info(f"Using DB conversation history: {len(previous_messages)} messages")
+                    role = "user" if msg['role'] == 'user' else "assistant"
+                    llm_messages.append({"role": role, "content": msg['content']})
+                logger.info(f"Using DB conversation history: {len(previous_messages)} messages in proper format")
         
-        # Initialize chat with full system prompt including history
-        full_system_prompt = system_prompt + history_context
+        # Add the current user message
+        llm_messages.append({"role": "user", "content": request.message})
         
-        chat = LlmChat(
+        # Call litellm directly with proper messages array for full conversation context
+        import litellm
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            raise HTTPException(status_code=500, detail="LLM API key not configured")
+        
+        llm_response = await litellm.acompletion(
+            model="anthropic/claude-sonnet-4-6",
+            messages=llm_messages,
             api_key=api_key,
-            session_id=session_id,
-            system_message=full_system_prompt
+            max_tokens=1024,
         )
         
-        chat.with_model("anthropic", "claude-sonnet-4-6")
-        
-        # Create user message
-        user_message = UserMessage(text=request.message)
-        
-        # Send message and get response
-        response = await chat.send_message(user_message)
+        response = llm_response.choices[0].message.content
         
         # Parse actions from response if present
         actions = None

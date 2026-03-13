@@ -79,9 +79,15 @@ const SUGGESTED_PROMPTS = [
   'What workout should I do today?',
   'Analyze my recovery',
   'Help me modify my workout',
-  'Nutrition tips for muscle gain',
   'How can I improve my sleep?',
   'Am I overtraining?',
+];
+
+const QUICK_ACTIONS = [
+  { label: 'Swap an exercise', icon: 'swap-horizontal' as const, prompt: 'Swap the weakest exercise in my current workout for a better alternative based on my muscle readiness.' },
+  { label: 'Something hurts', icon: 'bandage' as const, prompt: 'Something hurts. Can you modify my workout to avoid aggravating it and suggest alternatives?' },
+  { label: 'Short on time', icon: 'timer' as const, prompt: 'I\'m short on time today. Can you cut my workout down to the most essential exercises in 30 minutes?' },
+  { label: 'Make it harder', icon: 'flame' as const, prompt: 'Make my current workout harder — increase the intensity, volume, or difficulty.' },
 ];
 
 export default function CoachScreen() {
@@ -142,7 +148,7 @@ export default function CoachScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://draggable-fitness-ui.preview.emergentagent.com';
+      || 'https://smart-workout-ai-14.preview.emergentagent.com';
     return backendUrl;
   };
   
@@ -163,9 +169,10 @@ export default function CoachScreen() {
     setIsLoading(true);
     
     try {
-      // Build conversation history from all messages (skip the initial welcome)
-      // Send last 20 messages for context
-      const conversationHistory = updatedMessages
+      // Build conversation history from PREVIOUS messages (before the new user message).
+      // The backend appends request.message separately, so we must NOT include the
+      // new user message here to avoid duplication.
+      const conversationHistory = messages
         .slice(-20)
         .map((msg) => ({
           role: msg.role,
@@ -426,14 +433,14 @@ export default function CoachScreen() {
   };
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: theme.colors.divider }]}>
+        <View style={[styles.header]}>
           <View style={styles.headerLeft}>
             <View style={[styles.statusDot, { backgroundColor: accentColor }]} />
             <Text style={[styles.headerTitle, { color: accentColor }]}>COACH</Text>
@@ -457,8 +464,8 @@ export default function CoachScreen() {
                 style={[
                   styles.messageBubble,
                   message.role === 'user'
-                    ? [styles.userMessage, { backgroundColor: theme.colors.cardSecondary, borderColor: theme.colors.cardBorder }]
-                    : [styles.coachMessage, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderLeftColor: accentColor + '30' }],
+                    ? styles.userMessage
+                    : styles.coachMessage,
                 ]}
               >
                 {message.role === 'coach' && (
@@ -467,16 +474,13 @@ export default function CoachScreen() {
                   </View>
                 )}
                 <Text
-                  style={[
-                    styles.messageText,
-                    { color: theme.colors.textPrimary },
-                  ]}
+                  style={styles.messageText}
                 >
                   {message.content}
                 </Text>
               </View>
               {message.role === 'coach' && message.actions && message.actions.length > 0 && (
-                <View style={[styles.actionConfirmCard, { backgroundColor: accentColor + '10', borderColor: accentColor + '30' }]}>
+                <View style={styles.actionConfirmCard}>
                   <View style={styles.actionConfirmHeader}>
                     <Ionicons name="checkmark-circle" size={18} color={accentColor} />
                     <Text style={[styles.actionConfirmTitle, { color: accentColor }]}>WORKOUT UPDATED</Text>
@@ -485,21 +489,21 @@ export default function CoachScreen() {
                     <View key={i} style={styles.actionConfirmItem}>
                       {action.type === 'swap_exercise' && (
                         <>
-                          <Text style={[styles.actionConfirmDetail, { color: theme.colors.textMuted }]}>Removed: {action.exercise_name}</Text>
-                          <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>Added: {action.new_exercise_name} {action.new_sets}x{action.new_reps}</Text>
+                          <Text style={styles.actionConfirmDetail}>Removed: {action.exercise_name}</Text>
+                          <Text style={styles.actionConfirmDetail}>Added: {action.new_exercise_name} {action.new_sets}x{action.new_reps}</Text>
                         </>
                       )}
                       {action.type === 'modify_exercise' && (
-                        <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>Modified: {action.exercise_name} → {action.new_sets ? `${action.new_sets} sets` : ''}{action.new_reps ? ` x ${action.new_reps}` : ''}{action.new_weight ? ` @ ${unitSystem === 'imperial' ? `${Math.round(action.new_weight * 2.20462)} lbs` : `${action.new_weight}kg`}` : ''}</Text>
+                        <Text style={styles.actionConfirmDetail}>Modified: {action.exercise_name} → {action.new_sets ? `${action.new_sets} sets` : ''}{action.new_reps ? ` x ${action.new_reps}` : ''}{action.new_weight ? ` @ ${unitSystem === 'imperial' ? `${Math.round(action.new_weight * 2.20462)} lbs` : `${action.new_weight}kg`}` : ''}</Text>
                       )}
                       {action.type === 'set_workout' && (
-                        <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>New plan: {action.title || action.workout_type || 'Custom'} workout</Text>
+                        <Text style={styles.actionConfirmDetail}>New plan: {action.title || action.workout_type || 'Custom'} workout</Text>
                       )}
                       {action.type === 'skip_exercise' && (
-                        <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>Skipped: {action.exercise_name}</Text>
+                        <Text style={styles.actionConfirmDetail}>Skipped: {action.exercise_name}</Text>
                       )}
                       {action.type === 'adjust_rest' && (
-                        <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>Rest time → {action.new_rest_seconds}s</Text>
+                        <Text style={styles.actionConfirmDetail}>Rest time → {action.new_rest_seconds}s</Text>
                       )}
                     </View>
                   ))}
@@ -515,7 +519,7 @@ export default function CoachScreen() {
               )}
               {message.role === 'coach' && index > 0 && index === messages.length - 1 && !isLoading && (
                 <TouchableOpacity
-                  style={[styles.explainMoreChip, { borderColor: accentColor + '40', backgroundColor: theme.colors.card }]}
+                  style={[styles.explainMoreChip, { borderColor: accentColor + '40' }]}
                   onPress={() => sendMessage('Explain more about that')}
                   activeOpacity={0.7}
                 >
@@ -529,14 +533,36 @@ export default function CoachScreen() {
           ))}
           
           {isLoading && (
-            <View style={[styles.loadingBubble, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            <View style={styles.loadingBubble}>
               <ActivityIndicator size="small" color={accentColor} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Coach is thinking...</Text>
+              <Text style={styles.loadingText}>Coach is thinking...</Text>
             </View>
           )}
         </ScrollView>
         
-        {/* Suggested Prompts */}
+        {/* Quick Action Chips — always visible */}
+        <View style={styles.quickActionsContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickActionsContent}
+          >
+            {QUICK_ACTIONS.map((action, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.quickActionChip, { borderColor: accentColor + '30' }]}
+                onPress={() => sendMessage(action.prompt)}
+                activeOpacity={0.7}
+                disabled={isLoading}
+              >
+                <Ionicons name={action.icon} size={14} color={accentColor} />
+                <Text style={[styles.quickActionText, { color: accentColor }]}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Suggested Prompts — show only at start */}
         {messages.length <= 2 && (
           <View style={styles.suggestionsContainer}>
             <ScrollView
@@ -547,11 +573,11 @@ export default function CoachScreen() {
               {SUGGESTED_PROMPTS.map((prompt, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={[styles.suggestionChip, { borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card }]}
+                  style={styles.suggestionChip}
                   onPress={() => sendMessage(prompt)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.suggestionText, { color: theme.colors.textSecondary }]}>{prompt}</Text>
+                  <Text style={styles.suggestionText}>{prompt}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -560,7 +586,7 @@ export default function CoachScreen() {
         
         {/* Input Bar - floating pill */}
         <View style={styles.inputWrapper}>
-          <View style={[styles.inputContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+          <View style={styles.inputContainer}>
             {inputMode === 'voice' && isListening ? (
               <View style={styles.voiceContainer}>
                 <View style={styles.waveformContainer}>
@@ -586,9 +612,9 @@ export default function CoachScreen() {
               </View>
             ) : (
               <TextInput
-                style={[styles.input, { color: theme.colors.textPrimary }]}
+                style={styles.input}
                 placeholder="Ask Coach anything..."
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor="#555555"
                 value={inputText}
                 onChangeText={setInputText}
                 multiline
@@ -608,7 +634,7 @@ export default function CoachScreen() {
                 <Ionicons
                   name={ttsEnabled ? 'volume-high' : 'volume-mute'}
                   size={18}
-                  color={ttsEnabled ? accentColor : theme.colors.textMuted}
+                  color={ttsEnabled ? accentColor : '#555555'}
                 />
               </TouchableOpacity>
 
@@ -622,14 +648,14 @@ export default function CoachScreen() {
                 <Ionicons
                   name={isListening ? 'stop' : 'mic'}
                   size={18}
-                  color={isListening ? accentColor : theme.colors.textMuted}
+                  color={isListening ? accentColor : '#555555'}
                 />
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  { backgroundColor: inputText.trim() ? accentColor : theme.colors.metallic },
+                  { backgroundColor: inputText.trim() ? accentColor : '#2a2a2a' },
                 ]}
                 onPress={() => sendMessage(inputText)}
                 disabled={!inputText.trim() || isLoading}
@@ -720,6 +746,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 22,
+    color: '#ffffff',
   },
   loadingBubble: {
     flexDirection: 'row',
@@ -737,11 +764,36 @@ const styles = StyleSheet.create({
     color: '#8a8a8a',
   },
   suggestionsContainer: {
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   suggestionsContent: {
     paddingHorizontal: 20,
     gap: 8,
+  },
+  quickActionsContainer: {
+    paddingTop: 8,
+    paddingBottom: 4,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#1a1a1a',
+  },
+  quickActionsContent: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  quickActionChip: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 50,
+    borderWidth: 0.5,
+    backgroundColor: '#0a0a0a',
+    marginRight: 4,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
   },
   suggestionChip: {
     paddingHorizontal: 16,
@@ -865,9 +917,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginLeft: 4,
     marginBottom: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: '#c0c0c0',
+    backgroundColor: '#111111',
     overflow: 'hidden' as const,
+    padding: 14,
   },
   actionConfirmHeader: {
     flexDirection: 'row' as const,
@@ -890,6 +945,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500' as const,
     lineHeight: 20,
+    color: '#e0e0e0',
   },
   viewWorkoutLink: {
     flexDirection: 'row' as const,

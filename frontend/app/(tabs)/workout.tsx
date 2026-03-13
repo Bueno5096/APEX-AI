@@ -74,7 +74,7 @@ export default function WorkoutScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://draggable-fitness-ui.preview.emergentagent.com';
+      || 'https://smart-workout-ai-14.preview.emergentagent.com';
     return backendUrl;
   };
   
