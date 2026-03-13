@@ -11,7 +11,7 @@ import sys
 from datetime import datetime
 
 # Base URL from environment
-BASE_URL = "https://coach-context-v1.preview.emergentagent.com"
+BASE_URL = "https://draggable-fitness-ui.preview.emergentagent.com"
 
 class WorkoutActionsTester:
     def __init__(self):

@@ -11,7 +11,7 @@ import sys
 from typing import Dict, Any
 
 # Backend URL from environment
-BACKEND_URL = "https://coach-context-v1.preview.emergentagent.com"
+BACKEND_URL = "https://draggable-fitness-ui.preview.emergentagent.com"
 
 class GoalLayeringTester:
     def __init__(self):

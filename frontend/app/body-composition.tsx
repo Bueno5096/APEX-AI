@@ -9,6 +9,8 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +36,39 @@ const getBackendUrl = () => {
   if (extra?.EXPO_BACKEND_URL) return extra.EXPO_BACKEND_URL;
   return '';
 };
+
+// ─── Input Field Component (MUST be outside main component to prevent keyboard dismissal) ───
+const InputField = React.memo(({ label, value, onChangeText, placeholder, infoText, show = true, tooltipField, setTooltipField, theme }: {
+  label: string; value: string; onChangeText: (t: string) => void; placeholder: string;
+  infoText?: string; show?: boolean; tooltipField: string | null; setTooltipField: (f: string | null) => void; theme: any;
+}) => {
+  if (!show) return null;
+  return (
+    <View style={styles.inputGroup}>
+      <View style={styles.inputLabelRow}>
+        <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
+        {infoText && (
+          <TouchableOpacity onPress={() => setTooltipField(tooltipField === label ? null : label)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="information-circle-outline" size={16} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+      {tooltipField === label && infoText && (
+        <View style={[styles.tooltip, { backgroundColor: theme.colors.cardSecondary, borderColor: theme.colors.cardBorder }]}>
+          <Text style={[styles.tooltipText, { color: theme.colors.textSecondary }]}>{infoText}</Text>
+        </View>
+      )}
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, color: theme.colors.textPrimary }]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={theme.colors.textMuted}
+        keyboardType="numeric"
+      />
+    </View>
+  );
+});
 
 const ACTIVITY_OPTIONS: { key: ActivityLevel; label: string }[] = [
   { key: 'sedentary', label: 'Sedentary' },
@@ -254,41 +289,10 @@ export default function BodyCompositionScreen() {
 
   const displayWeight = (kg: number) => unit === 'imperial' ? `${kgToLbs(kg)} lbs` : `${kg} kg`;
 
-  // Input field component
-  const InputField = ({ label, value, onChangeText, placeholder, infoText, show = true }: {
-    label: string; value: string; onChangeText: (t: string) => void; placeholder: string; infoText?: string; show?: boolean;
-  }) => {
-    if (!show) return null;
-    return (
-      <View style={styles.inputGroup}>
-        <View style={styles.inputLabelRow}>
-          <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
-          {infoText && (
-            <TouchableOpacity onPress={() => setTooltipField(tooltipField === label ? null : label)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="information-circle-outline" size={16} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-        {tooltipField === label && infoText && (
-          <View style={[styles.tooltip, { backgroundColor: theme.colors.cardSecondary, borderColor: theme.colors.cardBorder }]}>
-            <Text style={[styles.tooltipText, { color: theme.colors.textSecondary }]}>{infoText}</Text>
-          </View>
-        )}
-        <TextInput
-          style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, color: theme.colors.textPrimary }]}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={theme.colors.textMuted}
-          keyboardType="numeric"
-        />
-      </View>
-    );
-  };
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -339,15 +343,15 @@ export default function BodyCompositionScreen() {
           </View>
 
           <View style={styles.inputsGrid}>
-            <InputField label={`Weight (${unit === 'imperial' ? 'lbs' : 'kg'})`} value={weight} onChangeText={setWeight} placeholder="0" />
-            <InputField label={`Height (${unit === 'imperial' ? 'in' : 'cm'})`} value={height} onChangeText={setHeight} placeholder="0" />
+            <InputField label={`Weight (${unit === 'imperial' ? 'lbs' : 'kg'})`} value={weight} onChangeText={setWeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
+            <InputField label={`Height (${unit === 'imperial' ? 'in' : 'cm'})`} value={height} onChangeText={setHeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
           </View>
-          <InputField label="Age" value={age} onChangeText={setAge} placeholder="0" />
+          <InputField label="Age" value={age} onChangeText={setAge} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
           <View style={styles.inputsGrid}>
-            <InputField label={`Neck (${unit === 'imperial' ? 'in' : 'cm'})`} value={neck} onChangeText={setNeck} placeholder="0" infoText="Measure around the narrowest part of your neck" />
-            <InputField label={`Waist (${unit === 'imperial' ? 'in' : 'cm'})`} value={waist} onChangeText={setWaist} placeholder="0" infoText="Measure around your navel at its widest point" />
+            <InputField label={`Neck (${unit === 'imperial' ? 'in' : 'cm'})`} value={neck} onChangeText={setNeck} placeholder="0" infoText="Measure around the narrowest part of your neck" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
+            <InputField label={`Waist (${unit === 'imperial' ? 'in' : 'cm'})`} value={waist} onChangeText={setWaist} placeholder="0" infoText="Measure around your navel at its widest point" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
           </View>
-          <InputField label={`Hip (${unit === 'imperial' ? 'in' : 'cm'})`} value={hip} onChangeText={setHip} placeholder="0" show={isFemale} infoText="Measure around the widest part of your hips" />
+          <InputField label={`Hip (${unit === 'imperial' ? 'in' : 'cm'})`} value={hip} onChangeText={setHip} placeholder="0" show={isFemale} infoText="Measure around the widest part of your hips" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
 
           {/* Activity Level */}
           <Text style={[styles.inputLabel, { color: theme.colors.textSecondary, marginTop: 12 }]}>Activity Level</Text>
@@ -614,6 +618,7 @@ export default function BodyCompositionScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

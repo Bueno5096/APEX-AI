@@ -8,7 +8,7 @@ import aiohttp
 import json
 
 # Backend URL from environment
-BACKEND_URL = "https://coach-context-v1.preview.emergentagent.com"
+BACKEND_URL = "https://draggable-fitness-ui.preview.emergentagent.com"
 
 async def debug_latest_response():
     """Debug the latest secondary goal response that failed"""
