@@ -18,9 +18,10 @@ export interface Measurements {
 
 export interface BodyCompResults {
   bodyFatPercent: number;
+  bodyFatWarning: string | null;
   leanMassKg: number;
   fatMassKg: number;
-  bmi: number;
+  bmi: number; // Lean Mass Adjusted BMI
   ffmi: number;
   normalizedFFMI: number;
   tdee: number;
@@ -62,17 +63,38 @@ const defaultMeasurements: Measurements = {
   unit: 'metric',
 };
 
-// US Navy body fat formula
-export const calcBodyFat = (m: Measurements): number => {
+// US Navy body fat formula (correct reciprocal form)
+// All measurements MUST be in centimeters before calling this function
+export const calcBodyFat = (m: Measurements): { percent: number; warning: string | null } => {
   const { waist, neck, height, hip, gender } = m;
-  if (waist <= 0 || neck <= 0 || height <= 0) return 0;
+  if (waist <= 0 || neck <= 0 || height <= 0) return { percent: 0, warning: null };
+
+  let bf: number;
   if (gender === 'female') {
-    if (hip <= 0) return 0;
-    const bf = 163.205 * Math.log10(waist + hip - neck) - 97.684 * Math.log10(height) - 78.387;
-    return Math.max(Math.min(Math.round(bf * 10) / 10, 50), 3);
+    if (hip <= 0) return { percent: 0, warning: null };
+    // Women: BF% = 495 / (1.29579 - 0.35004 × log10(waist + hip - neck) + 0.22100 × log10(height)) - 450
+    const denominator = 1.29579 - 0.35004 * Math.log10(waist + hip - neck) + 0.22100 * Math.log10(height);
+    bf = (495 / denominator) - 450;
+  } else {
+    // Men: BF% = 495 / (1.0324 - 0.19077 × log10(waist - neck) + 0.15456 × log10(height)) - 450
+    const denominator = 1.0324 - 0.19077 * Math.log10(waist - neck) + 0.15456 * Math.log10(height);
+    bf = (495 / denominator) - 450;
   }
-  const bf = 86.010 * Math.log10(waist - neck) - 70.041 * Math.log10(height) + 36.76;
-  return Math.max(Math.min(Math.round(bf * 10) / 10, 50), 3);
+
+  // Round to one decimal place
+  bf = Math.round(bf * 10) / 10;
+
+  // Generate warnings for extreme values
+  let warning: string | null = null;
+  if (gender === 'male' && bf < 2) {
+    warning = 'This result seems unusually low — please double check your measurements';
+  } else if (gender === 'female' && bf < 10) {
+    warning = 'This result seems unusually low — please double check your measurements';
+  } else if (bf > 60) {
+    warning = 'This result seems unusually high — please double check your measurements';
+  }
+
+  return { percent: bf, warning };
 };
 
 export const calcBMR = (weight: number, height: number, age: number, gender: string): number => {
@@ -109,11 +131,16 @@ export const calcIdealWeight = (heightCm: number, gender: string, ffmi: number):
 };
 
 export const calcAllResults = (m: Measurements): BodyCompResults => {
-  const bf = calcBodyFat(m);
+  const bfResult = calcBodyFat(m);
+  const bf = bfResult.percent;
   const leanMassKg = Math.round(m.weight * (1 - bf / 100) * 10) / 10;
   const fatMassKg = Math.round(m.weight * (bf / 100) * 10) / 10;
   const heightM = m.height / 100;
-  const bmi = Math.round((m.weight / (heightM * heightM)) * 10) / 10;
+
+  // Lean Mass Adjusted BMI: Lean Body Mass / height²
+  // This is far more accurate than traditional BMI for anyone who trains
+  const bmi = Math.round((leanMassKg / (heightM * heightM)) * 10) / 10;
+
   const ffmi = Math.round((leanMassKg / (heightM * heightM)) * 10) / 10;
   const normalizedFFMI = Math.round((ffmi + 6.1 * (1.8 - heightM)) * 10) / 10;
   const bmr = calcBMR(m.weight, m.height, m.age, m.gender);
@@ -123,6 +150,7 @@ export const calcAllResults = (m: Measurements): BodyCompResults => {
 
   return {
     bodyFatPercent: bf,
+    bodyFatWarning: bfResult.warning,
     leanMassKg,
     fatMassKg,
     bmi,

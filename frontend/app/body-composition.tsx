@@ -142,11 +142,14 @@ const getFFMICategory = (ffmi: number) => {
   return 'Exceeds Natural';
 };
 
+// Lean Mass Adjusted BMI categories
 const getBMICategory = (bmi: number) => {
-  if (bmi < 18.5) return 'Underweight';
-  if (bmi < 25) return 'Normal';
-  if (bmi < 30) return 'Overweight';
-  return 'Obese';
+  if (bmi < 14) return 'Significantly Undermuscled';
+  if (bmi < 17) return 'Undermuscled';
+  if (bmi < 20) return 'Normal';
+  if (bmi < 23) return 'Athletic';
+  if (bmi < 26) return 'Very Athletic';
+  return 'Elite Athletic';
 };
 
 const getMFRCategory = (r: number) => {
@@ -469,6 +472,13 @@ export default function BodyCompositionScreen() {
               </View>
               <Text style={[styles.bigValue, { color: theme.colors.textPrimary }]}>{results.bodyFatPercent}%</Text>
               <Text style={[styles.categoryLabel, { color: accentColor }]}>{getBFCategory(results.bodyFatPercent, gender)}</Text>
+              {/* Warning for extreme values */}
+              {results.bodyFatWarning && (
+                <View style={[styles.warningBanner, { backgroundColor: '#F4433620', borderColor: '#F44336' }]}>
+                  <Ionicons name="warning" size={16} color="#F44336" />
+                  <Text style={[styles.warningText, { color: '#F44336' }]}>{results.bodyFatWarning}</Text>
+                </View>
+              )}
               {/* Gradient zone bar */}
               <View style={styles.zoneBar}>
                 <View style={[styles.zone, { flex: 1, backgroundColor: '#4A90D9' }]} />
@@ -519,14 +529,17 @@ export default function BodyCompositionScreen() {
               <Text style={[styles.ffmiNote, { color: theme.colors.textMuted }]}>Most natural athletes peak around 22-25</Text>
             </MetallicCard>
 
-            {/* BMI Card */}
+            {/* Lean BMI Card */}
             <MetallicCard style={styles.resultCard} delay={160}>
               <View style={styles.resultHeader}>
                 <Ionicons name="speedometer" size={22} color={accentColor} />
-                <Text style={[styles.resultTitle, { color: theme.colors.textMuted }]}>BMI</Text>
+                <Text style={[styles.resultTitle, { color: theme.colors.textMuted }]}>LEAN BMI</Text>
               </View>
               <Text style={[styles.bigValue, { color: theme.colors.textPrimary }]}>{results.bmi}</Text>
               <Text style={[styles.categoryLabel, { color: accentColor }]}>{getBMICategory(results.bmi)}</Text>
+              <Text style={[styles.leanBmiNote, { color: theme.colors.textMuted }]}>
+                Unlike traditional BMI, this calculation is adjusted for your actual muscle mass — giving a far more accurate assessment of your body composition
+              </Text>
             </MetallicCard>
 
             {/* Lean Mass Card */}
@@ -749,6 +762,11 @@ const styles = StyleSheet.create({
   resultTitle: { fontSize: 12, fontWeight: '600', letterSpacing: 1.5 },
   bigValue: { fontSize: 36, fontWeight: '700', letterSpacing: -1, textAlign: 'center' },
   categoryLabel: { fontSize: 14, fontWeight: '600', textAlign: 'center', marginTop: 2 },
+  // Warning banner for extreme BF values
+  warningBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, borderWidth: 1, marginTop: 10 },
+  warningText: { fontSize: 12, fontWeight: '500', flex: 1, lineHeight: 18 },
+  // Lean BMI note
+  leanBmiNote: { fontSize: 12, textAlign: 'center', marginTop: 10, fontStyle: 'italic', lineHeight: 18, paddingHorizontal: 8 },
   // BF gradient bar
   zoneBar: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', marginTop: 16, position: 'relative' },
   zone: { height: '100%' },
