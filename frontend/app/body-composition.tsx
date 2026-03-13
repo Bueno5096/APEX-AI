@@ -25,6 +25,8 @@ import {
   lbsToKg,
   cmToIn,
   inToCm,
+  cmToFtIn,
+  ftInToCm,
   ActivityLevel,
   UnitType,
 } from '../src/store/bodyCompositionStore';
@@ -66,6 +68,43 @@ const InputField = React.memo(({ label, value, onChangeText, placeholder, infoTe
         placeholderTextColor={theme.colors.textMuted}
         keyboardType="numeric"
       />
+    </View>
+  );
+});
+
+// ─── Height Imperial Input (ft + in) ───
+const HeightImperialInput = React.memo(({ ftValue, inValue, onChangeFt, onChangeIn, theme }: {
+  ftValue: string; inValue: string; onChangeFt: (t: string) => void; onChangeIn: (t: string) => void; theme: any;
+}) => {
+  return (
+    <View style={styles.inputGroup}>
+      <View style={styles.inputLabelRow}>
+        <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>Height (ft / in)</Text>
+      </View>
+      <View style={styles.ftInRow}>
+        <View style={styles.ftInField}>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, color: theme.colors.textPrimary }]}
+            value={ftValue}
+            onChangeText={onChangeFt}
+            placeholder="5"
+            placeholderTextColor={theme.colors.textMuted}
+            keyboardType="numeric"
+          />
+          <Text style={[styles.ftInUnit, { color: theme.colors.textMuted }]}>ft</Text>
+        </View>
+        <View style={styles.ftInField}>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, color: theme.colors.textPrimary }]}
+            value={inValue}
+            onChangeText={onChangeIn}
+            placeholder="10"
+            placeholderTextColor={theme.colors.textMuted}
+            keyboardType="numeric"
+          />
+          <Text style={[styles.ftInUnit, { color: theme.colors.textMuted }]}>in</Text>
+        </View>
+      </View>
     </View>
   );
 });
@@ -133,6 +172,8 @@ export default function BodyCompositionScreen() {
   const [unit, setUnit] = useState<UnitType>(measurements.unit);
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
+  const [heightFt, setHeightFt] = useState('');
+  const [heightIn, setHeightIn] = useState('');
   const [age, setAge] = useState('');
   const [neck, setNeck] = useState('');
   const [waist, setWaist] = useState('');
@@ -163,7 +204,16 @@ export default function BodyCompositionScreen() {
     const isImp = m.unit === 'imperial';
     setUnit(m.unit);
     setWeight(isImp ? String(kgToLbs(m.weight)) : String(m.weight));
-    setHeight(isImp ? String(cmToIn(m.height)) : String(m.height));
+    if (isImp) {
+      const { ft, inches } = cmToFtIn(m.height);
+      setHeightFt(String(ft));
+      setHeightIn(String(inches));
+      setHeight(''); // not used in imperial
+    } else {
+      setHeight(String(m.height));
+      setHeightFt('');
+      setHeightIn('');
+    }
     setAge(String(m.age));
     setNeck(isImp ? String(cmToIn(m.neck)) : String(m.neck));
     setWaist(isImp ? String(cmToIn(m.waist)) : String(m.waist));
@@ -178,20 +228,38 @@ export default function BodyCompositionScreen() {
   const toggleUnit = (newUnit: UnitType) => {
     if (newUnit === unit) return;
     const w = parseFloat(weight) || 0;
-    const h = parseFloat(height) || 0;
     const n = parseFloat(neck) || 0;
     const wa = parseFloat(waist) || 0;
     const hi = parseFloat(hip) || 0;
 
     if (newUnit === 'imperial') {
       setWeight(w ? String(kgToLbs(w)) : '');
-      setHeight(h ? String(cmToIn(h)) : '');
+      // Convert cm height to ft/in
+      const hCm = parseFloat(height) || 0;
+      if (hCm) {
+        const { ft, inches } = cmToFtIn(hCm);
+        setHeightFt(String(ft));
+        setHeightIn(String(inches));
+      } else {
+        setHeightFt('');
+        setHeightIn('');
+      }
+      setHeight('');
       setNeck(n ? String(cmToIn(n)) : '');
       setWaist(wa ? String(cmToIn(wa)) : '');
       setHip(hi ? String(cmToIn(hi)) : '');
     } else {
       setWeight(w ? String(lbsToKg(w)) : '');
-      setHeight(h ? String(inToCm(h)) : '');
+      // Convert ft/in to cm
+      const ft = parseInt(heightFt) || 0;
+      const inches = parseInt(heightIn) || 0;
+      if (ft || inches) {
+        setHeight(String(ftInToCm(ft, inches)));
+      } else {
+        setHeight('');
+      }
+      setHeightFt('');
+      setHeightIn('');
       setNeck(n ? String(inToCm(n)) : '');
       setWaist(wa ? String(inToCm(wa)) : '');
       setHip(hi ? String(inToCm(hi)) : '');
@@ -202,13 +270,22 @@ export default function BodyCompositionScreen() {
   // Calculate
   const handleCalculate = () => {
     const w = parseFloat(weight) || 0;
-    const h = parseFloat(height) || 0;
     const a = parseInt(age) || 0;
     const n = parseFloat(neck) || 0;
     const wa = parseFloat(waist) || 0;
     const hi = parseFloat(hip) || 0;
 
-    if (!w || !h || !a || !n || !wa) {
+    // Get height based on unit system
+    let hValue: number;
+    if (unit === 'imperial') {
+      const ft = parseInt(heightFt) || 0;
+      const inches = parseInt(heightIn) || 0;
+      hValue = (ft * 12) + inches; // total inches
+    } else {
+      hValue = parseFloat(height) || 0;
+    }
+
+    if (!w || !hValue || !a || !n || !wa) {
       Alert.alert('Missing Info', 'Please fill in weight, height, age, neck, and waist measurements.');
       return;
     }
@@ -218,7 +295,7 @@ export default function BodyCompositionScreen() {
     }
 
     const wKg = unit === 'imperial' ? lbsToKg(w) : w;
-    const hCm = unit === 'imperial' ? inToCm(h) : h;
+    const hCm = unit === 'imperial' ? inToCm(hValue) : hValue;
     const nCm = unit === 'imperial' ? inToCm(n) : n;
     const waCm = unit === 'imperial' ? inToCm(wa) : wa;
     const hiCm = unit === 'imperial' ? inToCm(hi) : hi;
@@ -332,7 +409,7 @@ export default function BodyCompositionScreen() {
               style={[styles.unitBtn, unit === 'imperial' && { backgroundColor: accentColor + '20', borderColor: accentColor }]}
               onPress={() => toggleUnit('imperial')}
             >
-              <Text style={[styles.unitBtnText, { color: unit === 'imperial' ? accentColor : theme.colors.textMuted }]}>Imperial (lbs/in)</Text>
+              <Text style={[styles.unitBtnText, { color: unit === 'imperial' ? accentColor : theme.colors.textMuted }]}>Imperial (lbs/ft)</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.unitBtn, unit === 'metric' && { backgroundColor: accentColor + '20', borderColor: accentColor }]}
@@ -342,10 +419,16 @@ export default function BodyCompositionScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.inputsGrid}>
-            <InputField label={`Weight (${unit === 'imperial' ? 'lbs' : 'kg'})`} value={weight} onChangeText={setWeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
-            <InputField label={`Height (${unit === 'imperial' ? 'in' : 'cm'})`} value={height} onChangeText={setHeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
-          </View>
+          {/* Weight row */}
+          <InputField label={`Weight (${unit === 'imperial' ? 'lbs' : 'kg'})`} value={weight} onChangeText={setWeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
+
+          {/* Height: ft/in in imperial, cm in metric */}
+          {unit === 'imperial' ? (
+            <HeightImperialInput ftValue={heightFt} inValue={heightIn} onChangeFt={setHeightFt} onChangeIn={setHeightIn} theme={theme} />
+          ) : (
+            <InputField label="Height (cm)" value={height} onChangeText={setHeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
+          )}
+
           <InputField label="Age" value={age} onChangeText={setAge} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
           <View style={styles.inputsGrid}>
             <InputField label={`Neck (${unit === 'imperial' ? 'in' : 'cm'})`} value={neck} onChangeText={setNeck} placeholder="0" infoText="Measure around the narrowest part of your neck" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
@@ -649,7 +732,11 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 13, fontWeight: '600' },
   tooltip: { padding: 10, borderRadius: 8, borderWidth: 0.5, marginBottom: 6 },
   tooltipText: { fontSize: 12, lineHeight: 18 },
-  input: { borderWidth: 0.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, fontWeight: '600' },
+  input: { borderWidth: 0.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, fontSize: 18, fontWeight: '600', minHeight: 52, textAlign: 'center' },
+  // Feet / inches row
+  ftInRow: { flexDirection: 'row', gap: 10 },
+  ftInField: { flex: 1, position: 'relative' },
+  ftInUnit: { position: 'absolute', right: 12, top: 16, fontSize: 14, fontWeight: '600' },
   activityScroll: { marginBottom: 16 },
   activityRow: { flexDirection: 'row', gap: 8 },
   activityPill: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1 },

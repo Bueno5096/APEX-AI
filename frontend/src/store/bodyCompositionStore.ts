@@ -142,6 +142,18 @@ export const lbsToKg = (lbs: number) => Math.round(lbs / 2.2046 * 10) / 10;
 export const cmToIn = (cm: number) => Math.round(cm / 2.54 * 10) / 10;
 export const inToCm = (inches: number) => Math.round(inches * 2.54 * 10) / 10;
 
+// Feet/inches conversions for height
+export const cmToFtIn = (cm: number): { ft: number; inches: number } => {
+  const totalInches = cm / 2.54;
+  const ft = Math.floor(totalInches / 12);
+  const inches = Math.round(totalInches % 12);
+  return { ft, inches: inches >= 12 ? 0 : inches };
+};
+export const ftInToCm = (ft: number, inches: number): number => {
+  const totalInches = (ft * 12) + inches;
+  return Math.round(totalInches * 2.54 * 10) / 10;
+};
+
 export const useBodyCompStore = create<BodyCompState>((set, get) => ({
   measurements: { ...defaultMeasurements },
   results: null,
