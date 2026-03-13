@@ -19,8 +19,52 @@ import { useUserStore } from '../../src/store/userStore';
 import { useHealthStore } from '../../src/store/healthStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { useGoalStore } from '../../src/store/goalStore';
+import { useBodyCompStore } from '../../src/store/bodyCompositionStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import Constants from 'expo-constants';
+
+// ─── Category helper functions (same as body-composition screen) ───
+const getBFCategory = (bf: number, gender: string) => {
+  if (gender === 'male') {
+    if (bf < 6) return 'Essential';
+    if (bf < 14) return 'Athletic';
+    if (bf < 18) return 'Fitness';
+    if (bf < 25) return 'Average';
+    return 'Obese';
+  }
+  if (bf < 14) return 'Essential';
+  if (bf < 21) return 'Athletic';
+  if (bf < 25) return 'Fitness';
+  if (bf < 32) return 'Average';
+  return 'Obese';
+};
+
+const getFFMICategory = (ffmi: number) => {
+  if (ffmi < 17) return 'Below Average';
+  if (ffmi < 18) return 'Average';
+  if (ffmi < 20) return 'Above Average';
+  if (ffmi < 22) return 'Excellent';
+  if (ffmi < 23) return 'Superior';
+  if (ffmi < 26) return 'Suspiciously High';
+  return 'Exceeds Natural';
+};
+
+const getBMICategory = (bmi: number) => {
+  if (bmi < 14) return 'Significantly Undermuscled';
+  if (bmi < 17) return 'Undermuscled';
+  if (bmi < 20) return 'Normal';
+  if (bmi < 23) return 'Athletic';
+  if (bmi < 26) return 'Very Athletic';
+  return 'Elite Athletic';
+};
+
+const getMuscleToFatCategory = (ratio: number) => {
+  if (ratio < 3) return 'Low';
+  if (ratio < 5) return 'Average';
+  if (ratio < 7) return 'Good';
+  if (ratio < 10) return 'Excellent';
+  return 'Elite';
+};
 
 interface Message {
   id: string;
@@ -41,10 +85,11 @@ const SUGGESTED_PROMPTS = [
 
 export default function CoachScreen() {
   const { theme, accentColor } = useThemeStore();
-  const { profile, settings, pendingCoachMessage, setPendingCoachMessage } = useUserStore();
+  const { profile, settings, pendingCoachMessage, setPendingCoachMessage, gender } = useUserStore();
   const { recoveryData } = useHealthStore();
   const { todayWorkout } = useWorkoutStore();
-  const { secondaryGoal, generatedPlan } = useGoalStore();
+  const { secondaryGoal, generatedPlan, hasActiveGoalLayeringPlan } = useGoalStore();
+  const { results: bodyCompResults, history: bodyCompHistory, lastUpdated: bodyCompLastUpdated, hasCalculated: bodyCompHasCalculated, measurements: bodyCompMeasurements } = useBodyCompStore();
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -133,7 +178,68 @@ export default function CoachScreen() {
         weight: ex.weight,
         targetMuscles: ex.targetMuscles,
       })) || [];
-      
+
+      // ─── Build comprehensive body composition context ───
+      const bodyCompositionContext = bodyCompHasCalculated && bodyCompResults ? {
+        hasCalculated: true,
+        bodyFatPercent: bodyCompResults.bodyFatPercent,
+        bodyFatCategory: getBFCategory(bodyCompResults.bodyFatPercent, gender || 'male'),
+        leanBMI: bodyCompResults.bmi,
+        leanBMICategory: getBMICategory(bodyCompResults.bmi),
+        ffmi: bodyCompResults.ffmi,
+        ffmiCategory: getFFMICategory(bodyCompResults.ffmi),
+        normalizedFFMI: bodyCompResults.normalizedFFMI,
+        tdee: bodyCompResults.tdee,
+        idealWeightMinKg: bodyCompResults.idealWeightMinKg,
+        idealWeightMaxKg: bodyCompResults.idealWeightMaxKg,
+        muscleToFatRatio: bodyCompResults.muscleToFatRatio,
+        muscleToFatCategory: getMuscleToFatCategory(bodyCompResults.muscleToFatRatio),
+        leanMassKg: bodyCompResults.leanMassKg,
+        fatMassKg: bodyCompResults.fatMassKg,
+        lastUpdated: bodyCompLastUpdated || 'Unknown',
+        // Calculate trend from history
+        trend: (() => {
+          if (bodyCompHistory && bodyCompHistory.length >= 3) {
+            const recent = bodyCompHistory.slice(0, 3).map(e => e.results.bodyFatPercent);
+            if (recent[0] < recent[2]) return 'improving (body fat decreasing)';
+            if (recent[0] > recent[2]) return 'declining (body fat increasing)';
+            return 'stable';
+          }
+          return 'Not enough data (fewer than 3 measurements)';
+        })(),
+      } : { hasCalculated: false };
+
+      // ─── Build muscle readiness context ───
+      const muscleReadinessContext = recoveryData?.muscles?.map(m => ({
+        name: m.name,
+        readiness: m.readiness,
+        lastTrained: m.lastTrained ? new Date(m.lastTrained).toLocaleDateString() : 'Unknown',
+        estimatedRecoveryHours: m.estimatedRecovery,
+      })) || [];
+
+      // ─── Build strength progress context ───
+      // Note: Using seeded/simulated data for strength gains (same as progress tab)
+      const strengthProgressContext = {
+        streak: 0, // Will be populated when workout history tracking is fully implemented
+        workoutsThisMonth: 0,
+        mostImproved: [] as Array<{muscle: string, gain: number}>,
+        leastImproved: [] as Array<{muscle: string, gain: number}>,
+        personalRecords: [] as Array<{exercise: string, value: string}>,
+      };
+
+      // Pull from workout store if available
+      const workoutStore = useWorkoutStore.getState();
+      if (workoutStore.todayWorkout?.exercises) {
+        // Build PR data from exercise previous performance
+        const prs = workoutStore.todayWorkout.exercises
+          .filter(ex => ex.previousPerformance)
+          .map(ex => ({
+            exercise: ex.name,
+            value: `${ex.previousPerformance?.weight}kg x ${ex.previousPerformance?.reps}`,
+          }));
+        strengthProgressContext.personalRecords = prs;
+      }
+
       const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -151,6 +257,17 @@ export default function CoachScreen() {
             workoutExercises: workoutExercises.length > 0 ? workoutExercises : undefined,
             secondaryGoal: secondaryGoal || undefined,
             generatedPlan: generatedPlan ? { summary: generatedPlan.summary } : undefined,
+            // ─── New comprehensive data ───
+            bodyComposition: bodyCompositionContext,
+            bodyCompHistory: bodyCompHistory?.slice(0, 3)?.map(e => ({
+              date: e.date,
+              bodyFatPercent: e.results.bodyFatPercent,
+              ffmi: e.results.ffmi,
+              weight: e.measurements.weight,
+            })) || [],
+            muscleReadiness: muscleReadinessContext,
+            strengthProgress: strengthProgressContext,
+            goalLayeringActive: hasActiveGoalLayeringPlan,
           },
         }),
       });

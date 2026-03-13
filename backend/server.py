@@ -56,6 +56,12 @@ class ChatContext(BaseModel):
     workoutExercises: Optional[List[Dict[str, Any]]] = None
     secondaryGoal: Optional[Dict[str, Any]] = None
     generatedPlan: Optional[Dict[str, Any]] = None
+    # ─── New comprehensive data fields ───
+    bodyComposition: Optional[Dict[str, Any]] = None      # BF%, Lean BMI, FFMI, TDEE, etc.
+    bodyCompHistory: Optional[List[Dict[str, Any]]] = None # Last 3 entries for trend
+    muscleReadiness: Optional[List[Dict[str, Any]]] = None # Per-muscle recovery data
+    strengthProgress: Optional[Dict[str, Any]] = None      # Gains, PRs, streak, workouts
+    goalLayeringActive: Optional[bool] = False
 
 class ConversationMessage(BaseModel):
     role: str  # 'user' or 'coach'
@@ -126,9 +132,174 @@ class RecoveryLog(BaseModel):
 # ============ Helper Functions ============
 
 def get_coach_system_prompt(style: str, context: Optional[ChatContext] = None) -> str:
-    """Generate system prompt based on coach style and user context"""
-    
-    base_prompt = """You are COACH, an advanced AI fitness coaching system. You are a scientifically grounded, personalized fitness coach who provides evidence-based training recommendations.
+    """Generate the fully personalized system prompt with ALL user data"""
+
+    # ─── Extract profile data ───
+    p = context.userProfile if context and context.userProfile else {}
+    name = p.get('name', 'Athlete')
+    age = p.get('age', 'Unknown')
+    gender = p.get('gender', 'Unknown')
+    height_cm = p.get('height', 0)
+    weight_kg = p.get('weight', 0)
+    primary_goal = ', '.join(p.get('fitnessGoals', [])) or 'Not set'
+    experience = p.get('trainingExperience', 'Unknown')
+    training_days = p.get('trainingDaysPerWeek', 'Unknown')
+    workout_style = p.get('workoutLocation', 'Unknown')
+    injuries = p.get('injuries') or 'None'
+
+    # ─── Extract body composition data ───
+    bc = context.bodyComposition if context and context.bodyComposition else None
+    if bc and bc.get('hasCalculated'):
+        bf_pct = bc.get('bodyFatPercent', 'Not yet measured')
+        bf_cat = bc.get('bodyFatCategory', '')
+        lean_bmi = bc.get('leanBMI', 'Not yet measured')
+        lean_bmi_cat = bc.get('leanBMICategory', '')
+        ffmi_val = bc.get('ffmi', 'Not yet measured')
+        ffmi_cat = bc.get('ffmiCategory', '')
+        tdee = bc.get('tdee', 'Not yet measured')
+        ideal_min = bc.get('idealWeightMinKg', '?')
+        ideal_max = bc.get('idealWeightMaxKg', '?')
+        m2f_ratio = bc.get('muscleToFatRatio', 'Not yet measured')
+        m2f_cat = bc.get('muscleToFatCategory', '')
+        last_measured = bc.get('lastUpdated', 'Unknown')
+        bc_trend = bc.get('trend', 'Not enough data')
+        bc_block = f"""
+THEIR PHYSICAL PROFILE:
+- Height: {height_cm} cm
+- Weight: {weight_kg} kg
+- Body Fat: {bf_pct}% ({bf_cat})
+- Lean BMI: {lean_bmi} ({lean_bmi_cat})
+- FFMI: {ffmi_val} ({ffmi_cat})
+- Muscle to Fat Ratio: {m2f_ratio} ({m2f_cat})
+- TDEE: {tdee} calories/day
+- Ideal Weight Range: {ideal_min} kg to {ideal_max} kg
+- Body composition trend: {bc_trend} over last 3 measurements
+- Last measured: {last_measured}"""
+    else:
+        bc_block = f"""
+THEIR PHYSICAL PROFILE:
+- Height: {height_cm} cm
+- Weight: {weight_kg} kg
+- Body Fat: Not yet measured (user has not completed body composition analysis)
+- Lean BMI: Not yet measured
+- FFMI: Not yet measured
+- TDEE: Not yet measured
+- Ideal Weight Range: Not yet measured"""
+
+    # ─── Extract goal data ───
+    sg = context.secondaryGoal if context and context.secondaryGoal else None
+    if sg and sg.get('isActive'):
+        sg_type = sg.get('type', '').replace('_', ' ').title()
+        sg_target = sg.get('targetValue', '?')
+        sg_starting = sg.get('startingValue', '?')
+        sg_current = sg.get('currentValue', '?')
+        sg_weeks = sg.get('timeframeWeeks', '?')
+        sg_start_date = sg.get('startDate', 'Unknown')
+        goals_block = f"""
+THEIR GOALS:
+- Primary Goal: {primary_goal}
+- Secondary Goal: {sg_type}
+- Target: {sg_target}, Starting: {sg_starting}, Current: {sg_current}
+- Timeframe: {sg_weeks} weeks from {sg_start_date}
+- Current Progress: {sg_current} vs target {sg_target}
+- Goal layering plan is currently ACTIVE"""
+    else:
+        goals_block = f"""
+THEIR GOALS:
+- Primary Goal: {primary_goal}
+- Secondary Goal: None
+- Goal layering plan: Not active"""
+
+    # ─── Extract training profile ───
+    sp = context.strengthProgress if context and context.strengthProgress else None
+    streak = sp.get('streak', 0) if sp else 0
+    workouts_month = sp.get('workoutsThisMonth', 0) if sp else 0
+    training_block = f"""
+THEIR TRAINING PROFILE:
+- Experience Level: {experience}
+- Training Days Per Week: {training_days}
+- Workout Style: {workout_style}
+- Injuries or Limitations: {injuries}
+- Current Streak: {streak} days
+- Workouts This Month: {workouts_month}"""
+
+    # ─── Extract muscle readiness ───
+    muscles = context.muscleReadiness if context and context.muscleReadiness else None
+    if muscles and len(muscles) > 0:
+        recovered = [f"{m.get('name')} ({m.get('readiness')}%)" for m in muscles if m.get('readiness', 0) >= 80]
+        moderate = [f"{m.get('name')} ({m.get('readiness')}%)" for m in muscles if 40 <= m.get('readiness', 0) < 80]
+        fatigued = [f"{m.get('name')} ({m.get('readiness')}%)" for m in muscles if m.get('readiness', 0) < 40]
+        muscle_block = f"""
+MUSCLE READINESS RIGHT NOW:
+- Fully Recovered (above 80%): {', '.join(recovered) if recovered else 'None'}
+- Moderate (40-80%): {', '.join(moderate) if moderate else 'None'}
+- Fatigued (below 40%): {', '.join(fatigued) if fatigued else 'None'}"""
+    else:
+        muscle_block = """
+MUSCLE READINESS RIGHT NOW:
+- No muscle readiness data available yet"""
+
+    # ─── Extract strength progress ───
+    if sp:
+        most_improved = sp.get('mostImproved', [])
+        least_improved = sp.get('leastImproved', [])
+        prs = sp.get('personalRecords', [])
+        most_str = ', '.join([f"{m.get('muscle')} +{m.get('gain')}%" for m in most_improved[:3]]) if most_improved else 'No data yet'
+        least_str = ', '.join([f"{m.get('muscle')} +{m.get('gain')}%" for m in least_improved[:3]]) if least_improved else 'No data yet'
+        pr_str = ', '.join([f"{pr.get('exercise')}: {pr.get('value')}" for pr in prs[:3]]) if prs else 'No records yet'
+        progress_block = f"""
+STRENGTH PROGRESS THIS MONTH:
+- Most Improved: {most_str}
+- Least Improved: {least_str}
+- Personal Records: {pr_str}"""
+    else:
+        progress_block = """
+STRENGTH PROGRESS THIS MONTH:
+- No workout history yet"""
+
+    # ─── Active workout context ───
+    workout_block = ""
+    if context and context.activeWorkout:
+        workout_block += f"\n\nCURRENT WORKOUT SESSION:\n- Active Workout: {context.activeWorkout}"
+        if context.currentExercise:
+            workout_block += f"\n- Current Exercise: {context.currentExercise}"
+        if context.workoutExercises:
+            workout_block += "\n- Exercises in this workout:"
+            for ex in context.workoutExercises:
+                workout_block += f"\n  * {ex.get('name', 'Unknown')}: {ex.get('sets', '?')} sets x {ex.get('reps', '?')} @ {ex.get('weight', '?')}kg"
+
+    # ─── Recovery context ───
+    recovery_block = ""
+    if context:
+        if context.recoveryScore is not None:
+            recovery_block += f"\n\nRECOVERY STATUS:\n- Overall Recovery Score: {context.recoveryScore}%"
+            if context.recoveryScore >= 75:
+                recovery_block += " (Well recovered, ready for intense training)"
+            elif context.recoveryScore >= 50:
+                recovery_block += " (Moderate recovery, standard training ok)"
+            else:
+                recovery_block += " (Low recovery, recommend light activity or rest)"
+            if context.sleepDuration is not None:
+                recovery_block += f"\n- Sleep: {context.sleepDuration} hours"
+            if context.hrv is not None:
+                recovery_block += f"\n- HRV: {context.hrv}ms"
+
+    # ─── Assemble the full system prompt ───
+    system_prompt = f"""You are APEX, a world-class personal AI fitness coach. You are speaking with {name}, a {age} year old {gender}.
+{bc_block}
+{goals_block}
+{training_block}
+{muscle_block}
+{progress_block}{workout_block}{recovery_block}
+
+IMPORTANT RULES FOR YOUR RESPONSES:
+- Always reference the user's specific numbers — never give generic advice
+- All recommendations must be purely physical training based — absolutely no nutrition, diet, calorie, or macro advice
+- Always be aware of both primary AND secondary goals simultaneously
+- Always check muscle readiness before recommending training a specific muscle group
+- Always acknowledge injuries and limitations in every workout recommendation
+- Keep responses conversational and motivating — like a real personal trainer who knows their client deeply
+- Address the user by their first name {name} naturally in conversation
 
 CRITICAL RULE - BE CONCISE:
 - Keep responses SHORT: 2-4 sentences max for simple questions, 4-6 for complex ones.
@@ -136,101 +307,33 @@ CRITICAL RULE - BE CONCISE:
 - No filler words, no lengthy explanations unless the user explicitly asks for more detail.
 - Get straight to the actionable advice.
 
-Your core principles:
-- Provide concise, actionable recommendations rooted in exercise science
-- Adapt workout intensity based on recovery state
-- Avoid training heavily fatigued muscle groups
-- Prioritize safety when detecting soreness, pain, injury, poor sleep, or fatigue
-- Never give dangerous or unqualified medical advice
-
-Your capabilities:
-- Recommend and modify workouts based on user context
-- Analyze recovery and provide insights
-- Suggest exercise substitutions
-- Give progress insights
-- Answer nutrition and fitness questions practically
-
 IMPORTANT - WORKOUT MODIFICATIONS:
 When the user asks you to change, swap, modify, add, or remove exercises, sets, reps, weight, or rest time, you MUST include a JSON action block at the end of your response. The format is:
 
 [ACTIONS]
-[{"type": "modify_exercise", "exercise_name": "Bench Press", "new_sets": 3, "new_reps": "10-12", "new_weight": 70}]
+[{{"type": "modify_exercise", "exercise_name": "Bench Press", "new_sets": 3, "new_reps": "10-12", "new_weight": 70}}]
 [/ACTIONS]
 
 Available action types:
-- "set_workout": Set/create an entire workout plan. Include "workout_type" (one of: "push", "pull", "legs", "upper", "lower", "full", "light", "rest") and optionally "title" (custom title string). Use this when the user asks to create, generate, or switch to a new workout.
+- "set_workout": Set/create an entire workout plan. Include "workout_type" (one of: "push", "pull", "legs", "upper", "lower", "full", "light", "rest") and optionally "title" (custom title string).
 - "swap_exercise": Replace an exercise. Include "exercise_name" (current) and "new_exercise_name", "new_sets", "new_reps", "new_weight", "target_muscles" (array)
 - "modify_exercise": Change sets/reps/weight. Include "exercise_name" and any of "new_sets", "new_reps", "new_weight"
 - "adjust_rest": Change rest time. Include "new_rest_seconds"
 - "skip_exercise": Skip current exercise. Include "exercise_name"
 
-CRITICAL: When the user asks you to create, build, generate, or set up a workout, you MUST include a "set_workout" action. This is how workouts get applied. Always provide your coaching explanation FIRST, then the action block. Only include actions when the user explicitly asks for changes or a new workout. For general questions or advice, do NOT include actions.
+CRITICAL: When the user asks you to create, build, generate, or set up a workout, you MUST include a "set_workout" action. Always provide your coaching explanation FIRST, then the action block. Only include actions when the user explicitly asks for changes or a new workout.
 
-If the user says "explain more" or asks for a deeper explanation, THEN provide a thorough, detailed response about the previous topic."""
+If the user says "explain more" or asks for a deeper explanation, THEN provide a thorough, detailed response."""
 
+    # ─── Append style modifier ───
     style_prompts = {
         "neutral": "\n\nCommunication style: Professional and balanced. Provide clear, informative responses.",
         "direct": "\n\nCommunication style: Short and performance-focused. Be concise, use bullet points when helpful, get straight to the point.",
         "supportive": "\n\nCommunication style: Encouraging and motivating. Acknowledge effort, celebrate progress, provide positive reinforcement."
     }
-    
-    context_info = ""
-    if context:
-        context_info = "\n\nCurrent user context:"
-        if context.recoveryScore is not None:
-            context_info += f"\n- Recovery Score: {context.recoveryScore}%"
-            if context.recoveryScore >= 75:
-                context_info += " (Well recovered, ready for intense training)"
-            elif context.recoveryScore >= 50:
-                context_info += " (Moderate recovery, standard training ok)"
-            else:
-                context_info += " (Low recovery, recommend light activity or rest)"
-        
-        if context.sleepDuration is not None:
-            context_info += f"\n- Sleep: {context.sleepDuration} hours"
-        
-        if context.hrv is not None:
-            context_info += f"\n- HRV: {context.hrv}ms"
-        
-        if context.activeWorkout:
-            context_info += f"\n- Active Workout: {context.activeWorkout}"
-        
-        if context.currentExercise:
-            context_info += f"\n- Current Exercise: {context.currentExercise}"
-        
-        if context.workoutExercises:
-            context_info += "\n- Workout Program:"
-            for ex in context.workoutExercises:
-                context_info += f"\n  • {ex.get('name', 'Unknown')}: {ex.get('sets', '?')} sets × {ex.get('reps', '?')} @ {ex.get('weight', '?')}kg"
-        
-        if context.userProfile:
-            profile = context.userProfile
-            if profile.get('name'):
-                context_info += f"\n- User: {profile.get('name')}"
-            if profile.get('trainingExperience'):
-                context_info += f"\n- Experience: {profile.get('trainingExperience')}"
-            if profile.get('fitnessGoals'):
-                context_info += f"\n- Goals: {', '.join(profile.get('fitnessGoals', []))}"
-        
-        # Secondary goal awareness - Goal Layering
-        if context.secondaryGoal and context.secondaryGoal.get('isActive'):
-            sg = context.secondaryGoal
-            goal_type = sg.get('type', '')
-            target = sg.get('targetValue', 0)
-            starting = sg.get('startingValue', 0)
-            current = sg.get('currentValue', 0)
-            weeks = sg.get('timeframeWeeks', 0)
-            start_date = sg.get('startDate', '')
-            
-            context_info += f"\n\n--- ACTIVE GOAL LAYERING ---"
-            context_info += f"\n- Secondary Goal: {goal_type.replace('_', ' ').title()}"
-            context_info += f"\n- Target: {target}, Starting: {starting}, Current: {current}"
-            context_info += f"\n- Timeframe: {weeks} weeks from {start_date}"
-            context_info += f"\n- You MUST consider both the primary and secondary goals in all training advice."
-            context_info += f"\n- Keep all advice purely physical training. NO nutrition, diet, or calorie advice."
-            context_info += f"\n--- END GOAL LAYERING ---"
-    
-    return base_prompt + style_prompts.get(style, style_prompts["neutral"]) + context_info
+    system_prompt += style_prompts.get(style, style_prompts["neutral"])
+
+    return system_prompt
 
 # ============ Routes ============
 
