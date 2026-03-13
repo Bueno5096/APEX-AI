@@ -34,10 +34,12 @@ interface UserState {
   gender: Gender;
   onboardingComplete: boolean;
   isLoaded: boolean;
+  pendingCoachMessage: string | null;
   setProfile: (profile: UserProfile) => void;
   setGender: (gender: Gender) => void;
   updateSettings: (settings: Partial<UserSettings>) => void;
   setOnboardingComplete: (complete: boolean) => void;
+  setPendingCoachMessage: (message: string | null) => void;
   loadUser: () => Promise<void>;
 }
 
@@ -71,6 +73,7 @@ export const useUserStore = create<UserState>((set) => ({
   gender: 'male',
   onboardingComplete: false,
   isLoaded: false,
+  pendingCoachMessage: null,
   
   setProfile: async (profile: UserProfile) => {
     set({ profile, gender: profile.gender });
@@ -100,6 +103,10 @@ export const useUserStore = create<UserState>((set) => ({
   setOnboardingComplete: async (complete: boolean) => {
     set({ onboardingComplete: complete });
     await AsyncStorage.setItem('apex_onboarding_complete', complete ? 'true' : 'false');
+  },
+
+  setPendingCoachMessage: (message: string | null) => {
+    set({ pendingCoachMessage: message });
   },
   
   loadUser: async () => {

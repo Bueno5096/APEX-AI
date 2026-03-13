@@ -40,7 +40,7 @@ const SUGGESTED_PROMPTS = [
 
 export default function CoachScreen() {
   const { theme, accentColor } = useThemeStore();
-  const { profile, settings } = useUserStore();
+  const { profile, settings, pendingCoachMessage, setPendingCoachMessage } = useUserStore();
   const { recoveryData } = useHealthStore();
   const { todayWorkout } = useWorkoutStore();
   
@@ -62,6 +62,20 @@ export default function CoachScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const waveformAnim = useRef(new Animated.Value(0)).current;
   const recognitionRef = useRef<any>(null);
+  const pendingMessageSent = useRef(false);
+
+  // Handle pending coach message from Progress "Deep Dive" button
+  useEffect(() => {
+    if (pendingCoachMessage && !pendingMessageSent.current) {
+      pendingMessageSent.current = true;
+      // Small delay to ensure the screen is fully mounted
+      const timer = setTimeout(() => {
+        sendMessage(pendingCoachMessage);
+        setPendingCoachMessage(null);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingCoachMessage]);
   
   useEffect(() => {
     if (isListening) {

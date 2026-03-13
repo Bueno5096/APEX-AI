@@ -24,6 +24,7 @@ export interface Workout {
   intensity: 'light' | 'moderate' | 'intense';
   exercises: Exercise[];
   targetMuscles: string[];
+  date?: Date; // When the workout was completed
 }
 
 export interface ActiveWorkoutState {
@@ -274,6 +275,136 @@ interface WorkoutState {
   reorderExercise: (fromIndex: number, toIndex: number) => void;
 }
 
+// Generate seeded workout history spanning ~30 days for Progress tracking
+const generateSeededWorkoutHistory = (): Workout[] => {
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  
+  return [
+    // Week 1 — Day 1 (28 days ago): Push Day
+    {
+      id: 'hist_1', title: 'Push Day', type: 'push', duration: 45, intensity: 'moderate',
+      targetMuscles: ['chest', 'shoulders', 'triceps'],
+      date: new Date(now - 28 * DAY),
+      exercises: [
+        { id: 'h1_1', name: 'Bench Press', targetMuscles: ['chest'], sets: 4, reps: '8', weight: 80, isCompleted: true, completedSets: 4 },
+        { id: 'h1_2', name: 'Overhead Press', targetMuscles: ['shoulders'], sets: 3, reps: '10', weight: 40, isCompleted: true, completedSets: 3 },
+        { id: 'h1_3', name: 'Tricep Pushdown', targetMuscles: ['triceps'], sets: 3, reps: '12', weight: 25, isCompleted: true, completedSets: 3 },
+        { id: 'h1_4', name: 'Lateral Raise', targetMuscles: ['shoulders'], sets: 3, reps: '15', weight: 8, isCompleted: true, completedSets: 3 },
+      ],
+    },
+    // Week 1 — Day 3 (26 days ago): Pull Day
+    {
+      id: 'hist_2', title: 'Pull Day', type: 'pull', duration: 50, intensity: 'moderate',
+      targetMuscles: ['back', 'biceps', 'traps'],
+      date: new Date(now - 26 * DAY),
+      exercises: [
+        { id: 'h2_1', name: 'Barbell Row', targetMuscles: ['back'], sets: 4, reps: '8', weight: 60, isCompleted: true, completedSets: 4 },
+        { id: 'h2_2', name: 'Lat Pulldown', targetMuscles: ['back'], sets: 3, reps: '10', weight: 55, isCompleted: true, completedSets: 3 },
+        { id: 'h2_3', name: 'Bicep Curl', targetMuscles: ['biceps'], sets: 3, reps: '12', weight: 12, isCompleted: true, completedSets: 3 },
+        { id: 'h2_4', name: 'Face Pull', targetMuscles: ['traps'], sets: 3, reps: '15', weight: 15, isCompleted: true, completedSets: 3 },
+      ],
+    },
+    // Week 1 — Day 5 (24 days ago): Leg Day
+    {
+      id: 'hist_3', title: 'Leg Day', type: 'legs', duration: 50, intensity: 'intense',
+      targetMuscles: ['quads', 'hamstrings', 'glutes', 'calves'],
+      date: new Date(now - 24 * DAY),
+      exercises: [
+        { id: 'h3_1', name: 'Barbell Squat', targetMuscles: ['quads', 'glutes'], sets: 4, reps: '6', weight: 100, isCompleted: true, completedSets: 4 },
+        { id: 'h3_2', name: 'Romanian Deadlift', targetMuscles: ['hamstrings', 'glutes'], sets: 3, reps: '8', weight: 70, isCompleted: true, completedSets: 3 },
+        { id: 'h3_3', name: 'Leg Press', targetMuscles: ['quads'], sets: 3, reps: '10', weight: 120, isCompleted: true, completedSets: 3 },
+        { id: 'h3_4', name: 'Calf Raise', targetMuscles: ['calves'], sets: 4, reps: '15', weight: 50, isCompleted: true, completedSets: 4 },
+      ],
+    },
+    // Week 2 — Day 8 (21 days ago): Push Day
+    {
+      id: 'hist_4', title: 'Push Day', type: 'push', duration: 45, intensity: 'moderate',
+      targetMuscles: ['chest', 'shoulders', 'triceps'],
+      date: new Date(now - 21 * DAY),
+      exercises: [
+        { id: 'h4_1', name: 'Bench Press', targetMuscles: ['chest'], sets: 4, reps: '8', weight: 82.5, isCompleted: true, completedSets: 4 },
+        { id: 'h4_2', name: 'Overhead Press', targetMuscles: ['shoulders'], sets: 3, reps: '10', weight: 42.5, isCompleted: true, completedSets: 3 },
+        { id: 'h4_3', name: 'Tricep Pushdown', targetMuscles: ['triceps'], sets: 3, reps: '12', weight: 27.5, isCompleted: true, completedSets: 3 },
+        { id: 'h4_4', name: 'Lateral Raise', targetMuscles: ['shoulders'], sets: 3, reps: '15', weight: 9, isCompleted: true, completedSets: 3 },
+      ],
+    },
+    // Week 2 — Day 10 (19 days ago): Pull Day
+    {
+      id: 'hist_5', title: 'Pull Day', type: 'pull', duration: 50, intensity: 'moderate',
+      targetMuscles: ['back', 'biceps', 'traps'],
+      date: new Date(now - 19 * DAY),
+      exercises: [
+        { id: 'h5_1', name: 'Barbell Row', targetMuscles: ['back'], sets: 4, reps: '8', weight: 65, isCompleted: true, completedSets: 4 },
+        { id: 'h5_2', name: 'Lat Pulldown', targetMuscles: ['back'], sets: 3, reps: '10', weight: 57.5, isCompleted: true, completedSets: 3 },
+        { id: 'h5_3', name: 'Bicep Curl', targetMuscles: ['biceps'], sets: 3, reps: '12', weight: 14, isCompleted: true, completedSets: 3 },
+        { id: 'h5_4', name: 'Face Pull', targetMuscles: ['traps'], sets: 3, reps: '15', weight: 17.5, isCompleted: true, completedSets: 3 },
+      ],
+    },
+    // Week 3 — Day 14 (14 days ago): Push Day
+    {
+      id: 'hist_6', title: 'Push Day', type: 'push', duration: 48, intensity: 'intense',
+      targetMuscles: ['chest', 'shoulders', 'triceps'],
+      date: new Date(now - 14 * DAY),
+      exercises: [
+        { id: 'h6_1', name: 'Bench Press', targetMuscles: ['chest'], sets: 4, reps: '8', weight: 85, isCompleted: true, completedSets: 4 },
+        { id: 'h6_2', name: 'Overhead Press', targetMuscles: ['shoulders'], sets: 3, reps: '10', weight: 45, isCompleted: true, completedSets: 3 },
+        { id: 'h6_3', name: 'Tricep Pushdown', targetMuscles: ['triceps'], sets: 3, reps: '12', weight: 30, isCompleted: true, completedSets: 3 },
+      ],
+    },
+    // Week 3 — Day 12 (12 days ago): Leg Day
+    {
+      id: 'hist_7', title: 'Leg Day', type: 'legs', duration: 55, intensity: 'intense',
+      targetMuscles: ['quads', 'hamstrings', 'glutes', 'calves'],
+      date: new Date(now - 12 * DAY),
+      exercises: [
+        { id: 'h7_1', name: 'Barbell Squat', targetMuscles: ['quads', 'glutes'], sets: 4, reps: '6', weight: 110, isCompleted: true, completedSets: 4 },
+        { id: 'h7_2', name: 'Romanian Deadlift', targetMuscles: ['hamstrings', 'glutes'], sets: 3, reps: '8', weight: 80, isCompleted: true, completedSets: 3 },
+        { id: 'h7_3', name: 'Hip Thrust', targetMuscles: ['glutes'], sets: 3, reps: '10', weight: 80, isCompleted: true, completedSets: 3 },
+        { id: 'h7_4', name: 'Calf Raise', targetMuscles: ['calves'], sets: 4, reps: '15', weight: 55, isCompleted: true, completedSets: 4 },
+      ],
+    },
+    // Week 4 — Day 5 (5 days ago): Push Day
+    {
+      id: 'hist_8', title: 'Push Day', type: 'push', duration: 50, intensity: 'intense',
+      targetMuscles: ['chest', 'shoulders', 'triceps'],
+      date: new Date(now - 5 * DAY),
+      exercises: [
+        { id: 'h8_1', name: 'Bench Press', targetMuscles: ['chest'], sets: 4, reps: '8', weight: 90, isCompleted: true, completedSets: 4 },
+        { id: 'h8_2', name: 'Overhead Press', targetMuscles: ['shoulders'], sets: 3, reps: '10', weight: 47.5, isCompleted: true, completedSets: 3 },
+        { id: 'h8_3', name: 'Tricep Pushdown', targetMuscles: ['triceps'], sets: 3, reps: '12', weight: 32.5, isCompleted: true, completedSets: 3 },
+        { id: 'h8_4', name: 'Lateral Raise', targetMuscles: ['shoulders'], sets: 3, reps: '15', weight: 10, isCompleted: true, completedSets: 3 },
+      ],
+    },
+    // Week 4 — Day 3 (3 days ago): Pull Day
+    {
+      id: 'hist_9', title: 'Pull Day', type: 'pull', duration: 50, intensity: 'moderate',
+      targetMuscles: ['back', 'biceps', 'traps'],
+      date: new Date(now - 3 * DAY),
+      exercises: [
+        { id: 'h9_1', name: 'Barbell Row', targetMuscles: ['back'], sets: 4, reps: '8', weight: 70, isCompleted: true, completedSets: 4 },
+        { id: 'h9_2', name: 'Lat Pulldown', targetMuscles: ['back'], sets: 3, reps: '10', weight: 62.5, isCompleted: true, completedSets: 3 },
+        { id: 'h9_3', name: 'Bicep Curl', targetMuscles: ['biceps'], sets: 3, reps: '12', weight: 16, isCompleted: true, completedSets: 3 },
+        { id: 'h9_4', name: 'Face Pull', targetMuscles: ['traps'], sets: 3, reps: '15', weight: 20, isCompleted: true, completedSets: 3 },
+        { id: 'h9_5', name: 'Hammer Curl', targetMuscles: ['biceps'], sets: 3, reps: '10', weight: 14, isCompleted: true, completedSets: 3 },
+      ],
+    },
+    // Week 4 — Day 1 (1 day ago): Leg Day
+    {
+      id: 'hist_10', title: 'Leg Day', type: 'legs', duration: 55, intensity: 'intense',
+      targetMuscles: ['quads', 'hamstrings', 'glutes', 'calves'],
+      date: new Date(now - 1 * DAY),
+      exercises: [
+        { id: 'h10_1', name: 'Barbell Squat', targetMuscles: ['quads', 'glutes'], sets: 4, reps: '6', weight: 115, isCompleted: true, completedSets: 4 },
+        { id: 'h10_2', name: 'Romanian Deadlift', targetMuscles: ['hamstrings', 'glutes'], sets: 3, reps: '8', weight: 85, isCompleted: true, completedSets: 3 },
+        { id: 'h10_3', name: 'Leg Press', targetMuscles: ['quads'], sets: 3, reps: '10', weight: 140, isCompleted: true, completedSets: 3 },
+        { id: 'h10_4', name: 'Hip Thrust', targetMuscles: ['glutes'], sets: 3, reps: '10', weight: 90, isCompleted: true, completedSets: 3 },
+        { id: 'h10_5', name: 'Calf Raise', targetMuscles: ['calves'], sets: 4, reps: '15', weight: 60, isCompleted: true, completedSets: 4 },
+      ],
+    },
+  ];
+};
+
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   todayWorkout: null,
   activeWorkout: {
@@ -283,7 +414,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     restTimer: 0,
     isResting: false,
   },
-  workoutHistory: [],
+  workoutHistory: generateSeededWorkoutHistory(),
   
   loadTodayWorkout: () => {
     set({ todayWorkout: generateTodayWorkout() });
