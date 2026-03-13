@@ -259,6 +259,21 @@ metadata:
   test_sequence: 1
   run_ui: false
 
+  - task: "Body Composition screen input fields"
+    implemented: true
+    working: true
+    file: "app/body-composition.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+        - agent: "user"
+        - comment: "User reported keyboard dismisses immediately when typing in input fields on body composition page"
+        - working: true
+        - agent: "main"
+        - comment: "Fixed: InputField component was already extracted outside main component. Added keyboardShouldPersistTaps='handled' to ScrollView and KeyboardAvoidingView wrapper. User confirmed fix works on mobile."
+
 test_plan:
   current_focus: []
   stuck_tasks: []
