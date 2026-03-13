@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 // Picker removed — using TextInput for height/weight
 import { useThemeStore, formatWeight, formatHeight } from '../../src/store/themeStore';
 import { useUserStore, CoachStyle } from '../../src/store/userStore';
+import { useGoalStore } from '../../src/store/goalStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import { ACCENT_PRESETS } from '../../src/constants/theme';
 import ColorPicker, { Panel5, BrightnessSlider, Preview } from 'reanimated-color-picker';
@@ -21,6 +23,8 @@ import ColorPicker, { Panel5, BrightnessSlider, Preview } from 'reanimated-color
 export default function ProfileScreen() {
   const { theme, themeName, accentColor, unitSystem, setTheme, setAccentColor, setUnitSystem } = useThemeStore();
   const { profile, settings, updateSettings, setProfile, gender, setGender } = useUserStore();
+  const { hasActiveGoalLayeringPlan, secondaryGoal } = useGoalStore();
+  const router = useRouter();
   
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -194,6 +198,29 @@ export default function ProfileScreen() {
                   </View>
                 ))}
               </View>
+            </View>
+          </MetallicCard>
+        </TouchableOpacity>
+        
+        {/* Body Composition Card */}
+        <TouchableOpacity onPress={() => router.push('/body-composition')} activeOpacity={0.7}>
+          <MetallicCard style={styles.bodyCompCard}>
+            <View style={styles.bodyCompRow}>
+              <View style={[styles.bodyCompIcon, { backgroundColor: accentColor + '15' }]}>
+                <Ionicons name="body" size={22} color={accentColor} />
+              </View>
+              <View style={styles.bodyCompInfo}>
+                <Text style={[styles.bodyCompTitle, { color: theme.colors.textPrimary }]}>Body Composition</Text>
+                <Text style={[styles.bodyCompSubtitle, { color: theme.colors.textMuted }]}>
+                  {hasActiveGoalLayeringPlan && secondaryGoal?.isActive
+                    ? 'Goal layering active'
+                    : 'View analysis & set goals'}
+                </Text>
+              </View>
+              {hasActiveGoalLayeringPlan && (
+                <View style={[styles.activeIndicator, { backgroundColor: accentColor }]} />
+              )}
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
             </View>
           </MetallicCard>
         </TouchableOpacity>
@@ -777,7 +804,38 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   profileCard: {
+    marginBottom: 12,
+  },
+  bodyCompCard: {
     marginBottom: 24,
+  },
+  bodyCompRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  bodyCompIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bodyCompInfo: {
+    flex: 1,
+  },
+  bodyCompTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bodyCompSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  activeIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   profileHeader: {
     flexDirection: 'row',

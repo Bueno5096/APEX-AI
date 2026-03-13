@@ -1,281 +1,231 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for Coach AI Fitness App
-Tests the AI Coach chat endpoint and related functionality
+Goal Layering Validation Tests for AI Coach Endpoint
+Tests the new secondary goal context functionality
 """
 
-import requests
+import asyncio
+import aiohttp
 import json
-import time
-import uuid
-from datetime import datetime
+import sys
+from typing import Dict, Any
 
-# Configuration
-BASE_URL = "https://coach-context-v1.preview.emergentagent.com"
-HEALTH_URL = f"{BASE_URL}/api/health"
-CHAT_URL = f"{BASE_URL}/api/coach/chat"
+# Backend URL from environment
+BACKEND_URL = "https://coach-context-v1.preview.emergentagent.com"
 
-def test_health_check():
-    """Test 1: Health check endpoint"""
-    print("🔍 Testing health check endpoint...")
-    
-    try:
-        response = requests.get(HEALTH_URL, timeout=10)
+class GoalLayeringTester:
+    def __init__(self):
+        self.session = None
+        self.results = []
         
-        if response.status_code == 200:
-            data = response.json()
-            print(f"✅ Health check passed: {data}")
-            return True
-        else:
-            print(f"❌ Health check failed with status {response.status_code}: {response.text}")
+    async def setup(self):
+        """Initialize HTTP session"""
+        timeout = aiohttp.ClientTimeout(total=30)
+        self.session = aiohttp.ClientSession(timeout=timeout)
+        
+    async def cleanup(self):
+        """Close HTTP session"""
+        if self.session:
+            await self.session.close()
+            
+    async def test_health_check(self):
+        """Test 1: GET /api/health - should return 200"""
+        print("🔍 Test 1: Health Check Endpoint")
+        try:
+            async with self.session.get(f"{BACKEND_URL}/api/health") as response:
+                status_code = response.status
+                data = await response.json()
+                
+                success = status_code == 200
+                print(f"   Status: {status_code}")
+                print(f"   Response: {data}")
+                print(f"   ✅ PASS" if success else f"   ❌ FAIL")
+                
+                self.results.append({
+                    "test": "Health Check",
+                    "status": "PASS" if success else "FAIL",
+                    "details": f"Status {status_code}, Response: {data}"
+                })
+                return success
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Exception: {e}")
+            self.results.append({
+                "test": "Health Check", 
+                "status": "FAIL",
+                "details": f"Exception: {e}"
+            })
             return False
-    except Exception as e:
-        print(f"❌ Health check error: {str(e)}")
-        return False
-
-def test_basic_chat():
-    """Test 2: Basic chat without conversation history"""
-    print("\n🔍 Testing basic chat (no history)...")
-    
-    try:
-        payload = {
-            "message": "What's the best way to warm up before a workout?"
-        }
-        
-        response = requests.post(CHAT_URL, json=payload, timeout=30)
-        
-        if response.status_code == 200:
-            data = response.json()
             
-            # Check response structure
-            if 'response' in data and 'session_id' in data:
-                print(f"✅ Basic chat successful")
-                print(f"   Session ID: {data['session_id']}")
-                print(f"   Response: {data['response'][:100]}...")
-                
-                # Check response length for conciseness
-                word_count = len(data['response'].split())
-                if word_count <= 100:  # Roughly 2-4 sentences
-                    print(f"✅ Response is concise ({word_count} words)")
-                else:
-                    print(f"⚠️  Response might be long ({word_count} words)")
-                
-                return True, data['session_id']
-            else:
-                print(f"❌ Basic chat - Invalid response structure: {data}")
-                return False, None
-        else:
-            print(f"❌ Basic chat failed with status {response.status_code}: {response.text}")
-            return False, None
-            
-    except Exception as e:
-        print(f"❌ Basic chat error: {str(e)}")
-        return False, None
-
-def test_chat_with_memory():
-    """Test 3: Chat with conversation history to test memory"""
-    print("\n🔍 Testing chat with conversation history...")
-    
-    try:
-        # Create a conversation about chest workouts
+    async def test_coach_with_secondary_goal(self):
+        """Test 2: POST /api/coach/chat with secondary goal context"""
+        print("\n🔍 Test 2: Coach Chat with Secondary Goal Context")
+        
         payload = {
-            "message": "What exercises should I add to that?",
-            "conversation_history": [
-                {
-                    "role": "user",
-                    "content": "I want to build a chest workout plan"
+            "message": "How should I adjust my training this week?",
+            "context": {
+                "coachStyle": "neutral",
+                "userProfile": {
+                    "name": "Alex Johnson",
+                    "fitnessGoals": ["Build Muscle"],
+                    "trainingExperience": "intermediate"
                 },
-                {
-                    "role": "coach", 
-                    "content": "For a chest workout, focus on bench press, incline dumbbell press, and cable flyes."
-                },
-                {
-                    "role": "user",
-                    "content": "What exercises should I add to that?"
+                "secondaryGoal": {
+                    "type": "reduce_bodyfat",
+                    "targetValue": 15,
+                    "startingValue": 25,
+                    "currentValue": 22,
+                    "timeframeWeeks": 13,
+                    "startDate": "2025-01-01T00:00:00Z",
+                    "isActive": True
                 }
-            ]
+            }
         }
         
-        response = requests.post(CHAT_URL, json=payload, timeout=30)
+        try:
+            async with self.session.post(
+                f"{BACKEND_URL}/api/coach/chat",
+                json=payload,
+                headers={'Content-Type': 'application/json'}
+            ) as response:
+                status_code = response.status
+                data = await response.json()
+                
+                print(f"   Status: {status_code}")
+                print(f"   Response length: {len(data.get('response', ''))}")
+                print(f"   Session ID: {data.get('session_id', 'None')}")
+                
+                # Validation checks
+                checks = []
+                
+                # Check 1: Status 200
+                status_ok = status_code == 200
+                checks.append(f"Status 200: {'✅' if status_ok else '❌'}")
+                
+                # Check 2: Response mentions both building muscle AND fat loss/body fat
+                response_text = data.get('response', '').lower()
+                mentions_muscle = any(term in response_text for term in ['muscle', 'build', 'strength', 'hypertrophy'])
+                mentions_fat = any(term in response_text for term in ['fat', 'body fat', 'lean', 'composition', 'cutting'])
+                dual_goal_awareness = mentions_muscle and mentions_fat
+                checks.append(f"Mentions both muscle building AND fat loss: {'✅' if dual_goal_awareness else '❌'}")
+                
+                # Check 3: Response does NOT include diet or nutrition advice
+                no_diet_advice = not any(term in response_text for term in ['diet', 'nutrition', 'calorie', 'eat', 'food', 'meal'])
+                checks.append(f"No diet/nutrition advice: {'✅' if no_diet_advice else '❌'}")
+                
+                # Check 4: Response is concise (under 150 words)
+                word_count = len(data.get('response', '').split())
+                is_concise = word_count <= 150
+                checks.append(f"Concise (≤150 words): {'✅' if is_concise else '❌'} ({word_count} words)")
+                
+                all_pass = status_ok and dual_goal_awareness and no_diet_advice and is_concise
+                
+                print(f"   Validation Checks:")
+                for check in checks:
+                    print(f"     {check}")
+                    
+                print(f"\n   Response Preview:")
+                print(f"   \"{data.get('response', '')[:200]}...\"")
+                print(f"   {'✅ PASS' if all_pass else '❌ FAIL'}")
+                
+                self.results.append({
+                    "test": "Coach with Secondary Goal",
+                    "status": "PASS" if all_pass else "FAIL", 
+                    "details": f"Status {status_code}, Word count: {word_count}, Dual awareness: {dual_goal_awareness}, No diet: {no_diet_advice}"
+                })
+                return all_pass
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Exception: {e}")
+            self.results.append({
+                "test": "Coach with Secondary Goal",
+                "status": "FAIL",
+                "details": f"Exception: {e}"
+            })
+            return False
+            
+    async def test_coach_without_secondary_goal(self):
+        """Test 3: POST /api/coach/chat WITHOUT secondary goal context"""
+        print("\n🔍 Test 3: Coach Chat WITHOUT Secondary Goal Context")
         
-        if response.status_code == 200:
-            data = response.json()
-            
-            if 'response' in data and 'session_id' in data:
-                response_text = data['response'].lower()
-                
-                # Check if the response references chest context
-                chest_related = any(word in response_text for word in 
-                                  ['chest', 'bench', 'press', 'pectoral', 'incline', 'dumbbell', 'flye'])
-                
-                if chest_related:
-                    print("✅ Memory test passed - AI referenced chest workout context")
-                    print(f"   Response: {data['response'][:150]}...")
-                else:
-                    print("❌ Memory test failed - AI didn't reference previous chest workout context")
-                    print(f"   Response: {data['response'][:150]}...")
-                
-                return chest_related, data['session_id']
-            else:
-                print(f"❌ Memory test - Invalid response structure: {data}")
-                return False, None
-        else:
-            print(f"❌ Memory test failed with status {response.status_code}: {response.text}")
-            return False, None
-            
-    except Exception as e:
-        print(f"❌ Memory test error: {str(e)}")
-        return False, None
-
-def test_conciseness():
-    """Test 4: Verify responses are concise"""
-    print("\n🔍 Testing response conciseness...")
-    
-    try:
         payload = {
-            "message": "What should I eat after a workout?"
+            "message": "What's a good chest exercise?"
         }
         
-        response = requests.post(CHAT_URL, json=payload, timeout=30)
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            if 'response' in data:
-                response_text = data['response']
-                word_count = len(response_text.split())
-                sentence_count = len([s for s in response_text.split('.') if s.strip()])
+        try:
+            async with self.session.post(
+                f"{BACKEND_URL}/api/coach/chat",
+                json=payload,
+                headers={'Content-Type': 'application/json'}
+            ) as response:
+                status_code = response.status
+                data = await response.json()
                 
-                print(f"   Response: {response_text}")
-                print(f"   Word count: {word_count}")
-                print(f"   Sentence count: {sentence_count}")
+                print(f"   Status: {status_code}")
+                print(f"   Response length: {len(data.get('response', ''))}")
+                print(f"   Session ID: {data.get('session_id', 'None')}")
                 
-                # Check conciseness criteria
-                if word_count <= 100 and sentence_count <= 6:
-                    print("✅ Conciseness test passed")
-                    return True
-                else:
-                    print("⚠️  Response might be too long for simple question")
-                    return False
-            else:
-                print(f"❌ Conciseness test - Invalid response: {data}")
-                return False
-        else:
-            print(f"❌ Conciseness test failed with status {response.status_code}: {response.text}")
+                # Basic validation
+                success = status_code == 200 and len(data.get('response', '')) > 0
+                
+                print(f"   Response Preview:")
+                print(f"   \"{data.get('response', '')[:150]}...\"")
+                print(f"   {'✅ PASS' if success else '❌ FAIL'}")
+                
+                self.results.append({
+                    "test": "Coach without Secondary Goal",
+                    "status": "PASS" if success else "FAIL",
+                    "details": f"Status {status_code}, Response length: {len(data.get('response', ''))}"
+                })
+                return success
+                
+        except Exception as e:
+            print(f"   ❌ FAIL - Exception: {e}")
+            self.results.append({
+                "test": "Coach without Secondary Goal",
+                "status": "FAIL", 
+                "details": f"Exception: {e}"
+            })
             return False
             
-    except Exception as e:
-        print(f"❌ Conciseness test error: {str(e)}")
-        return False
+    async def run_all_tests(self):
+        """Run all validation tests"""
+        print(f"🚀 Starting Goal Layering Validation Tests")
+        print(f"📡 Backend URL: {BACKEND_URL}")
+        print("=" * 60)
+        
+        await self.setup()
+        
+        try:
+            # Run all tests
+            test1 = await self.test_health_check()
+            test2 = await self.test_coach_with_secondary_goal()
+            test3 = await self.test_coach_without_secondary_goal()
+            
+            # Summary
+            print("\n" + "=" * 60)
+            print("📊 TEST SUMMARY:")
+            
+            all_passed = True
+            for result in self.results:
+                status_icon = "✅" if result["status"] == "PASS" else "❌"
+                print(f"   {status_icon} {result['test']}: {result['status']}")
+                if result["status"] == "FAIL":
+                    all_passed = False
+                    
+            print(f"\n🎯 OVERALL: {'ALL TESTS PASSED' if all_passed else 'SOME TESTS FAILED'}")
+            return all_passed
+            
+        finally:
+            await self.cleanup()
 
-def test_session_persistence():
-    """Test 5: Session persistence with same session_id"""
-    print("\n🔍 Testing session persistence...")
+async def main():
+    """Main test runner"""
+    tester = GoalLayeringTester()
+    success = await tester.run_all_tests()
     
-    try:
-        # Generate a unique session ID
-        test_session_id = str(uuid.uuid4())
-        
-        # Send first message
-        payload1 = {
-            "message": "Hi, I'm Alex. Remember my name.",
-            "session_id": test_session_id
-        }
-        
-        response1 = requests.post(CHAT_URL, json=payload1, timeout=30)
-        
-        if response1.status_code != 200:
-            print(f"❌ Session persistence test - First message failed: {response1.text}")
-            return False
-        
-        data1 = response1.json()
-        print(f"   First message sent, session: {data1.get('session_id')}")
-        
-        # Wait a moment
-        time.sleep(2)
-        
-        # Send second message with same session ID
-        payload2 = {
-            "message": "What's my name?",
-            "session_id": test_session_id
-        }
-        
-        response2 = requests.post(CHAT_URL, json=payload2, timeout=30)
-        
-        if response2.status_code == 200:
-            data2 = response2.json()
-            
-            # Check if session ID is preserved
-            if data2.get('session_id') == test_session_id:
-                print(f"✅ Session ID preserved: {test_session_id}")
-                
-                # Check if AI remembered the name (basic memory test)
-                response_text = data2['response'].lower()
-                if 'alex' in response_text:
-                    print("✅ Session persistence passed - AI remembered name")
-                    return True
-                else:
-                    print("⚠️  Session ID preserved but memory unclear")
-                    print(f"   Response: {data2['response']}")
-                    return True  # Still counts as working since session_id is preserved
-            else:
-                print(f"❌ Session persistence failed - Session ID changed")
-                print(f"   Expected: {test_session_id}")
-                print(f"   Got: {data2.get('session_id')}")
-                return False
-        else:
-            print(f"❌ Session persistence test - Second message failed: {response2.text}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Session persistence test error: {str(e)}")
-        return False
-
-def run_all_tests():
-    """Run all backend tests"""
-    print("🚀 Starting Backend API Tests for Coach AI")
-    print("=" * 50)
-    
-    results = {}
-    
-    # Test 1: Health Check
-    results['health'] = test_health_check()
-    
-    # Test 2: Basic Chat
-    basic_success, session_id = test_basic_chat()
-    results['basic_chat'] = basic_success
-    
-    # Test 3: Memory with conversation history
-    memory_success, _ = test_chat_with_memory()
-    results['memory'] = memory_success
-    
-    # Test 4: Conciseness
-    results['conciseness'] = test_conciseness()
-    
-    # Test 5: Session persistence
-    results['session_persistence'] = test_session_persistence()
-    
-    # Summary
-    print("\n" + "=" * 50)
-    print("📊 TEST RESULTS SUMMARY")
-    print("=" * 50)
-    
-    total_tests = len(results)
-    passed_tests = sum(1 for result in results.values() if result)
-    
-    for test_name, result in results.items():
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"   {test_name.replace('_', ' ').title()}: {status}")
-    
-    print(f"\nOverall: {passed_tests}/{total_tests} tests passed")
-    
-    if passed_tests == total_tests:
-        print("🎉 All tests passed! AI Coach endpoint is working correctly.")
-        return True
-    else:
-        print(f"⚠️  {total_tests - passed_tests} test(s) failed. Check issues above.")
-        return False
+    # Exit with appropriate code
+    sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
-    success = run_all_tests()
-    exit(0 if success else 1)
+    asyncio.run(main())

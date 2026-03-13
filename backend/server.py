@@ -54,6 +54,8 @@ class ChatContext(BaseModel):
     activeWorkout: Optional[str] = None
     currentExercise: Optional[str] = None
     workoutExercises: Optional[List[Dict[str, Any]]] = None
+    secondaryGoal: Optional[Dict[str, Any]] = None
+    generatedPlan: Optional[Dict[str, Any]] = None
 
 class ConversationMessage(BaseModel):
     role: str  # 'user' or 'coach'
@@ -209,6 +211,24 @@ If the user says "explain more" or asks for a deeper explanation, THEN provide a
                 context_info += f"\n- Experience: {profile.get('trainingExperience')}"
             if profile.get('fitnessGoals'):
                 context_info += f"\n- Goals: {', '.join(profile.get('fitnessGoals', []))}"
+        
+        # Secondary goal awareness - Goal Layering
+        if context.secondaryGoal and context.secondaryGoal.get('isActive'):
+            sg = context.secondaryGoal
+            goal_type = sg.get('type', '')
+            target = sg.get('targetValue', 0)
+            starting = sg.get('startingValue', 0)
+            current = sg.get('currentValue', 0)
+            weeks = sg.get('timeframeWeeks', 0)
+            start_date = sg.get('startDate', '')
+            
+            context_info += f"\n\n--- ACTIVE GOAL LAYERING ---"
+            context_info += f"\n- Secondary Goal: {goal_type.replace('_', ' ').title()}"
+            context_info += f"\n- Target: {target}, Starting: {starting}, Current: {current}"
+            context_info += f"\n- Timeframe: {weeks} weeks from {start_date}"
+            context_info += f"\n- You MUST consider both the primary and secondary goals in all training advice."
+            context_info += f"\n- Keep all advice purely physical training. NO nutrition, diet, or calorie advice."
+            context_info += f"\n--- END GOAL LAYERING ---"
     
     return base_prompt + style_prompts.get(style, style_prompts["neutral"]) + context_info
 

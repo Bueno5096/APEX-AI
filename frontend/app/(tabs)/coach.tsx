@@ -18,6 +18,7 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { useUserStore } from '../../src/store/userStore';
 import { useHealthStore } from '../../src/store/healthStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
+import { useGoalStore } from '../../src/store/goalStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import Constants from 'expo-constants';
 
@@ -43,6 +44,7 @@ export default function CoachScreen() {
   const { profile, settings, pendingCoachMessage, setPendingCoachMessage } = useUserStore();
   const { recoveryData } = useHealthStore();
   const { todayWorkout } = useWorkoutStore();
+  const { secondaryGoal, generatedPlan } = useGoalStore();
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -147,6 +149,8 @@ export default function CoachScreen() {
             userProfile: profile,
             activeWorkout: todayWorkout?.title,
             workoutExercises: workoutExercises.length > 0 ? workoutExercises : undefined,
+            secondaryGoal: secondaryGoal || undefined,
+            generatedPlan: generatedPlan ? { summary: generatedPlan.summary } : undefined,
           },
         }),
       });

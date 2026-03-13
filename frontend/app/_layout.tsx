@@ -14,6 +14,9 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="body-composition" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="goal-setup" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="plan-display" options={{ animation: 'slide_from_right' }} />
       </Stack>
     </SafeAreaProvider>
   );
