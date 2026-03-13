@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { useThemeStore } from '../../src/store/themeStore';
@@ -90,6 +91,7 @@ export default function CoachScreen() {
   const { todayWorkout } = useWorkoutStore();
   const { secondaryGoal, generatedPlan, hasActiveGoalLayeringPlan } = useGoalStore();
   const { results: bodyCompResults, history: bodyCompHistory, lastUpdated: bodyCompLastUpdated, hasCalculated: bodyCompHasCalculated, measurements: bodyCompMeasurements } = useBodyCompStore();
+  const router = useRouter();
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -255,6 +257,14 @@ export default function CoachScreen() {
             userProfile: profile,
             activeWorkout: todayWorkout?.title,
             workoutExercises: workoutExercises.length > 0 ? workoutExercises : undefined,
+            fullWorkoutPlan: todayWorkout?.exercises?.map(ex => ({
+              name: ex.name,
+              sets: ex.sets,
+              reps: ex.reps,
+              weight: ex.weight,
+              targetMuscles: ex.targetMuscles,
+              isCompleted: ex.isCompleted,
+            })) || [],
             secondaryGoal: secondaryGoal || undefined,
             generatedPlan: generatedPlan ? { summary: generatedPlan.summary } : undefined,
             // ─── New comprehensive data ───
@@ -466,11 +476,41 @@ export default function CoachScreen() {
                 </Text>
               </View>
               {message.role === 'coach' && message.actions && message.actions.length > 0 && (
-                <View style={[styles.actionsAppliedChip, { backgroundColor: accentColor + '15', borderColor: accentColor + '30' }]}>
-                  <Ionicons name="checkmark-circle" size={14} color={accentColor} />
-                  <Text style={[styles.actionsAppliedText, { color: accentColor }]}>
-                    Workout updated — check Workout tab
-                  </Text>
+                <View style={[styles.actionConfirmCard, { backgroundColor: accentColor + '10', borderColor: accentColor + '30' }]}>
+                  <View style={styles.actionConfirmHeader}>
+                    <Ionicons name="checkmark-circle" size={18} color={accentColor} />
+                    <Text style={[styles.actionConfirmTitle, { color: accentColor }]}>WORKOUT UPDATED</Text>
+                  </View>
+                  {message.actions.map((action: any, i: number) => (
+                    <View key={i} style={styles.actionConfirmItem}>
+                      {action.type === 'swap_exercise' && (
+                        <>
+                          <Text style={[styles.actionConfirmDetail, { color: theme.colors.textMuted }]}>Removed: {action.exercise_name}</Text>
+                          <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>Added: {action.new_exercise_name} {action.new_sets}x{action.new_reps}</Text>
+                        </>
+                      )}
+                      {action.type === 'modify_exercise' && (
+                        <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>Modified: {action.exercise_name} → {action.new_sets ? `${action.new_sets} sets` : ''}{action.new_reps ? ` x ${action.new_reps}` : ''}{action.new_weight ? ` @ ${unitSystem === 'imperial' ? `${Math.round(action.new_weight * 2.20462)} lbs` : `${action.new_weight}kg`}` : ''}</Text>
+                      )}
+                      {action.type === 'set_workout' && (
+                        <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>New plan: {action.title || action.workout_type || 'Custom'} workout</Text>
+                      )}
+                      {action.type === 'skip_exercise' && (
+                        <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>Skipped: {action.exercise_name}</Text>
+                      )}
+                      {action.type === 'adjust_rest' && (
+                        <Text style={[styles.actionConfirmDetail, { color: theme.colors.textPrimary }]}>Rest time → {action.new_rest_seconds}s</Text>
+                      )}
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    style={[styles.viewWorkoutLink, { borderTopColor: accentColor + '20' }]}
+                    onPress={() => router.push('/(tabs)/workout')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.viewWorkoutText, { color: accentColor }]}>View in Workout Tab</Text>
+                    <Ionicons name="arrow-forward" size={14} color={accentColor} />
+                  </TouchableOpacity>
                 </View>
               )}
               {message.role === 'coach' && index > 0 && index === messages.length - 1 && !isLoading && (
@@ -819,5 +859,49 @@ const styles = StyleSheet.create({
   actionsAppliedText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  // Action confirmation card
+  actionConfirmCard: {
+    marginTop: 8,
+    marginLeft: 4,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden' as const,
+  },
+  actionConfirmHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  actionConfirmTitle: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    letterSpacing: 1,
+  },
+  actionConfirmItem: {
+    paddingHorizontal: 14,
+    paddingBottom: 6,
+  },
+  actionConfirmDetail: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    lineHeight: 20,
+  },
+  viewWorkoutLink: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    marginTop: 6,
+  },
+  viewWorkoutText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
   },
 });

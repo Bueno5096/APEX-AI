@@ -63,6 +63,7 @@ class ChatContext(BaseModel):
     strengthProgress: Optional[Dict[str, Any]] = None      # Gains, PRs, streak, workouts
     goalLayeringActive: Optional[bool] = False
     unitSystem: Optional[str] = "imperial"                 # "imperial" or "metric"
+    fullWorkoutPlan: Optional[List[Dict[str, Any]]] = None # Full exercises in current workout
 
 class ConversationMessage(BaseModel):
     role: str  # 'user' or 'coach'
@@ -282,16 +283,30 @@ STRENGTH PROGRESS THIS MONTH:
 STRENGTH PROGRESS THIS MONTH:
 - No workout history yet"""
 
-    # ─── Active workout context ───
+    # ─── Active workout context (FULL plan, not just title) ───
     workout_block = ""
-    if context and context.activeWorkout:
-        workout_block += f"\n\nCURRENT WORKOUT SESSION:\n- Active Workout: {context.activeWorkout}"
-        if context.currentExercise:
-            workout_block += f"\n- Current Exercise: {context.currentExercise}"
+    if context and context.fullWorkoutPlan and len(context.fullWorkoutPlan) > 0:
+        workout_block += "\n\nCURRENT ACTIVE WORKOUT PLAN:"
+        if context.activeWorkout:
+            workout_block += f"\nWorkout: {context.activeWorkout}"
+        for ex in context.fullWorkoutPlan:
+            w_str = ex.get('weight', '?')
+            if unit_sys == 'imperial' and isinstance(w_str, (int, float)) and w_str > 0:
+                w_str = f"{round(w_str * 2.20462)} lbs"
+            elif isinstance(w_str, (int, float)) and w_str > 0:
+                w_str = f"{w_str}kg"
+            else:
+                w_str = "bodyweight"
+            muscles = ', '.join(ex.get('targetMuscles', [])) if ex.get('targetMuscles') else ''
+            muscle_tag = f" [{muscles}]" if muscles else ""
+            workout_block += f"\n  - {ex.get('name', 'Unknown')}: {ex.get('sets', '?')} sets x {ex.get('reps', '?')} @ {w_str}{muscle_tag}"
+    elif context and context.activeWorkout:
+        workout_block += f"\n\nCURRENT ACTIVE WORKOUT PLAN:\n- Workout: {context.activeWorkout}"
         if context.workoutExercises:
-            workout_block += "\n- Exercises in this workout:"
             for ex in context.workoutExercises:
-                workout_block += f"\n  * {ex.get('name', 'Unknown')}: {ex.get('sets', '?')} sets x {ex.get('reps', '?')} @ {ex.get('weight', '?')}kg"
+                workout_block += f"\n  - {ex.get('name', 'Unknown')}: {ex.get('sets', '?')} sets x {ex.get('reps', '?')} @ {ex.get('weight', '?')}kg"
+    else:
+        workout_block += "\n\nCURRENT ACTIVE WORKOUT PLAN:\n- No active plan yet — generate one when the user asks"
 
     # ─── Recovery context ───
     recovery_block = ""
@@ -320,38 +335,47 @@ STRENGTH PROGRESS THIS MONTH:
 MEASUREMENT UNITS:
 - {unit_instruction}
 
-IMPORTANT RULES FOR YOUR RESPONSES:
-- Always reference the user's specific numbers — never give generic advice
-- All recommendations must be purely physical training based — absolutely no nutrition, diet, calorie, or macro advice
-- Always be aware of both primary AND secondary goals simultaneously
-- Always check muscle readiness before recommending training a specific muscle group
-- Always acknowledge injuries and limitations in every workout recommendation
-- Keep responses conversational and motivating — like a real personal trainer who knows their client deeply
-- Address the user by their first name {name} naturally in conversation
+RESPONSE RULES — FOLLOW THESE EXACTLY:
+- When the user asks you to make ANY change to their workout: MAKE THE CHANGE FIRST using [ACTIONS], THEN confirm it in 1-2 sentences maximum. Do not explain what you are about to do — just do it.
+- Keep all responses under 4 sentences unless the user asks for a detailed explanation.
+- Never write a paragraph when a sentence will do.
+- Never say "I would suggest..." or "You could try..." — just make the change and confirm it.
+- Never ask for confirmation before making a change unless the change is permanent and irreversible.
+- If the user says "change X" — change X immediately with an action block.
+- If the user says "add X" — add X immediately.
+- If the user says "remove X" — remove X immediately.
+- If the user says "make my workout harder" — update the plan immediately with increased sets, reps, or weight.
+- If the user says "I am too sore" — immediately reduce intensity and suggest rest.
+- After making a change, confirm it in one sentence: "Done — swapped Romanian deadlifts for leg curls on your leg day."
+- Only give long explanations if the user explicitly asks "why" or "explain" or "tell me more".
+- Always reference the user's specific numbers — never give generic advice.
+- All recommendations must be purely physical training based — absolutely no nutrition, diet, calorie, or macro advice.
+- Always check muscle readiness before recommending training a specific muscle group.
+- Always acknowledge injuries and limitations in every workout recommendation.
+- Address the user by their first name {name} naturally in conversation.
 
-CRITICAL RULE - BE CONCISE:
-- Keep responses SHORT: 2-4 sentences max for simple questions, 4-6 for complex ones.
-- Use bullet points instead of paragraphs when listing things.
-- No filler words, no lengthy explanations unless the user explicitly asks for more detail.
-- Get straight to the actionable advice.
+WORKOUT MEMORY RULES:
+- The user's current active workout plan is shown above under CURRENT ACTIVE WORKOUT PLAN.
+- Never recommend a workout without saving it using a set_workout or modify_exercise action.
+- Always refer to the saved plan when the user asks about their workout — never make something up.
+- Never generate a new plan from scratch if one already exists — modify the existing plan instead.
+- If the user asks "what is my workout today" always refer to the saved plan above.
 
-IMPORTANT - WORKOUT MODIFICATIONS:
-When the user asks you to change, swap, modify, add, or remove exercises, sets, reps, weight, or rest time, you MUST include a JSON action block at the end of your response. The format is:
+WORKOUT ACTION SYSTEM — THIS IS CRITICAL:
+When the user asks you to change, swap, modify, add, or remove anything about their workout, you MUST include a JSON action block at the END of your response. Format:
 
 [ACTIONS]
 [{{"type": "modify_exercise", "exercise_name": "Bench Press", "new_sets": 3, "new_reps": "10-12", "new_weight": 70}}]
 [/ACTIONS]
 
 Available action types:
-- "set_workout": Set/create an entire workout plan. Include "workout_type" (one of: "push", "pull", "legs", "upper", "lower", "full", "light", "rest") and optionally "title" (custom title string).
-- "swap_exercise": Replace an exercise. Include "exercise_name" (current) and "new_exercise_name", "new_sets", "new_reps", "new_weight", "target_muscles" (array)
-- "modify_exercise": Change sets/reps/weight. Include "exercise_name" and any of "new_sets", "new_reps", "new_weight"
-- "adjust_rest": Change rest time. Include "new_rest_seconds"
-- "skip_exercise": Skip current exercise. Include "exercise_name"
+- "set_workout": Create/replace entire workout. Include "workout_type" (push/pull/legs/upper/lower/full/light/rest) and optionally "title".
+- "swap_exercise": Replace exercise. Include "exercise_name", "new_exercise_name", "new_sets", "new_reps", "new_weight", "target_muscles" (array).
+- "modify_exercise": Change sets/reps/weight. Include "exercise_name" and any of "new_sets", "new_reps", "new_weight".
+- "adjust_rest": Change rest time. Include "new_rest_seconds".
+- "skip_exercise": Skip exercise. Include "exercise_name".
 
-CRITICAL: When the user asks you to create, build, generate, or set up a workout, you MUST include a "set_workout" action. Always provide your coaching explanation FIRST, then the action block. Only include actions when the user explicitly asks for changes or a new workout.
-
-If the user says "explain more" or asks for a deeper explanation, THEN provide a thorough, detailed response."""
+CRITICAL: You MUST include an [ACTIONS] block for ANY workout modification request. The app reads this block to actually apply changes. Without it, nothing happens. Write your short confirmation message FIRST, then the action block at the very end."""
 
     # ─── Append style modifier ───
     style_prompts = {
