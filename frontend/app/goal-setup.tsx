@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   Animated,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,13 +29,14 @@ const getBackendUrl = () => {
 };
 
 type GoalType = 'reduce_bodyfat' | 'build_muscle' | 'increase_frequency' | 'maintain_health';
-type Timeframe = '6w' | '3m' | '6m' | '1y';
+type Timeframe = '6w' | '3m' | '6m' | '1y' | 'custom';
 
 const TIMEFRAME_OPTIONS: { key: Timeframe; label: string; weeks: number }[] = [
   { key: '6w', label: '6 Weeks', weeks: 6 },
   { key: '3m', label: '3 Months', weeks: 13 },
   { key: '6m', label: '6 Months', weeks: 26 },
   { key: '1y', label: '1 Year', weeks: 52 },
+  { key: 'custom', label: 'Custom', weeks: 0 },
 ];
 
 const getBFCategory = (bf: number, gender: string) => {
@@ -87,10 +89,25 @@ export default function GoalSetupScreen() {
   const [targetBF, setTargetBF] = useState(Math.max(bodyFat - 5, 8));
   const [targetFFMI, setTargetFFMI] = useState(Math.min(ffmi + 2, 25));
   const [targetFrequency, setTargetFrequency] = useState(Math.min(frequency + 1, 7));
+  const [targetWeight, setTargetWeight] = useState('');
   const [timeframe, setTimeframe] = useState<Timeframe>('3m');
+  const [customWeeks, setCustomWeeks] = useState('12');
   const [generating, setGenerating] = useState(false);
 
-  const timeframeWeeks = TIMEFRAME_OPTIONS.find(t => t.key === timeframe)?.weeks || 13;
+  const timeframeWeeks = timeframe === 'custom'
+    ? (parseInt(customWeeks) || 12)
+    : (TIMEFRAME_OPTIONS.find(t => t.key === timeframe)?.weeks || 13);
+
+  // Smart target weight suggestion
+  useEffect(() => {
+    if (goalType === 'reduce_bodyfat') {
+      const targetWeightKg = Math.round(weight * (1 - (targetBF - bodyFat) / 100));
+      setTargetWeight(String(targetWeightKg));
+    } else if (goalType === 'build_muscle') {
+      const targetWeightKg = Math.round(weight * 1.05);
+      setTargetWeight(String(targetWeightKg));
+    }
+  }, [goalType, targetBF, weight, bodyFat]);
 
   const goalTypeOptions: { key: GoalType; icon: string; label: string }[] = [
     { key: 'reduce_bodyfat', icon: 'trending-down', label: 'Reduce Body Fat' },
@@ -342,6 +359,36 @@ KEEP ALL ADVICE PURELY PHYSICAL TRAINING. NO NUTRITION OR DIET ADVICE. Respond O
             </TouchableOpacity>
           ))}
         </View>
+        {timeframe === 'custom' && (
+          <View style={styles.customWeeksRow}>
+            <TextInput
+              style={[styles.customWeeksInput, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, color: theme.colors.textPrimary }]}
+              value={customWeeks}
+              onChangeText={setCustomWeeks}
+              keyboardType="numeric"
+              placeholder="Weeks"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+            <Text style={[styles.customWeeksLabel, { color: theme.colors.textMuted }]}>weeks</Text>
+          </View>
+        )}
+
+        {/* Target Weight */}
+        {(goalType === 'reduce_bodyfat' || goalType === 'build_muscle') && (
+          <>
+            <Text style={[styles.sectionLabel, { color: theme.colors.textMuted }]}>TARGET WEIGHT (kg)</Text>
+            <MetallicCard style={styles.paramCard}>
+              <TextInput
+                style={[styles.targetWeightInput, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, color: theme.colors.textPrimary }]}
+                value={targetWeight}
+                onChangeText={setTargetWeight}
+                keyboardType="numeric"
+                placeholder="Target weight in kg"
+                placeholderTextColor={theme.colors.textMuted}
+              />
+            </MetallicCard>
+          </>
+        )}
 
         {/* Preview */}
         <Text style={[styles.sectionLabel, { color: theme.colors.textMuted }]}>TRAINING PREVIEW</Text>
@@ -401,9 +448,13 @@ const styles = StyleSheet.create({
   freqPillText: { fontSize: 15, fontWeight: '600' },
   freqNote: { fontSize: 12, marginTop: 10, fontStyle: 'italic' },
   // Timeframe
-  timeframeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  timeframeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   timeframePill: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1 },
   timeframePillText: { fontSize: 14, fontWeight: '600' },
+  customWeeksRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 24 },
+  customWeeksInput: { borderWidth: 0.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, fontWeight: '600', width: 100 },
+  customWeeksLabel: { fontSize: 15, fontWeight: '500' },
+  targetWeightInput: { borderWidth: 0.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 18, fontWeight: '600', textAlign: 'center' },
   // Preview
   previewCard: { marginBottom: 24 },
   previewTitle: { fontSize: 14, fontWeight: '600', marginBottom: 12 },

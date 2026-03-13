@@ -17,6 +17,7 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { useHealthStore } from '../../src/store/healthStore';
 import { useUserStore } from '../../src/store/userStore';
+import { useGoalStore } from '../../src/store/goalStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import Constants from 'expo-constants';
 
@@ -131,18 +132,57 @@ const SectionHeader = ({ title, subtitle, drag, isActive, theme, accentColor }: 
   </View>
 );
 
+// ─── Goal Progress Card ─────────────────────────────────
+const GoalProgressCard = ({ goal, accentColor, theme }: { goal: any; accentColor: string; theme: any }) => {
+  const progress = goal.startingValue !== goal.targetValue
+    ? Math.round(Math.abs((goal.currentValue - goal.startingValue) / (goal.targetValue - goal.startingValue)) * 100)
+    : 0;
+  const clampedProgress = Math.min(Math.max(progress, 0), 100);
+  const weeksElapsed = Math.round((Date.now() - new Date(goal.startDate).getTime()) / (7 * 24 * 60 * 60 * 1000));
+  const weeksRemaining = Math.max(goal.timeframeWeeks - weeksElapsed, 0);
+  const expectedProgress = goal.timeframeWeeks > 0 ? Math.round((weeksElapsed / goal.timeframeWeeks) * 100) : 0;
+  const status = clampedProgress >= expectedProgress + 10 ? 'Ahead of Schedule' : clampedProgress >= expectedProgress - 10 ? 'On Track' : 'Behind';
+  const statusColor = status === 'Ahead of Schedule' ? '#4CAF50' : status === 'On Track' ? accentColor : '#F44336';
+  const goalLabel = goal.type === 'reduce_bodyfat' ? `Reduce body fat from ${goal.startingValue}% to ${goal.targetValue}%` :
+    goal.type === 'build_muscle' ? `Build muscle mass to ${goal.targetValue} FFMI` :
+    `Increase training to ${goal.targetValue} days/week`;
+
+  return (
+    <MetallicCard style={styles.goalProgressCard} intensity="medium">
+      <Text style={[styles.goalProgressLabel, { color: theme.colors.textMuted }]}>SECONDARY GOAL</Text>
+      <Text style={[styles.goalProgressDesc, { color: theme.colors.textPrimary }]}>{goalLabel}</Text>
+      <View style={[styles.goalProgressBar, { backgroundColor: theme.colors.cardSecondary }]}>
+        <View style={[styles.goalProgressFill, { width: `${clampedProgress}%`, backgroundColor: accentColor }]} />
+      </View>
+      <View style={styles.goalProgressValues}>
+        <Text style={[styles.goalProgressVal, { color: theme.colors.textMuted }]}>{goal.startingValue}</Text>
+        <Text style={[styles.goalProgressValBold, { color: theme.colors.textPrimary }]}>{goal.currentValue}</Text>
+        <Text style={[styles.goalProgressVal, { color: theme.colors.textMuted }]}>{goal.targetValue}</Text>
+      </View>
+      <View style={styles.goalProgressFooter}>
+        <Text style={[styles.goalProgressWeeks, { color: theme.colors.textMuted }]}>{weeksRemaining} weeks remaining</Text>
+        <View style={[styles.goalStatusBadge, { backgroundColor: statusColor + '20' }]}>
+          <Text style={[styles.goalStatusText, { color: statusColor }]}>{status}</Text>
+        </View>
+      </View>
+    </MetallicCard>
+  );
+};
+
 // ─── Main Component ─────────────────────────────────────
 export default function ProgressScreen() {
   const { theme, accentColor } = useThemeStore();
   const { workoutHistory } = useWorkoutStore();
   const { recoveryData } = useHealthStore();
   const { profile, setPendingCoachMessage } = useUserStore();
+  const { hasActiveGoalLayeringPlan, secondaryGoal } = useGoalStore();
   const router = useRouter();
 
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('30d');
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [animKey, setAnimKey] = useState(0);
+  const timePeriods: TimePeriod[] = ['7d', '15d', '30d', 'all'];
   const [sections, setSections] = useState<Section[]>(
     DEFAULT_SECTION_ORDER.map(id => ({ key: id, label: id }))
   );
@@ -476,8 +516,15 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
       </View>
 
       {/* Time Period Selector */}
+
+      {/* Secondary Goal Progress Card */}
+      {hasActiveGoalLayeringPlan && secondaryGoal?.isActive && (
+        <GoalProgressCard goal={secondaryGoal} accentColor={accentColor} theme={theme} />
+      )}
+
+      {/* Time Period Selector (original) */}
       <View style={[styles.filterContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-        {(['7d', '15d', '30d', 'all'] as TimePeriod[]).map((period) => (
+        {timePeriods.map((period) => (
           <TouchableOpacity
             key={period}
             style={[
@@ -815,5 +862,61 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
+  },
+  // Goal Progress Card
+  goalProgressCard: {
+    marginBottom: 16,
+  },
+  goalProgressLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1,
+  },
+  goalProgressDesc: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  goalProgressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  goalProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  goalProgressValues: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  goalProgressVal: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  goalProgressValBold: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  goalProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  goalProgressWeeks: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  goalStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  goalStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
