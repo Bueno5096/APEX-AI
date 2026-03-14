@@ -12,7 +12,7 @@ import sys
 import time
 
 # Production backend URL from frontend/.env
-BASE_URL = "https://workout-create-hub.preview.emergentagent.com/api"
+BASE_URL = "https://workout-fixes-branch.preview.emergentagent.com/api"
 
 def test_health_check():
     """Test 1: Health check endpoint returns 200"""

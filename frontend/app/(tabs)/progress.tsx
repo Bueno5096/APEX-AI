@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  LayoutAnimation,
+  UIManager,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,7 +62,7 @@ const MUSCLE_EXERCISE_MAP: { [muscle: string]: string[] } = {
   'Traps': ['Shrugs', 'Face Pull'],
 };
 
-const DEFAULT_SECTION_ORDER: SectionId[] = ['strength', 'calendar', 'records', 'analysis'];
+const DEFAULT_SECTION_ORDER: SectionId[] = ['calendar', 'strength', 'records', 'analysis'];
 const SECTION_ORDER_KEY = 'apex_progress_section_order';
 
 // ─── Helper: get backend URL ────────────────────────────
@@ -169,6 +172,13 @@ const GoalProgressCard = ({ goal, accentColor, theme }: { goal: any; accentColor
   );
 };
 
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const COLLAPSED_STRENGTH_COUNT = 3;
+
 // ─── Main Component ─────────────────────────────────────
 export default function ProgressScreen() {
   const { theme, accentColor, unitSystem } = useThemeStore();
@@ -186,6 +196,7 @@ export default function ProgressScreen() {
   const [sections, setSections] = useState<Section[]>(
     DEFAULT_SECTION_ORDER.map(id => ({ key: id, label: id }))
   );
+  const [isStrengthExpanded, setIsStrengthExpanded] = useState(false);
 
   const isDark = theme.name === 'dark';
 
@@ -393,39 +404,69 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
   const hasData = workoutHistory.length > 0;
   const maxGain = muscleGains.length > 0 ? Math.max(...muscleGains.map(g => Math.abs(g.gainPercent)), 1) : 1;
 
+  // ─── Toggle Strength Section ──────────────────────────
+  const toggleStrengthGains = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsStrengthExpanded(prev => !prev);
+  }, []);
+
   // ─── Section Renderers ──────────────────────────────
-  const renderStrengthSection = (drag: () => void, isActive: boolean) => (
-    <View style={styles.sectionContainer}>
-      <SectionHeader title="STRENGTH GAINS" subtitle="Ranked most to least improved" drag={drag} isActive={isActive} theme={theme} accentColor={accentColor} />
-      {muscleGains.length === 0 ? (
-        <Text style={[styles.noDataText, { color: theme.colors.textMuted }]}>No data yet</Text>
-      ) : (
-        <View key={`gains-${animKey}`}>
-          {muscleGains.map((gain, index) => (
-            <MetallicCard key={gain.muscle} style={styles.gainCard} delay={60 * index} small>
-              <View style={styles.gainRow}>
-                <View style={styles.gainLeft}>
-                  <Text style={[styles.gainMuscle, { color: theme.colors.textPrimary }]}>{gain.muscle}</Text>
-                  <Text style={[styles.gainExercise, { color: theme.colors.textMuted }]}>{gain.exercise}</Text>
+  const renderStrengthSection = (drag: () => void, isActive: boolean) => {
+    const displayedGains = isStrengthExpanded 
+      ? muscleGains 
+      : muscleGains.slice(0, COLLAPSED_STRENGTH_COUNT);
+    const hasMore = muscleGains.length > COLLAPSED_STRENGTH_COUNT;
+    const hiddenCount = muscleGains.length - COLLAPSED_STRENGTH_COUNT;
+
+    return (
+      <View style={styles.sectionContainer}>
+        <SectionHeader title="STRENGTH GAINS" subtitle="Ranked most to least improved" drag={drag} isActive={isActive} theme={theme} accentColor={accentColor} />
+        {muscleGains.length === 0 ? (
+          <Text style={[styles.noDataText, { color: theme.colors.textMuted }]}>No data yet</Text>
+        ) : (
+          <View key={`gains-${animKey}`}>
+            {displayedGains.map((gain, index) => (
+              <MetallicCard key={gain.muscle} style={styles.gainCard} delay={60 * index} small>
+                <View style={styles.gainRow}>
+                  <View style={styles.gainLeft}>
+                    <Text style={[styles.gainMuscle, { color: theme.colors.textPrimary }]}>{gain.muscle}</Text>
+                    <Text style={[styles.gainExercise, { color: theme.colors.textMuted }]}>{gain.exercise}</Text>
+                  </View>
+                  <View style={styles.gainCenter}>
+                    <AnimatedBar
+                      percent={(Math.abs(gain.gainPercent) / maxGain) * 100}
+                      color={gain.gainPercent > 0 ? accentColor : theme.colors.textMuted}
+                      delay={60 * index}
+                      mutedColor={theme.colors.textMuted}
+                    />
+                  </View>
+                  <Text style={[styles.gainPercent, { color: gain.gainPercent > 0 ? accentColor : theme.colors.textMuted }]}>
+                    {gain.gainPercent > 0 ? '+' : ''}{gain.gainPercent}%
+                  </Text>
                 </View>
-                <View style={styles.gainCenter}>
-                  <AnimatedBar
-                    percent={(Math.abs(gain.gainPercent) / maxGain) * 100}
-                    color={gain.gainPercent > 0 ? accentColor : theme.colors.textMuted}
-                    delay={60 * index}
-                    mutedColor={theme.colors.textMuted}
-                  />
-                </View>
-                <Text style={[styles.gainPercent, { color: gain.gainPercent > 0 ? accentColor : theme.colors.textMuted }]}>
-                  {gain.gainPercent > 0 ? '+' : ''}{gain.gainPercent}%
+              </MetallicCard>
+            ))}
+            {hasMore && (
+              <TouchableOpacity 
+                style={[styles.strengthToggleBtn, { borderColor: accentColor + '30', backgroundColor: accentColor + '08' }]} 
+                onPress={toggleStrengthGains}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.strengthToggleText, { color: accentColor }]}>
+                  {isStrengthExpanded ? 'Show Less' : `Show All ${muscleGains.length} Muscles`}
                 </Text>
-              </View>
-            </MetallicCard>
-          ))}
-        </View>
-      )}
-    </View>
-  );
+                <Ionicons 
+                  name={isStrengthExpanded ? 'chevron-up' : 'chevron-down'} 
+                  size={16} 
+                  color={accentColor} 
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   const renderRecordsSection = (drag: () => void, isActive: boolean) => (
     <View style={styles.sectionContainer}>
@@ -925,6 +966,20 @@ const styles = StyleSheet.create({
     width: 65,
     textAlign: 'right',
     letterSpacing: -0.5,
+  },
+  strengthToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 4,
+    gap: 6,
+  },
+  strengthToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   barTrack: {
     height: 8,

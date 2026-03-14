@@ -5,13 +5,16 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeStore } from '../src/store/themeStore';
 import { WORKOUT_TEMPLATES } from '../src/store/exerciseStore';
+import { useExerciseStore } from '../src/store/exerciseStore';
 import { useUserStore } from '../src/store/userStore';
+import { useWorkoutStore } from '../src/store/workoutStore';
 import { STYLE_TEMPLATE_COMPAT } from '../src/utils/trainingHelpers';
 
 const CATEGORIES = ['All', 'Push', 'Pull', 'Legs', 'Upper', 'Full Body', 'Bodyweight', 'Strength', 'HIIT', 'Dumbbell'];
@@ -21,13 +24,15 @@ export default function WorkoutTemplatesScreen() {
   const theme = useThemeStore((s) => s.theme);
   const accentColor = useThemeStore((s) => s.accentColor);
   const { profile } = useUserStore();
+  const { saveWorkout } = useExerciseStore();
+  const { setTodayWorkoutByType } = useWorkoutStore();
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState(null);
 
   const userStyle = profile?.trainingStyle;
   const styleCompat = userStyle ? STYLE_TEMPLATE_COMPAT[userStyle] : null;
 
-  const getStyleStatus = (tpl: typeof WORKOUT_TEMPLATES[0]): 'match' | 'conflict' | 'neutral' => {
+  const getStyleStatus = (tpl) => {
     if (!styleCompat) return 'neutral';
     if (styleCompat.match.includes(tpl.category)) return 'match';
     if (styleCompat.conflict.includes(tpl.category)) return 'conflict';
@@ -43,13 +48,59 @@ export default function WorkoutTemplatesScreen() {
     return (order[getStyleStatus(a)] || 1) - (order[getStyleStatus(b)] || 1);
   });
 
-  const getDifficultyColor = (d: string) => {
+  const getDifficultyColor = (d) => {
     if (d === 'beginner') return '#4CAF50';
     if (d === 'intermediate') return '#FF9800';
     return '#F44336';
   };
 
-  const handleUseTemplate = (template: typeof WORKOUT_TEMPLATES[0]) => {
+  const handleStartNow = (template) => {
+    // Start workout immediately
+    const exercises = template.exercises.map((ex, i) => ({
+      id: `tpl_live_${i}`,
+      name: ex.name,
+      sets: Array.from({ length: ex.sets }, (_, si) => ({ id: `s${si}`, weight: 0, reps: parseInt(ex.reps) || 10, completed: false })),
+      restSeconds: ex.restSeconds,
+    }));
+    setTodayWorkoutByType('custom', {
+      title: template.name,
+      exercises,
+    });
+    router.replace('/(tabs)/workout');
+  };
+
+  const handleSave = (template) => {
+    try {
+      const muscles = template.targetMuscles || [];
+      saveWorkout({
+        id: `wk_tpl_${Date.now()}`,
+        name: template.name,
+        targetMuscles: muscles,
+        exercises: template.exercises.map((ex, i) => ({
+          exerciseId: `tpl_${i}`,
+          name: ex.name,
+          primaryMuscle: muscles[0] || 'General',
+          equipment: template.equipment || 'Various',
+          sets: ex.sets,
+          reps: String(ex.reps),
+          restSeconds: ex.restSeconds,
+          notes: ex.notes || undefined,
+        })),
+        estimatedDuration: template.duration,
+        difficulty: template.difficulty,
+        trainingStyle: profile?.trainingStyle,
+        scheduledDays: [],
+        repeatWeekly: false,
+        createdAt: new Date(),
+      });
+      Alert.alert('Saved!', `"${template.name}" added to My Workouts`);
+    } catch (e) {
+      Alert.alert('Save Failed', 'Could not save workout. Please try again.');
+    }
+  };
+
+  const handleSchedule = (template) => {
+    // Navigate to workout builder with template data for scheduling
     router.push({
       pathname: '/workout-builder',
       params: {
@@ -69,8 +120,13 @@ export default function WorkoutTemplatesScreen() {
         <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>WORKOUT TEMPLATES</Text>
       </View>
 
-      {/* Category Filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
+      {/* FIX 1: Proper horizontal ScrollView for category filters */}
+      <ScrollView
+        horizontal={true}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterContent}
+        style={styles.filterRow}
+      >
         {CATEGORIES.map((cat) => (
           <TouchableOpacity
             key={cat}
@@ -153,19 +209,35 @@ export default function WorkoutTemplatesScreen() {
                         <Text style={[styles.exerciseNum, { color: accentColor }]}>{i + 1}</Text>
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.exerciseName, { color: theme.colors.textPrimary }]}>{ex.name}</Text>
-                          <Text style={[styles.exerciseSets, { color: theme.colors.textMuted }]}>{ex.sets} × {ex.reps} · {ex.restSeconds}s rest</Text>
+                          <Text style={[styles.exerciseSets, { color: theme.colors.textMuted }]}>{ex.sets} x {ex.reps} · {ex.restSeconds}s rest</Text>
                         </View>
                       </View>
                     ))}
                   </View>
 
-                  {/* Use Template Button */}
+                  {/* FIX 2: Three buttons */}
                   <TouchableOpacity
-                    style={[styles.useBtn, { backgroundColor: accentColor }]}
-                    onPress={() => handleUseTemplate(template)}
+                    style={[styles.primaryBtn, { backgroundColor: accentColor }]}
+                    onPress={() => handleStartNow(template)}
                   >
-                    <Ionicons name="copy-outline" size={18} color="#fff" />
-                    <Text style={styles.useBtnText}>Use This Template</Text>
+                    <Ionicons name="play-circle" size={20} color="#fff" />
+                    <Text style={styles.primaryBtnText}>Start Workout Now</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.secondaryBtn, { borderColor: accentColor }]}
+                    onPress={() => handleSave(template)}
+                  >
+                    <Ionicons name="bookmark-outline" size={18} color={accentColor} />
+                    <Text style={[styles.secondaryBtnText, { color: accentColor }]}>Save to My Workouts</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.tertiaryBtn, { borderColor: theme.colors.cardBorder }]}
+                    onPress={() => handleSchedule(template)}
+                  >
+                    <Ionicons name="calendar-outline" size={18} color={theme.colors.textSecondary} />
+                    <Text style={[styles.tertiaryBtnText, { color: theme.colors.textSecondary }]}>Schedule for a Day</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -190,10 +262,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, gap: 8 },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '800', letterSpacing: 1.5 },
-  filterRow: { maxHeight: 44, marginBottom: 8 },
-  filterContent: { paddingHorizontal: 20, gap: 8 },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-  filterChipText: { fontSize: 12, fontWeight: '600' },
+  filterRow: { flexGrow: 0, flexShrink: 0, marginBottom: 8 },
+  filterContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, minWidth: 50 },
+  filterChipText: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
   templateCard: { borderRadius: 14, borderWidth: 0.5, marginBottom: 12, overflow: 'hidden' },
   styleTag: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6 },
@@ -211,13 +283,18 @@ const styles = StyleSheet.create({
   muscleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   muscleChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   muscleChipText: { fontSize: 11, fontWeight: '600' },
-  exerciseList: { borderRadius: 12, borderWidth: 0.5, overflow: 'hidden', marginBottom: 12 },
+  exerciseList: { borderRadius: 12, borderWidth: 0.5, overflow: 'hidden', marginBottom: 14 },
   exerciseRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
   exerciseNum: { fontSize: 14, fontWeight: '700', width: 20, textAlign: 'center' },
   exerciseName: { fontSize: 14, fontWeight: '600' },
   exerciseSets: { fontSize: 12, marginTop: 2 },
-  useBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12 },
-  useBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  // FIX 2: Three button styles
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12, marginBottom: 8 },
+  primaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, marginBottom: 8 },
+  secondaryBtnText: { fontSize: 15, fontWeight: '700' },
+  tertiaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
+  tertiaryBtnText: { fontSize: 14, fontWeight: '600' },
   emptyState: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 14 },
 });

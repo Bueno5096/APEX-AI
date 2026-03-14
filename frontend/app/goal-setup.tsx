@@ -19,6 +19,7 @@ import { useUserStore } from '../src/store/userStore';
 import { useGoalStore, SecondaryGoal, GeneratedPlan } from '../src/store/goalStore';
 import { useWorkoutStore } from '../src/store/workoutStore';
 import { useHealthStore } from '../src/store/healthStore';
+import { kgToLbs } from '../src/store/bodyCompositionStore';
 import { MetallicCard } from '../src/components/MetallicCard';
 import Constants from 'expo-constants';
 
@@ -62,7 +63,7 @@ const getFFMICategory = (ffmi: number) => {
 };
 
 export default function GoalSetupScreen() {
-  const { theme, accentColor } = useThemeStore();
+  const { theme, accentColor, unitSystem } = useThemeStore();
   const { profile, gender } = useUserStore();
   const { setSecondaryGoal, setGeneratedPlan } = useGoalStore();
   const { workoutHistory } = useWorkoutStore();
@@ -98,16 +99,18 @@ export default function GoalSetupScreen() {
     ? (parseInt(customWeeks) || 12)
     : (TIMEFRAME_OPTIONS.find(t => t.key === timeframe)?.weeks || 13);
 
-  // Smart target weight suggestion
+  const isImperial = unitSystem === 'imperial';
+
+  // Smart target weight suggestion (displays in user's preferred unit)
   useEffect(() => {
     if (goalType === 'reduce_bodyfat') {
       const targetWeightKg = Math.round(weight * (1 - (targetBF - bodyFat) / 100));
-      setTargetWeight(String(targetWeightKg));
+      setTargetWeight(String(isImperial ? Math.round(kgToLbs(targetWeightKg)) : targetWeightKg));
     } else if (goalType === 'build_muscle') {
       const targetWeightKg = Math.round(weight * 1.05);
-      setTargetWeight(String(targetWeightKg));
+      setTargetWeight(String(isImperial ? Math.round(kgToLbs(targetWeightKg)) : targetWeightKg));
     }
-  }, [goalType, targetBF, weight, bodyFat]);
+  }, [goalType, targetBF, weight, bodyFat, isImperial]);
 
   const goalTypeOptions: { key: GoalType; icon: string; label: string }[] = [
     { key: 'reduce_bodyfat', icon: 'trending-down', label: 'Reduce Body Fat' },
@@ -376,14 +379,14 @@ KEEP ALL ADVICE PURELY PHYSICAL TRAINING. NO NUTRITION OR DIET ADVICE. Respond O
         {/* Target Weight */}
         {(goalType === 'reduce_bodyfat' || goalType === 'build_muscle') && (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.colors.textMuted }]}>TARGET WEIGHT (kg)</Text>
+            <Text style={[styles.sectionLabel, { color: theme.colors.textMuted }]}>TARGET WEIGHT ({isImperial ? 'lbs' : 'kg'})</Text>
             <MetallicCard style={styles.paramCard}>
               <TextInput
                 style={[styles.targetWeightInput, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, color: theme.colors.textPrimary }]}
                 value={targetWeight}
                 onChangeText={setTargetWeight}
                 keyboardType="numeric"
-                placeholder="Target weight in kg"
+                placeholder={`Target weight in ${isImperial ? 'lbs' : 'kg'}`}
                 placeholderTextColor={theme.colors.textMuted}
               />
             </MetallicCard>

@@ -44,6 +44,7 @@ export default function AIGenerateWorkoutScreen() {
   const [intensity, setIntensity] = useState('moderate');
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState('');
+  const [showCancel, setShowCancel] = useState(false);
 
   const toggleMuscle = (m: string) => {
     if (m === 'Full Body') {
@@ -70,48 +71,81 @@ export default function AIGenerateWorkoutScreen() {
     }
 
     setIsGenerating(true);
-    const phases = ['Analyzing your profile...', 'Selecting exercises...', 'Optimizing workout...', 'Finalizing plan...'];
+    setShowCancel(false);
+    const phases = [
+      'Analyzing your fitness profile...',
+      'Checking muscle recovery status...',
+      'Selecting optimal exercises...',
+      'Calculating sets and reps...',
+      'Building your perfect workout...',
+    ];
     let phaseIdx = 0;
     setLoadingPhase(phases[0]);
     const interval = setInterval(() => {
-      phaseIdx = Math.min(phaseIdx + 1, phases.length - 1);
+      phaseIdx = (phaseIdx + 1) % phases.length;
       setLoadingPhase(phases[phaseIdx]);
-    }, 2000);
+    }, 1500);
+    
+    // Show cancel button after 10 seconds
+    const cancelTimer = setTimeout(() => setShowCancel(true), 10000);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
+      const genParams = {
+        focusMuscles,
+        equipment,
+        duration,
+        intensity,
+        trainingStyle: profile?.trainingStyle || null,
+        trainingSplit: profile?.trainingSplit || null,
+        sport: profile?.sport || null,
+        userProfile: profile ? {
+          name: profile.name,
+          trainingExperience: profile.trainingExperience,
+          injuries: profile.injuries,
+        } : null,
+      };
+
       const res = await fetch(`${getBackendUrl()}/api/generate-workout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          focusMuscles,
-          equipment,
-          duration,
-          intensity,
-          trainingStyle: profile?.trainingStyle || null,
-          trainingSplit: profile?.trainingSplit || null,
-          sport: profile?.sport || null,
-          userProfile: profile ? {
-            name: profile.name,
-            trainingExperience: profile.trainingExperience,
-            injuries: profile.injuries,
-          } : null,
-        }),
+        body: JSON.stringify(genParams),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+      clearInterval(interval);
+      clearTimeout(cancelTimer);
 
       if (!res.ok) throw new Error('Failed to generate workout');
       const data = await res.json();
-      clearInterval(interval);
       setIsGenerating(false);
 
-      // Navigate to workout builder with the generated data
+      if (!data.exercises || data.exercises.length === 0) {
+        Alert.alert('Generation Error', 'No exercises were generated. Please try again.');
+        return;
+      }
+
+      // Navigate to AI Workout Preview screen
       router.push({
-        pathname: '/workout-builder',
-        params: { aiWorkout: JSON.stringify(data) },
+        pathname: '/ai-workout-preview',
+        params: {
+          workoutData: JSON.stringify(data),
+          genParams: JSON.stringify(genParams),
+        },
       });
     } catch (err) {
+      clearTimeout(timeoutId);
       clearInterval(interval);
+      clearTimeout(cancelTimer);
       setIsGenerating(false);
-      Alert.alert('Generation Failed', 'Could not generate workout. Please try again.');
+      if (err.name === 'AbortError') {
+        Alert.alert('Timeout', 'Generation is taking longer than expected. Please try again.');
+      } else {
+        Alert.alert('Generation Failed', 'Could not generate workout. Please try again.');
+      }
     }
   };
 
@@ -132,6 +166,14 @@ export default function AIGenerateWorkoutScreen() {
           <Text style={[styles.loadingTitle, { color: theme.colors.textPrimary }]}>GENERATING YOUR WORKOUT</Text>
           <Text style={[styles.loadingPhase, { color: accentColor }]}>{loadingPhase}</Text>
           <ActivityIndicator size="large" color={accentColor} style={{ marginTop: 20 }} />
+          {showCancel && (
+            <TouchableOpacity
+              style={[styles.cancelBtn, { borderColor: theme.colors.cardBorder }]}
+              onPress={() => { setIsGenerating(false); setShowCancel(false); }}
+            >
+              <Text style={[styles.cancelBtnText, { color: theme.colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          )}
           <View style={[styles.loadingInfo, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
             <Text style={[styles.loadingInfoText, { color: theme.colors.textMuted }]}>
               APEX is creating a personalized workout based on your profile, training style, and preferences...
@@ -318,6 +360,8 @@ const styles = StyleSheet.create({
   contextText: { fontSize: 13, lineHeight: 18, flex: 1 },
   generateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14, marginTop: 24 },
   generateBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  cancelBtn: { marginTop: 20, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12, borderWidth: 1 },
+  cancelBtnText: { fontSize: 14, fontWeight: '600' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   loadingPulse: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   loadingTitle: { fontSize: 18, fontWeight: '800', letterSpacing: 1.5, marginBottom: 8 },

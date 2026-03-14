@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Backend API Testing for APEX Fitness App - 4 Critical Fixes
-Testing URL: https://workout-create-hub.preview.emergentagent.com/api
+Testing URL: https://workout-fixes-branch.preview.emergentagent.com/api
 
 Test Scenarios:
 1. Health check endpoint
@@ -16,7 +16,7 @@ import sys
 from typing import Dict, Any
 
 # Test configuration
-BASE_URL = "https://workout-create-hub.preview.emergentagent.com/api"
+BASE_URL = "https://workout-fixes-branch.preview.emergentagent.com/api"
 TIMEOUT = 60  # 60 seconds for AI calls as specified
 
 class BackendTester:

@@ -8,7 +8,7 @@ import aiohttp
 import json
 
 # Backend URL from environment
-BACKEND_URL = "https://workout-create-hub.preview.emergentagent.com"
+BACKEND_URL = "https://workout-fixes-branch.preview.emergentagent.com"
 
 async def debug_latest_response():
     """Debug the latest secondary goal response that failed"""

@@ -148,7 +148,7 @@ export default function CoachScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://workout-create-hub.preview.emergentagent.com';
+      || 'https://workout-fixes-branch.preview.emergentagent.com';
     return backendUrl;
   };
   

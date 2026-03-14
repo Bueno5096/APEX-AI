@@ -1,210 +1,211 @@
 <analysis>
-<original_problem_statement>
-The user wants to implement a major feature update to the APEX AI fitness application, focusing on two core components: Training Preferences and a Create Workout System.
 
-**PRODUCT REQUIREMENTS (From user prompt #490):**
+**original_problem_statement**:
+The user's overall goal is to build a sophisticated AI fitness application, APEX AI. The development has occurred in several large phases:
 
-**Part 1: Training Preferences**
-*   **Goal:** Allow users to define their training style and weekly split, which will deeply influence the AI Coach's behavior and workout generation.
-*   **Training Styles (8 options):** Bodybuilding, Powerlifting, Calisthenics, Yoga, Pilates, Sport Specific, CrossFit, Hybrid. Each style has specific descriptions, rep ranges, and coaching behaviors.
-*   **Training Splits (8 options):** Full Body, Upper/Lower, Push/Pull/Legs, Fresh Muscle Groups (AI-driven), Bro Split, Arnold Split, Athletic Performance, Bodyweight Only.
-*   **UI Implementation:**
-    *   Add a TRAINING PREFERENCES section to the Settings tab, Edit Profile screen, and the Onboarding flow.
-    *   Create dedicated selection screens for both Training Style and Training Split with detailed descriptions, recommendations, and previews.
-    *   Handle special cases like asking for the user's sport if Sport Specific is chosen, or allowing multi-select for Hybrid.
-*   **Backend/AI Integration:**
-    *   The selected Training Style and Split must be added to the context of every AI Coach API call to guide its recommendations and workout generation.
+**Phase 1: Initial Feature Implementation**
+*   **Training Preferences:** Implement a system for users to select their Training Style (e.g., Bodybuilding, CrossFit) and Training Split (e.g., Push/Pull/Legs). This should be integrated into Settings, Onboarding, and Edit Profile, and must influence the AI Coach's behavior.
+*   **Create Workout System:** Add a feature to create workouts via three paths: building from scratch, using a template, or AI generation. This required integrating a free exercise database (WGER was chosen) and building multiple new screens.
 
-**Part 2: Create Workout System**
-*   **Goal:** Allow users to create, find, and schedule workouts via three distinct paths: building from scratch, using a template, or having the AI generate one.
-*   **Exercise Database:**
-    *   Integrate with the ExerciseDB API (via RapidAPI) for a comprehensive exercise library.
-    *   Implement a local fallback database for offline use.
-    *   Cache API results.
-*   **UI Implementation:**
-    *   Add Create Workout + and AI Generate 🤖 buttons to the Workout tab.
-    *   **Path 1 (Build From Scratch):** A multi-step flow including an exercise browser with search/filters, a detail screen with GIF demos, and a customization screen to reorder/edit exercises.
-    *   **Path 2 (Choose a Template):** A library of pre-built, categorized workout templates that users can preview and customize.
-    *   **Path 3 (AI Generate):** A screen where users specify focus, equipment, duration, and intensity to have the AI generate a complete workout based on their profile and training preferences. This includes a dedicated loading animation.
-*   **Saving and Scheduling:**
-    *   Create a My Workouts library on the Workout tab.
-    *   Allow users to schedule workouts for specific days, set weekly repeats, and enable push notification reminders.
-*   **Data Stores:**
-    *   Create new stores (, ) to manage the exercise database, saved workouts, and schedules.
+**Phase 2: First Major Refinement & Fixes (User Message #172)**
+After the initial implementation, the user requested a large batch of fixes to make the features truly functional:
+1.  **FIX 1: Enforce Training Preferences:** Make sure the selected Style and Split *actually* change AI-generated workouts, filter templates, and guide the Coach.
+2.  **FIX 2: Add Training Frequency:** Introduce a Training Frequency selector (2-7 days/week) that filters compatible splits.
+3.  **FIX 3: Automatic Profile Data Flow:** Ensure user data (name, age, weight) entered during onboarding automatically populates the entire app (Profile, Body Comp, etc.).
+4.  **FIX 4: Body Composition Info Icons:** Add tappable info icons with explanations for every metric on the Body Composition screen.
 
-The user provided an extensive verification checklist that must be fully passed before the task is considered complete.
-</original_problem_statement>
+**Phase 3: Second Major Refinement & Fixes (User Message #376 - CURRENT TASK)**
+The user provided another extensive list of 9 critical fixes and features to address issues found in the previous implementation:
+1.  **FIX 1:** Fix the non-scaling filter bar on the workout templates screen.
+2.  **FIX 2:** Redesign the workout template save flow to have Start Now, Save, and Schedule options.
+3.  **FIX 3:** Fix the broken AI workout generator (long loading time, incorrect redirect).
+4.  **FIX 4:** Add a Refine with Coach chat flow to the AI generator.
+5.  **FIX 5:** Move the Workout History Calendar to the top of the Progress tab.
+6.  **FIX 6:** Make the Strength Gains section on the Progress tab collapsible.
+7.  **FIX 7:** Fix the unit display (lbs/kg) for target weight in Body Composition.
+8.  **FIX 8:** Ensure the Goal Layering plan is correctly applied to the user's schedule and calendar.
+9.  **FIX 9:** Make the Coach AI smarter by forcing tool usage for workout modifications.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application is a functional AI fitness coach app with features for workout tracking, body composition, goal setting, and a conversational AI coach. Before this task, the agent completed a large batch of bug fixes, including:
-- Fixing a crash on the Finish Workout screen.
-- Resolving scrolling issues on the Progress tab.
-- Adding a Reset My Information feature with a secure 3-step confirmation flow.
-- Fixing bugs related to the AI coach's ability to adjust weights and replace exercises.
-- Enhancing the rest timer and fixing the APEX Analysis feature.
-- Adding a profile creation animation after onboarding.
+The application has a fully built-out UI for Training Preferences (Style, Split, Frequency) and the Create Workout system (Browse, Templates, AI Generate). The backend is aware of these preferences. A significant portion of the fixes from the first refinement pass (Phase 2) have been implemented, including strict AI enforcement logic on the backend, profile data flow, and the addition of the Training Frequency feature.
 
-The foundation for the new features has just been laid by creating new store files and placeholder screen files.
+The agent had started working on the second refinement pass (Phase 3) and has already implemented parts of FIX 1, 2, and 3. Specifically, it has:
+- Rewritten  to fix the filter bar and add the new 3-button flow.
+- Created a new  screen.
+- Updated  to handle timeouts, cancellation, and redirection to the new preview screen.
+
+The agent was in the middle of implementing fixes for  when the session ended.
 
 **Last working item**:
-- Last item agent was working: The agent was in the initial phase of implementing the large Training Preferences and Create Workout feature set. It successfully:
-    1.  Extended the  to include new state for , , , and .
-    2.  Created a new store, , with a basic structure to hold the exercise database, saved workouts, and scheduled workouts.
-    3.  Created placeholder files for the new UI screens: , , and .
-- Status: IN PROGRESS
-- Agent Testing Done: N
-- Which testing method agent to use? both
-- User Testing Done: N
+- **Last item agent was working**: The agent was implementing two fixes on the Progress tab: **FIX 5 (Move Workout History Calendar)** and **FIX 6 (Make Strength Gains section collapsible)**. It had just performed a  operation on , replacing the entire file content with a new version that includes the structural changes and placeholders for the collapsible logic. The implementation is incomplete.
+- **Status**: IN PROGRESS
+- **Agent Testing Done**: N
+- **Which testing method agent to use?**: both
+- **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-This is a feature development task, not a bug fix. The entire feature is the pending item.
+The pending work is the remainder of the 9-point fix list from user message #376.
+
+- **Issue 1: (P0) Incomplete implementation of Progress Tab fixes.**
+  - **Description:** The  file has been replaced but the implementation for the collapsible Strength Gains section (FIX 6) is not complete. The component state (), toggle function (), and the animated rendering logic need to be fully implemented. The app is likely in a broken state until this is finished.
+  - **Attempted fixes:** The agent has laid the structural foundation by moving the calendar and adding a placeholder for the strength section.
+  - **Next debug checklist:**
+    1. Open .
+    2. Implement the  state using .
+    3. Implement the  function, ensuring it uses  before updating the state.
+    4. Update the JSX to conditionally render the full list of strength gains based on .
+    5. Ensure the Show All / Show Less button and the chevron icon are correctly wired to the  function.
+  - **Why fix this issue and what will be achieved with the fix?**: To complete FIX 5 and FIX 6 from the user's request and restore the functionality of the Progress tab.
+  - **Status**: IN PROGRESS
+  - **Is recurring issue?**: N
+  - **Should Test frontend/backend/both after fix?**: Frontend
+  - **Blocked on other issue**: None
+
+- **Issue 2: (P1) Body Composition Target Weight Unit is incorrect.**
+  - **Description:** Per FIX 7, the target weight and other weight fields in the Body Composition screen must respect the user's unit preference (lbs/kg).
+  - **Status**: NOT STARTED
+  - **Is recurring issue?**: N
+  - **Should Test frontend/backend/both after fix?**: Frontend
+
+- **Issue 3: (P2) Goal Layering plan is not applied to the schedule.**
+  - **Description:** Per FIX 8, when a Goal Layering plan is generated, it must be parsed and applied to the user's workout schedule and calendar.
+  - **Status**: NOT STARTED
+  - **Is recurring issue?**: N
+  - **Should Test frontend/backend/both after fix?**: Both
+
+- **Issue 4: (P2) Coach AI is not effectively implementing workout changes.**
+  - **Description:** Per FIX 9, the Coach AI needs a more robust system to force tool usage for any workout modification requests, ensuring changes are actually applied to the workout store and not just described in text.
+  - **Status**: NOT STARTED
+  - **Is recurring issue?**: Y (This is a refinement of a core feature).
+  - **Should Test frontend/backend/both after fix?**: Both
 
 **In progress Task List**:
-- Task 1: (P0) Implement Training Preferences and Create Workout System
-  - **Where to resume**: The data layer (, ) and placeholder screen files (, , ) have been created. The next step is to build out the UI for these new screens.
-  - **What will be achieved with this?**: A complete, deeply integrated system for users to define their training philosophy and create/schedule workouts, making the app significantly more personalized and powerful.
+- **Task 1: (P0) Complete the implementation of 9-point fix list from user message #376**
+  - **Where to resume**: Resume work in  to complete the implementation of the collapsible Strength Gains section (Issue 1 above).
+  - **What will be achieved with this?**: A fully functional, refined, and bug-free Training and Workout system that meets all user requirements from the latest feedback.
   - **Status**: IN PROGRESS
   - **Should Test frontend/backend/both after fix?**: Both
   - **Blocked on something**: Nothing.
 
 **Upcoming and Future Tasks**
-
-- **Upcoming Tasks (P0 - Part of current request from user prompt #490):**
-
-  1.  **Build Training Preferences UI:**
-      -   Implement the UI for  and  as per the detailed user specifications (cards, descriptions, radio buttons, etc.).
-      -   Handle conditional logic for Sport Specific (text input) and Hybrid (multi-select).
-
-  2.  **Integrate Training Preferences:**
-      -   Add the TRAINING PREFERENCES section to  and , linking to the new selection screens.
-      -   Insert the selection screens into the  flow.
-      -   Modify  to accept and utilize the new  and  context in every AI coach API call.
-
-  3.  **Build Create Workout UI & Logic:**
-      -   Implement the UI for , starting with the three-path selection screen (Build From Scratch, Choose a Template, AI Generate).
-      -   Implement the **Exercise Database**: Install , set up API calls to ExerciseDB with a local fallback, and populate the .
-      -   Implement **Path 1 (Build From Scratch):** Create the multi-step UI flow for building a custom workout.
-      -   Implement **Path 2 (Choose a Template):** Create the UI for browsing and using pre-built workout templates.
-      -   Implement **Path 3 (AI Generate):** Create the UI for the AI generator, including the loading animation and the API call to the backend with the detailed prompt structure.
-
-  4.  **Implement Saving and Scheduling:**
-      -   Build the Save and Schedule screen.
-      -   Integrate with  (install if needed) for workout reminders.
-      -   Implement the My Workouts library UI on the main  screen.
-
-  5.  **End-to-End Verification:**
-      -   Thoroughly test every item on the user's verification checklist from message #490 before completion.
+- **Upcoming Tasks (P1):**
+    - Implement **FIX 4: Refine with Coach chat flow** for the AI workout generator. This involves creating a new chat modal component and integrating it into both the generator input and preview screens.
+    - Implement **FIX 7: Body Composition unit fix** in .
+    - Implement **FIX 8: Goal Layering plan application**. This will require logic to parse the AI plan and update the  and schedule.
+    - Implement **FIX 9: Smarter Coach AI**. This will involve modifying the frontend API call logic in  to force tool usage and handle tool call responses more robustly.
 
 **Completed work in this session**
-- **Coach Screen Critical Bugs (from previous sessions):**
-  - Fixed conversational memory bug by correctly passing the  array from frontend to backend. (DONE)
-  - Fixed Coach screen UI to match the app's OLED black theme. (DONE)
-  - Implemented functionality for the quick action chips. (DONE)
-  - Replaced  with  on the backend to fix LLM auth issues. (DONE)
-- **Workout/Progress/Profile Fixes (from user prompt #266 & #395):**
-  - **Workout Tab:**
-    - Fixed the crash when tapping the Finish Workout button by making  more robust. (DONE)
-    - Enhanced the rest period stopwatch with more controls and exercise-type-based defaults in . (DONE)
-  - **Progress Tab:**
-    - Fixed a persistent scrolling issue by replacing  with a  and adjusting props. (DONE)
-    - Fixed the APEX Analysis connection error with improved error handling and retry logic. (DONE)
-    - Added the Workout History calendar section. (DONE)
-  - **Profile Tab:**
-    - Added the Reset My Information feature with a 3-step confirmation modal and logic to clear all Zustand stores in . (DONE)
-  - **Onboarding:**
-    - Added a 5-second AI profile creation animation screen () after onboarding is complete. (DONE)
-  - **Coach Logic:**
-    - Improved backend prompts and frontend validation in  to fix broken weight adjustment and exercise replacement tool calls. (DONE)
-  - **Global Theme:**
-    - Adjusted the light theme colors globally in  to be less harsh. (DONE)
+- **Full Training Preferences Feature:**
+  - Created and implemented UI for , , and .
+  - Integrated preferences into Settings, Onboarding, and Profile.
+  - Updated backend () to receive and use preferences in AI prompts.
+  - Verified with screenshots and backend tests.
+- **Full Create Workout System Foundation:**
+  - Integrated WGER API as the free exercise database.
+  - Created and implemented UI for , , , and .
+  - Added new  endpoint to the backend.
+  - Updated  with Create buttons and My Workouts section.
+- **Major Refinements and Fixes (from both user requests):**
+  - **Training Enforcement (FIX 1 from #172):** Updated backend prompts for strict style enforcement. Updated template screen to sort by style. Updated AI generate screen to use split day.
+  - **Profile Data Flow (FIX 3 from #172):** Implemented personalized greetings on Workout, Recovery, and Progress tabs. Implemented pre-filling of data on the Body Composition screen.
+  - **Body Comp Info Icons (FIX 4 from #172):** Added info icons and a modal with explanations for all metrics in .
+  - **Template Screen Fixes (FIX 1 & 2 from #376):** Rewrote  to use a  for filters and implement the Start Now / Save / Schedule button flow.
+  - **AI Generator Fixes (FIX 3 from #376):** Created . Updated  to redirect correctly and handle timeouts/cancellation.
 
 **Earlier issues found/mentioned but not fixed**
-- None, the current focus is on the large feature request.
+- None. The agent has been diligent in tracking and attempting to fix all user-reported issues.
 
 **Known issue recurrence from previous fork**
-- **Issue**: The  tab scrolling was broken multiple times and required several fixes.
-- **Recurrence count**: 2
-- **Status**: RESOLVED. The agent replaced the problematic  with a standard , which appears to have definitively fixed the issue. Future agents should be cautious when modifying this screen.
+- **Issue**: The functionality of the newly built features (AI Generator, Templates, Coach Logic) is being iteratively refined by the user. This is less of a bug recurrence and more of a rapid development cycle where initial implementations require significant follow-up fixes to meet detailed user expectations. The next agent should anticipate that completed features might still need further refinement based on user testing.
+- **Recurrence count**: 2 (Two large-scale fix requests on the same set of features).
+- **Status**: IN PROGRESS
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Frontend:** React Native, Expo, Expo Router, Zustand (state management).
-- **Backend:** Python (FastAPI),  for AI.
-- **API Integration:** Will use  to connect to the external ExerciseDB API via RapidAPI.
-- **Notifications:** Will likely use  for workout reminders.
+- **Frontend:** React Native, Expo, Expo Router, Zustand,  for API calls,  for UI animations.
+- **Backend:** Python (FastAPI), .
+- **API Integration:** WGER API () for exercises.
 
 **key DB schema**
-- No traditional database. State is managed client-side in Zustand stores.
-- **userStore**: Extended with , , , .
-- **exerciseStore (new)**: Will contain  (from API/fallback), , .
+- **userStore**: Extended with , , , , , .
+- **exerciseStore**: Implemented with WGER API fetching, local exercise cache, and pre-defined workout templates.
 
 **changes in tech stack**
--  will be installed to communicate with the ExerciseDB API.
--  will likely be installed to handle workout reminders.
+- The project has pivoted from the proposed  to the free, key-less  for the exercise database.  has been used for this integration.
 
 **All files of reference**
-- **Files to Build:**
-  - 
-  - 
-  - 
-- **Files to Modify:**
-  -  (to add Create/My Workouts UI)
-  -  (to link to preferences)
-  -  (to link to preferences)
-  -  (to add preference steps)
-  -  (to add new AI context)
-- **Key Stores:**
-  -  (new, needs full implementation)
-  -  (already updated with new fields)
+- **Files Created:**
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+- **Files Heavily Modified / Rewritten:**
+    -  (Currently broken, needs finishing)
+    -  (Rewritten for FIX 1 & 2)
+    -  (For FIX 3 & 4 from first pass)
+    -  (For FIX 3 from second pass)
+    -  (Multiple updates for AI logic)
+    -  (Multiple additions)
+    -  (Full implementation)
+- **Other Important Modified Files:** , , , , .
+
+**Areas that need refactoring**
+- The file  was created as part of the initial Create Workout implementation. However, the subsequent user fixes (redirecting AI generation to a new preview screen) may have made this file redundant. The next agent should verify if this file is still used in any user flow or if it can be removed.
 
 **key api endpoints**
-- **Internal:**  (Needs to be adapted to receive more context like ).
-- **External (New):**  (To be called via ).
+- **Internal:**
+    -  (Updated to accept full user profile and training context)
+    -  (New endpoint for AI workout creation)
+- **External:**
+    -  (Used to fetch the exercise database)
 
 **Critical Info for New Agent**
-1.  **You are starting a massive feature implementation.** The previous agent only laid the groundwork by creating store/screen files. Your job is to build the entire Training Preferences and Create Workout system.
-2.  **Follow the user's prompt from message #490 meticulously.** It contains a very detailed specification and a final verification checklist. Do not deviate.
-3.  **Start with the UI for Training Preferences.** Build out  and . Once they are complete, integrate them into the Settings, Edit Profile, and Onboarding flows.
-4.  **Update the Backend.** After the preferences are selectable, update the  endpoint in  to include the new  and  in the AI's system prompt.
-5.  **Tackle the Create Workout System.** This is the largest part. Begin by implementing the ExerciseDB API integration using  and populating the . Then, build the three creation paths (From Scratch, Template, AI Generate) one by one.
-6.  **Refer to the verification checklist continuously.** Use it to guide your development and ensure you don't miss any requirements.
+1.  **You are mid-task.** The previous agent was interrupted while implementing fixes on . This file is in a **broken state**. Your immediate first action must be to complete the implementation for the collapsible Strength Gains section (FIX 6) in that file.
+2.  **Follow the checklist in All Pending/In progress Issue list.** This is your roadmap. Start with P0, which is fixing .
+3.  **A lot of code has been written.** Before starting a new fix, review the extensive work already done in this session. Many foundational components and logic for the remaining fixes might already exist.
+4.  **WGER API is the new standard.** The decision was made to use the free WGER API for exercises instead of the originally proposed ExerciseDB.
+5.  **Review the  file.** Check if it's still needed or if it has become an orphaned file due to the new  flow.
 
 **documents created in this job**
 - None.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (Msg 490):** Provided a massive, detailed spec for the Training Preferences and Create Workout system. This is the current, active task. **[IN PROGRESS]**
-2.  **User (Msg 489):** Confirmed the agent's plan to proceed. **[COMPLETED]**
-3.  **User (Msg 466):** Provided a detailed spec to fix 3 issues: Finish Workout crash, Progress tab scrolling, and adding a Reset My Information feature. **[COMPLETED]**
-4.  **User (Msg 395):** Provided a detailed spec to fix 7 issues related to Coach logic, UI bugs (scrolling, APEX analysis), and new features (rest timer, history calendar, profile animation). **[COMPLETED]**
-5.  **User (Msg 394):** Confirmed the agent's plan to proceed. **[COMPLETED]**
-6.  **User (Msg 268):** Confirmed the agent's plan to proceed. **[COMPLETED]**
-7.  **User (Msg 265):** Confirmed the agent's plan to proceed. **[COMPLETED]**
-8.  **User (Msg 130):** Confirmed the agent's plan to proceed. **[COMPLETED]**
-9.  **User (Msg 129):** Confirmed the agent's plan to proceed. **[COMPLETED]**
-10. **User (Msg 124):** Asked the agent to confirm understanding before starting work. **[COMPLETED]**
+1.  **User (Msg 384):** Agreed to the agent's plan to implement fixes in two batches. **[COMPLETED]**
+2.  **User (Msg 381):** Asked for the most efficient way to implement the large list of fixes. **[COMPLETED]**
+3.  **User (Msg 380):** Confirmed the agent's plan to proceed. **[COMPLETED]**
+4.  **User (Msg 377):** Confirmed the agent's plan to proceed with the new list of 9 fixes. **[COMPLETED]**
+5.  **User (Msg 376):** Provided a **new, massive 9-point list of fixes** and enhancements, including a detailed verification checklist. This is the **current active task**. **[IN PROGRESS]**
+6.  **User (Msg 277):** Confirmed the agent's plan to proceed. **[COMPLETED]**
+7.  **User (Msg 272):** Provided a **massive 4-point list of fixes** and enhancements. The agent has already implemented most of these. **[COMPLETED]**
+8.  **User (Msg 103):** Confirmed the agent's plan to proceed with the Create Workout system. **[COMPLETED]**
+9.  **User (Msg 10):** Chose WGER as the free exercise API. **[COMPLETED]**
+10. **User (Msg 5):** Asked for a free alternative to the ExerciseDB API. **[COMPLETED]**
 
 **Project Health Check:**
-- **Core App:** Healthy and stable after numerous bug fixes.
-- **New Features:** In the earliest stage of development (). Foundation files have been created, but no UI or logic has been implemented.
+- **Broken:** The application is currently in a broken state because the agent was interrupted mid-edit on . This must be fixed first.
 
 **3rd Party Integrations**
-- **Anthropic Claude (via ):** Uses Emergent LLM Key for the AI Coach.
-- **ExerciseDB API (via RapidAPI):** To be implemented. Will require a User-provided API Key ().
+- **Anthropic Claude Sonnet (via ):** Uses Emergent LLM Key for the AI Coach and AI Workout Generation.
+- **WGER (Workout Manager Gérat):** Free, public API used for the exercise database. No key required.
 
 **Testing status**
-- Testing agent used after significant changes: YES, for the bug fixes in the previous phase.
-- Troubleshoot agent used after agent stuck in loop: NO.
-- Test files created: None.
-- Known regressions: None from the last completed set of fixes.
+- **Testing agent used after significant changes:** YES. Backend tests were run and passed after the first major implementation phase. No tests have been run for the current, ongoing fix batch.
+- **Troubleshoot agent used after agent stuck in loop:** NO.
+- **Test files created:** None.
+- **Known regressions:** The user's latest request list (message #376) details several regressions or functional gaps in the recently built features.
 
 **Credentials to test flow:**
-- The agent will need an  to implement the Create Workout feature. It should ask the user for this key when it begins working on that part of the task.
+- No credentials are required for the WGER API.
 
 **What agent forgot to execute**
-The agent has not forgotten anything; it has just started an extremely large and complex task. The next logical steps are to build the UI for the newly created screens (, ) and then integrate them.
+The agent did not forget anything, but it was interrupted and left  in an incomplete and non-functional state. This needs to be completed immediately.
+
 </analysis>

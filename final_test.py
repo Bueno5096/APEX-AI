@@ -10,7 +10,7 @@ import json
 import sys
 
 # Backend URL from environment
-BACKEND_URL = "https://workout-create-hub.preview.emergentagent.com"
+BACKEND_URL = "https://workout-fixes-branch.preview.emergentagent.com"
 
 async def final_goal_layering_test():
     """Run a comprehensive but relaxed test for Goal Layering"""
