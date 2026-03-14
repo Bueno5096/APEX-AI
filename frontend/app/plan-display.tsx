@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,13 +13,18 @@ import { useRouter } from 'expo-router';
 import { useThemeStore } from '../src/store/themeStore';
 import { useUserStore } from '../src/store/userStore';
 import { useGoalStore } from '../src/store/goalStore';
+import { useExerciseStore } from '../src/store/exerciseStore';
+import { useWorkoutStore } from '../src/store/workoutStore';
 import { MetallicCard } from '../src/components/MetallicCard';
 
 export default function PlanDisplayScreen() {
   const { theme, accentColor } = useThemeStore();
   const { profile } = useUserStore();
   const { secondaryGoal, generatedPlan } = useGoalStore();
+  const { saveWorkout } = useExerciseStore();
   const router = useRouter();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   const primaryGoal = profile?.fitnessGoals?.[0] || 'Build Muscle';
   const secondaryLabel = secondaryGoal?.type === 'reduce_bodyfat' ? 'Reduce Body Fat' :
@@ -157,12 +163,85 @@ export default function PlanDisplayScreen() {
 
         {/* Save Button */}
         <TouchableOpacity
-          style={[styles.saveBtn, { backgroundColor: accentColor }]}
-          onPress={() => router.replace('/(tabs)/workout')}
+          style={[styles.saveBtn, { backgroundColor: isSaved ? '#4CAF50' : accentColor }]}
+          onPress={() => {
+            if (isSaved) {
+              router.replace('/(tabs)/workout');
+              return;
+            }
+            setIsSaving(true);
+            try {
+              // Parse weekly split and create scheduled workouts
+              const dayNameToIndex: Record<string, number> = {
+                'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
+                'Thursday': 4, 'Friday': 5, 'Saturday': 6, 'Sunday': 0,
+              };
+
+              let savedCount = 0;
+              for (const day of generatedPlan.weeklySplit) {
+                if (day.type !== 'training') continue;
+                
+                const dayIndex = dayNameToIndex[day.day];
+                if (dayIndex === undefined) continue;
+
+                const muscles = day.muscleGroups || ['Full Body'];
+                const workoutName = `${muscles.join(' + ')} (${day.day})`;
+                
+                // Create a workout template from the plan day
+                const exerciseTemplates = muscles.map((muscle: string, i: number) => ({
+                  exerciseId: `plan_${day.day}_${i}`,
+                  name: `${muscle} Exercise ${i + 1}`,
+                  primaryMuscle: muscle,
+                  equipment: 'Various',
+                  sets: 3,
+                  reps: day.repRange || '8-12',
+                  restSeconds: 90,
+                  notes: day.notes || undefined,
+                }));
+
+                saveWorkout({
+                  id: `wk_plan_${Date.now()}_${dayIndex}`,
+                  name: workoutName,
+                  targetMuscles: muscles,
+                  exercises: exerciseTemplates,
+                  estimatedDuration: day.duration || 45,
+                  difficulty: 'intermediate',
+                  trainingStyle: profile?.trainingStyle,
+                  scheduledDays: [dayIndex],
+                  repeatWeekly: true,
+                  createdAt: new Date(),
+                });
+                savedCount++;
+              }
+
+              setIsSaved(true);
+              setIsSaving(false);
+              Alert.alert(
+                'Plan Applied!',
+                `${savedCount} workouts saved to your weekly schedule. Check My Workouts to see them.`,
+                [{ text: 'Go to Workouts', onPress: () => router.replace('/(tabs)/workout') }]
+              );
+            } catch (e) {
+              setIsSaving(false);
+              Alert.alert('Error', 'Failed to save plan. Please try again.');
+            }
+          }}
           activeOpacity={0.8}
+          disabled={isSaving}
         >
-          <Text style={styles.saveBtnText}>Save & Start Training</Text>
-          <Ionicons name="arrow-forward" size={20} color="#000" />
+          {isSaving ? (
+            <Text style={styles.saveBtnText}>Saving...</Text>
+          ) : isSaved ? (
+            <>
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={[styles.saveBtnText, { color: '#fff' }]}>Saved! Go to Workouts</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.saveBtnText}>Save & Apply to Schedule</Text>
+              <Ionicons name="arrow-forward" size={20} color="#000" />
+            </>
+          )}
         </TouchableOpacity>
 
         <View style={styles.bottomSpacer} />

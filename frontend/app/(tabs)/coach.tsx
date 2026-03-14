@@ -249,6 +249,11 @@ export default function CoachScreen() {
         strengthProgressContext.personalRecords = prs;
       }
 
+      // ─── Detect modification intent to force actions ───
+      const modificationKeywords = ['swap', 'change', 'replace', 'modify', 'add', 'remove', 'harder', 'easier', 'increase', 'decrease', 'more', 'less', 'cut', 'skip', 'drop', 'reduce', 'bump', 'switch'];
+      const isModificationRequest = modificationKeywords.some(kw => text.toLowerCase().includes(kw));
+      const hasActiveWorkout = workoutExercises.length > 0 || (todayWorkout?.title);
+
       const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -256,6 +261,7 @@ export default function CoachScreen() {
           message: text.trim(),
           session_id: sessionId,
           conversation_history: conversationHistory,
+          force_actions: isModificationRequest && hasActiveWorkout,
           context: {
             recoveryScore: recoveryData?.score,
             sleepDuration: recoveryData?.metrics.sleepDuration,

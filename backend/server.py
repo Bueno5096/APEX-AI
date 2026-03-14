@@ -81,6 +81,7 @@ class ChatRequest(BaseModel):
     context: Optional[ChatContext] = None
     session_id: Optional[str] = None
     conversation_history: Optional[List[ConversationMessage]] = None
+    force_actions: Optional[bool] = False
 
 class WorkoutAction(BaseModel):
     type: str  # swap_exercise, modify_exercise, adjust_rest, skip_exercise
@@ -658,6 +659,27 @@ async def coach_chat(request: ChatRequest):
             except Exception as parse_error:
                 logger.warning(f"Failed to parse actions: {parse_error}")
                 clean_response = response.replace('[ACTIONS]', '').replace('[/ACTIONS]', '').strip()
+        
+        # FIX 9: If force_actions was requested but no actions were returned,
+        # send a follow-up message to force the AI to produce the action block
+        if request.force_actions and not actions and request.context and request.context.fullWorkoutPlan:
+            logger.info("Force actions requested but none returned - sending follow-up")
+            follow_up = (
+                "You forgot to include the [ACTIONS] block. The user's request requires a workout modification. "
+                "Please re-read the user's last message and output ONLY the [ACTIONS] block with the appropriate "
+                "workout changes in JSON format. Do not repeat your explanation. Just output the [ACTIONS] block."
+            )
+            follow_up_response = await chat.send_message(UserMessage(text=follow_up))
+            if '[ACTIONS]' in follow_up_response and '[/ACTIONS]' in follow_up_response:
+                try:
+                    import json as json_module
+                    action_start = follow_up_response.index('[ACTIONS]') + len('[ACTIONS]')
+                    action_end = follow_up_response.index('[/ACTIONS]')
+                    action_json = follow_up_response[action_start:action_end].strip()
+                    actions = json_module.loads(action_json)
+                    logger.info(f"Force actions retry: parsed {len(actions)} workout actions")
+                except Exception as parse_error:
+                    logger.warning(f"Force actions retry: failed to parse: {parse_error}")
         
         # Store user message in database
         user_msg = ChatMessage(
