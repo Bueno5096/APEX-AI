@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { useThemeStore } from '../src/store/themeStore';
 import { useUserStore } from '../src/store/userStore';
+import { getTodaySplitDay } from '../src/utils/trainingHelpers';
 
 const MUSCLE_OPTIONS = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Quads', 'Hamstrings', 'Glutes', 'Core', 'Full Body'];
 const EQUIPMENT_OPTIONS = [
@@ -31,7 +32,13 @@ export default function AIGenerateWorkoutScreen() {
   const accentColor = useThemeStore((s) => s.accentColor);
   const { profile } = useUserStore();
 
-  const [focusMuscles, setFocusMuscles] = useState<string[]>([]);
+  // Get today's split day to pre-fill focus muscles
+  const todaySplit = getTodaySplitDay(profile?.trainingSplit, profile?.trainingDays, profile?.trainingFrequency);
+  const defaultMuscles = todaySplit.isTrainingDay && todaySplit.targetMuscles.length > 0 && todaySplit.targetMuscles[0] !== 'AI Selected'
+    ? todaySplit.targetMuscles.filter(m => MUSCLE_OPTIONS.includes(m))
+    : [];
+
+  const [focusMuscles, setFocusMuscles] = useState<string[]>(defaultMuscles);
   const [equipment, setEquipment] = useState('full_gym');
   const [duration, setDuration] = useState(45);
   const [intensity, setIntensity] = useState('moderate');
@@ -150,6 +157,24 @@ export default function AIGenerateWorkoutScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Split Day Context */}
+        {todaySplit.isTrainingDay && todaySplit.targetMuscles.length > 0 && profile?.trainingSplit && (
+          <View style={[styles.contextCard, { backgroundColor: theme.colors.card, borderColor: accentColor }]}>
+            <Ionicons name="calendar" size={16} color={accentColor} />
+            <Text style={[styles.contextText, { color: theme.colors.textPrimary }]}>
+              Today is <Text style={{ fontWeight: '700', color: accentColor }}>{todaySplit.splitDayLabel}</Text> — focus muscles pre-selected based on your split
+            </Text>
+          </View>
+        )}
+        {todaySplit.isRestDay && profile?.trainingSplit && (
+          <View style={[styles.contextCard, { backgroundColor: theme.colors.card, borderColor: '#FF9800' }]}>
+            <Ionicons name="bed" size={16} color="#FF9800" />
+            <Text style={[styles.contextText, { color: theme.colors.textPrimary }]}>
+              Today is a <Text style={{ fontWeight: '700', color: '#FF9800' }}>Rest Day</Text> — consider active recovery or light work
+            </Text>
+          </View>
+        )}
+
         {/* Focus Muscles */}
         <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Focus Muscles</Text>
         <View style={styles.muscleGrid}>

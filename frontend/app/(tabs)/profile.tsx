@@ -305,6 +305,37 @@ export default function ProfileScreen() {
             Training Preferences
           </Text>
           
+          {/* Training Frequency */}
+          <TouchableOpacity onPress={() => router.push('/training-frequency')} activeOpacity={0.7}>
+            <MetallicCard style={styles.integrationCard}>
+              <View style={styles.integrationRow}>
+                <View style={styles.integrationInfo}>
+                  <View style={[styles.bodyCompIcon, { backgroundColor: accentColor + '15' }]}>
+                    <Ionicons name="repeat" size={20} color={accentColor} />
+                  </View>
+                  <View style={styles.integrationText}>
+                    <Text style={[styles.integrationName, { color: theme.colors.textPrimary }]}>
+                      Training Frequency
+                    </Text>
+                    <Text style={[styles.integrationStatus, { color: theme.colors.textMuted }]}>
+                      {profile?.trainingFrequency
+                        ? `${profile.trainingFrequency} days/week`
+                        : 'Not set — tap to choose'}
+                    </Text>
+                  </View>
+                </View>
+                {profile?.trainingFrequency && (
+                  <View style={[styles.connectionBadge, { backgroundColor: accentColor + '20' }]}>
+                    <Text style={[styles.connectionText, { color: accentColor }]}>
+                      {profile.trainingFrequency}x/week
+                    </Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+              </View>
+            </MetallicCard>
+          </TouchableOpacity>
+          
           {/* Training Style */}
           <TouchableOpacity onPress={() => router.push('/training-style')} activeOpacity={0.7}>
             <MetallicCard style={styles.integrationCard}>

@@ -1,433 +1,419 @@
 #!/usr/bin/env python3
 """
-AI Coach Backend Test Suite
-Tests the AI Coach chat endpoint functionality including training preferences integration.
+Backend API Testing for APEX Fitness App - 4 Critical Fixes
+Testing URL: https://workout-create-hub.preview.emergentagent.com/api
+
+Test Scenarios:
+1. Health check endpoint
+2. FIX 1: Training style enforcement (powerlifting, calisthenics, crossfit)  
+3. FIX 2: Split day context in AI coach
 """
 
-import requests
+import asyncio
+import aiohttp
 import json
-import uuid
-from datetime import datetime
 import sys
+from typing import Dict, Any
 
-# Production backend URL from frontend/.env
+# Test configuration
 BASE_URL = "https://workout-create-hub.preview.emergentagent.com/api"
+TIMEOUT = 60  # 60 seconds for AI calls as specified
 
-def test_health_check():
-    """Test 1: Health check endpoint returns 200"""
-    print("🔍 Test 1: Health Check...")
-    try:
-        response = requests.get(f"{BASE_URL}/health", timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            print(f"✅ Health check passed: {response.status_code} - {data}")
-            return True
-        else:
-            print(f"❌ Health check failed: {response.status_code} - {response.text}")
-            return False
-    except requests.RequestException as e:
-        print(f"❌ Health check error: {e}")
-        return False
-
-def test_basic_chat():
-    """Test 2: Basic chat returns response and session_id"""
-    print("\n🔍 Test 2: Basic Chat...")
-    try:
-        payload = {
-            "message": "Hello, what can you help me with?",
-            "context": {
-                "coachStyle": "neutral"
-            }
-        }
+class BackendTester:
+    def __init__(self):
+        self.session = None
+        self.results = []
         
-        response = requests.post(f"{BASE_URL}/coach/chat", 
-                               json=payload, 
-                               headers={"Content-Type": "application/json"},
-                               timeout=30)
+    async def setup(self):
+        """Initialize HTTP session"""
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT)
+        self.session = aiohttp.ClientSession(timeout=timeout)
         
-        if response.status_code == 200:
-            data = response.json()
-            if 'session_id' in data and 'response' in data:
-                print(f"✅ Basic chat passed: Got session_id={data['session_id'][:8]}... and response length={len(data['response'])}")
-                print(f"   Response: {data['response'][:100]}...")
-                return True, data
-            else:
-                print(f"❌ Basic chat failed: Missing session_id or response in {data}")
-                return False, None
-        else:
-            print(f"❌ Basic chat failed: {response.status_code} - {response.text}")
-            return False, None
-    except requests.RequestException as e:
-        print(f"❌ Basic chat error: {e}")
-        return False, None
-
-def test_conversation_memory():
-    """Test 3: CRITICAL - Conversation memory test (two-part)"""
-    print("\n🔍 Test 3: Conversation Memory (CRITICAL)...")
+    async def cleanup(self):
+        """Close HTTP session"""
+        if self.session:
+            await self.session.close()
     
-    # Part 1: First conversation with Marcus about chest workout
-    print("   Part 1: Initial message with Marcus profile...")
-    try:
-        first_payload = {
-            "message": "My name is Marcus and I want to focus on building my chest today",
-            "context": {
-                "coachStyle": "neutral",
-                "userProfile": {
-                    "name": "Marcus",
-                    "age": 28,
-                    "gender": "male",
-                    "height": 178,
-                    "weight": 80,
-                    "fitnessGoals": ["muscle_building"],
-                    "trainingExperience": "intermediate"
-                }
-            }
-        }
+    def log_result(self, test_name: str, passed: bool, details: str):
+        """Log test result"""
+        status = "✅ PASS" if passed else "❌ FAIL"
+        print(f"{status} {test_name}")
+        print(f"    {details}")
+        self.results.append({
+            "test": test_name,
+            "passed": passed,
+            "details": details
+        })
         
-        response1 = requests.post(f"{BASE_URL}/coach/chat", 
-                                json=first_payload, 
-                                headers={"Content-Type": "application/json"},
-                                timeout=30)
-        
-        if response1.status_code != 200:
-            print(f"❌ First conversation failed: {response1.status_code} - {response1.text}")
-            return False
-        
-        data1 = response1.json()
-        session_id = data1.get('session_id')
-        first_response = data1.get('response')
-        
-        if not session_id or not first_response:
-            print(f"❌ First conversation missing data: {data1}")
-            return False
-        
-        print(f"✅ Part 1 passed: session_id={session_id[:8]}...")
-        print(f"   First response: {first_response[:100]}...")
-        
-        # Part 2: Follow-up conversation with history
-        print("   Part 2: Follow-up with conversation history...")
-        
-        second_payload = {
-            "message": "Remind me what my name is and what muscle we discussed?",
-            "session_id": session_id,
-            "conversation_history": [
-                {
-                    "role": "user",
-                    "content": "My name is Marcus and I want to focus on building my chest today"
-                },
-                {
-                    "role": "coach", 
-                    "content": first_response
-                }
-            ],
-            "context": {
-                "coachStyle": "neutral",
-                "userProfile": {
-                    "name": "Marcus",
-                    "age": 28,
-                    "gender": "male",
-                    "height": 178,
-                    "weight": 80,
-                    "fitnessGoals": ["muscle_building"],
-                    "trainingExperience": "intermediate"
-                }
-            }
-        }
-        
-        response2 = requests.post(f"{BASE_URL}/coach/chat", 
-                                json=second_payload, 
-                                headers={"Content-Type": "application/json"},
-                                timeout=30)
-        
-        if response2.status_code != 200:
-            print(f"❌ Second conversation failed: {response2.status_code} - {response2text}")
-            return False
-        
-        data2 = response2.json()
-        second_response = data2.get('response', '').lower()
-        
-        # Verify memory: should mention Marcus AND chest
-        has_marcus = 'marcus' in second_response
-        has_chest = 'chest' in second_response
-        
-        print(f"   Second response: {data2.get('response', '')[:150]}...")
-        print(f"   Memory check - Marcus mentioned: {has_marcus}, Chest mentioned: {has_chest}")
-        
-        if has_marcus and has_chest:
-            print("✅ Conversation memory test PASSED: AI remembered both name and muscle")
-            return True
-        else:
-            print("❌ Conversation memory test FAILED: AI did not remember context properly")
-            return False
-        
-    except requests.RequestException as e:
-        print(f"❌ Conversation memory error: {e}")
-        return False
-
-def test_workout_actions():
-    """Test 4: Workout action test - verify response includes actions array"""
-    print("\n🔍 Test 4: Workout Actions...")
-    try:
-        payload = {
-            "message": "Create me a push day workout",
-            "context": {
-                "coachStyle": "direct"
-            }
-        }
-        
-        response = requests.post(f"{BASE_URL}/coach/chat", 
-                               json=payload, 
-                               headers={"Content-Type": "application/json"},
-                               timeout=30)
-        
-        if response.status_code == 200:
-            data = response.json()
-            actions = data.get('actions')
-            response_text = data.get('response', '')
-            
-            print(f"   Response: {response_text[:100]}...")
-            
-            if actions and len(actions) > 0:
-                print(f"✅ Workout actions passed: Found {len(actions)} action(s)")
-                for i, action in enumerate(actions):
-                    print(f"   Action {i+1}: {json.dumps(action, indent=2)}")
-                
-                # Look for set_workout action specifically
-                has_set_workout = any(action.get('type') == 'set_workout' for action in actions)
-                if has_set_workout:
-                    print("✅ Found expected 'set_workout' action type")
-                    return True
+    async def test_health_check(self):
+        """Test 1: Health check endpoint"""
+        test_name = "Health Check"
+        try:
+            async with self.session.get(f"{BASE_URL}/health") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("status") == "healthy":
+                        self.log_result(test_name, True, "Returns 200 OK with healthy status")
+                        return True
+                    else:
+                        self.log_result(test_name, False, f"Status not healthy: {data}")
+                        return False
                 else:
-                    print("⚠️  No 'set_workout' action found, but actions are present")
-                    return True
+                    self.log_result(test_name, False, f"HTTP {resp.status}")
+                    return False
+        except Exception as e:
+            self.log_result(test_name, False, f"Request failed: {str(e)}")
+            return False
+    
+    async def test_powerlifting_style_enforcement(self):
+        """Test 2: FIX 1 - Powerlifting style enforcement"""
+        test_name = "Powerlifting Style Enforcement"
+        try:
+            payload = {
+                "focusMuscles": ["Chest"],
+                "equipment": "full_gym",
+                "duration": 45,
+                "intensity": "high",
+                "trainingStyle": "powerlifting",
+                "userProfile": {
+                    "name": "Alex", 
+                    "trainingExperience": "intermediate"
+                }
+            }
+            
+            async with self.session.post(f"{BASE_URL}/generate-workout", 
+                                       json=payload, 
+                                       headers={"Content-Type": "application/json"}) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    
+                    # Verify powerlifting requirements
+                    exercises = data.get("exercises", [])
+                    if not exercises:
+                        self.log_result(test_name, False, "No exercises returned")
+                        return False
+                    
+                    first_exercise = exercises[0].get("name", "").lower()
+                    
+                    # Check if first exercise is a major compound (bench press or similar)
+                    major_compounds = ["bench press", "barbell bench", "squat", "deadlift"]
+                    is_compound = any(comp in first_exercise for comp in major_compounds)
+                    
+                    # Check rep ranges (should be 1-5 for main lifts)
+                    main_lift_reps = str(exercises[0].get("reps", ""))
+                    low_rep_patterns = ["1-5", "3-5", "1-3", "2-5", "1-4", "3", "4", "5", "1", "2"]
+                    is_low_rep = any(pattern in main_lift_reps for pattern in low_rep_patterns)
+                    
+                    # Check rest periods (should be 180+ seconds)
+                    rest_seconds = exercises[0].get("restSeconds", 0)
+                    is_long_rest = rest_seconds >= 180
+                    
+                    # Collect verification results
+                    checks = []
+                    if is_compound:
+                        checks.append("✓ First exercise is major compound")
+                    else:
+                        checks.append("✗ First exercise not a major compound")
+                    
+                    if is_low_rep:
+                        checks.append("✓ Low rep range (1-5) for main lift")
+                    else:
+                        checks.append("✗ Rep range not powerlifting style")
+                    
+                    if is_long_rest:
+                        checks.append("✓ Rest period 180+ seconds")
+                    else:
+                        checks.append("✗ Rest period too short")
+                    
+                    all_checks_pass = is_compound and is_low_rep and is_long_rest
+                    
+                    details = f"First exercise: {exercises[0].get('name')}, Reps: {main_lift_reps}, Rest: {rest_seconds}s. Checks: {'; '.join(checks)}"
+                    
+                    self.log_result(test_name, all_checks_pass, details)
+                    return all_checks_pass
+                else:
+                    error_text = await resp.text()
+                    self.log_result(test_name, False, f"HTTP {resp.status}: {error_text}")
+                    return False
+                    
+        except Exception as e:
+            self.log_result(test_name, False, f"Request failed: {str(e)}")
+            return False
+    
+    async def test_calisthenics_style_enforcement(self):
+        """Test 3: FIX 1 - Calisthenics style enforcement"""
+        test_name = "Calisthenics Style Enforcement"
+        try:
+            payload = {
+                "focusMuscles": ["Chest", "Back"],
+                "equipment": "bodyweight",
+                "duration": 40,
+                "intensity": "moderate",
+                "trainingStyle": "calisthenics"
+            }
+            
+            async with self.session.post(f"{BASE_URL}/generate-workout", 
+                                       json=payload, 
+                                       headers={"Content-Type": "application/json"}) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    
+                    exercises = data.get("exercises", [])
+                    if not exercises:
+                        self.log_result(test_name, False, "No exercises returned")
+                        return False
+                    
+                    # Check that ALL exercises are bodyweight only
+                    forbidden_equipment = ["barbell", "dumbbell", "cable", "machine", "kettlebell", "plate"]
+                    equipment_violations = []
+                    
+                    for exercise in exercises:
+                        ex_name = exercise.get("name", "").lower()
+                        for equipment in forbidden_equipment:
+                            if equipment in ex_name:
+                                equipment_violations.append(f"{exercise.get('name')} contains '{equipment}'")
+                    
+                    # Check for proper bodyweight exercises
+                    bodyweight_indicators = ["push", "pull", "squat", "lunge", "plank", "dip", "chin", "sit", "handstand", "burpee", "jump"]
+                    has_bodyweight = any(any(indicator in ex.get("name", "").lower() for indicator in bodyweight_indicators) for ex in exercises)
+                    
+                    is_all_bodyweight = len(equipment_violations) == 0
+                    
+                    if is_all_bodyweight and has_bodyweight:
+                        exercise_names = [ex.get("name") for ex in exercises]
+                        details = f"All {len(exercises)} exercises are bodyweight-only: {', '.join(exercise_names)}"
+                        self.log_result(test_name, True, details)
+                        return True
+                    else:
+                        violation_text = f"Equipment violations: {'; '.join(equipment_violations)}" if equipment_violations else "No clear bodyweight exercises found"
+                        self.log_result(test_name, False, violation_text)
+                        return False
+                        
+                else:
+                    error_text = await resp.text()
+                    self.log_result(test_name, False, f"HTTP {resp.status}: {error_text}")
+                    return False
+                    
+        except Exception as e:
+            self.log_result(test_name, False, f"Request failed: {str(e)}")
+            return False
+    
+    async def test_crossfit_style_enforcement(self):
+        """Test 4: FIX 1 - CrossFit style enforcement"""
+        test_name = "CrossFit Style Enforcement"
+        try:
+            payload = {
+                "focusMuscles": ["Full Body"],
+                "equipment": "full_gym",
+                "duration": 30,
+                "intensity": "high",
+                "trainingStyle": "crossfit"
+            }
+            
+            async with self.session.post(f"{BASE_URL}/generate-workout", 
+                                       json=payload, 
+                                       headers={"Content-Type": "application/json"}) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    
+                    exercises = data.get("exercises", [])
+                    title = data.get("title", "")
+                    
+                    if not exercises:
+                        self.log_result(test_name, False, "No exercises returned")
+                        return False
+                    
+                    # Check for CrossFit format indicators in title or notes
+                    crossfit_formats = ["amrap", "emom", "for time", "rounds", "time cap"]
+                    title_lower = title.lower()
+                    has_crossfit_format = any(fmt in title_lower for fmt in crossfit_formats)
+                    
+                    # Check for functional/Olympic movements
+                    functional_movements = ["clean", "jerk", "snatch", "kettlebell", "box jump", "burpee", "thrusters", "deadlift", "pull-up", "double under"]
+                    functional_exercises = []
+                    
+                    for exercise in exercises:
+                        ex_name = exercise.get("name", "").lower()
+                        for movement in functional_movements:
+                            if movement in ex_name:
+                                functional_exercises.append(exercise.get("name"))
+                                break
+                    
+                    has_functional_movements = len(functional_exercises) >= 1
+                    
+                    # Check notes for additional format clues
+                    format_in_notes = False
+                    for exercise in exercises:
+                        notes = exercise.get("notes", "").lower()
+                        if any(fmt in notes for fmt in crossfit_formats):
+                            format_in_notes = True
+                            break
+                    
+                    has_format = has_crossfit_format or format_in_notes
+                    
+                    if has_format and has_functional_movements:
+                        details = f"Title: '{title}' contains CrossFit format. Functional movements: {', '.join(functional_exercises)}"
+                        self.log_result(test_name, True, details)
+                        return True
+                    else:
+                        missing = []
+                        if not has_format:
+                            missing.append("no AMRAP/EMOM/For Time format")
+                        if not has_functional_movements:
+                            missing.append("no functional/Olympic movements")
+                        details = f"Title: '{title}'. Missing: {', '.join(missing)}"
+                        self.log_result(test_name, False, details)
+                        return False
+                        
+                else:
+                    error_text = await resp.text()
+                    self.log_result(test_name, False, f"HTTP {resp.status}: {error_text}")
+                    return False
+                    
+        except Exception as e:
+            self.log_result(test_name, False, f"Request failed: {str(e)}")
+            return False
+    
+    async def test_coach_split_day_context(self):
+        """Test 5: FIX 2 - Split day context in AI Coach"""
+        test_name = "Coach Split Day Context"
+        try:
+            payload = {
+                "message": "What should I train today?",
+                "context": {
+                    "trainingStyle": "bodybuilding",
+                    "trainingSplit": "push_pull_legs",
+                    "trainingFrequency": 6,
+                    "trainingDays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+                    "userProfile": {
+                        "name": "Alex", 
+                        "trainingExperience": "intermediate", 
+                        "trainingDaysPerWeek": 6
+                    }
+                }
+            }
+            
+            async with self.session.post(f"{BASE_URL}/coach/chat", 
+                                       json=payload, 
+                                       headers={"Content-Type": "application/json"}) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    response_text = data.get("response", "").lower()
+                    session_id = data.get("session_id")
+                    
+                    if not response_text:
+                        self.log_result(test_name, False, "No response text returned")
+                        return False
+                    
+                    # Check for split day mention (push/pull/legs)
+                    split_indicators = ["push", "pull", "legs"]
+                    has_split_day = any(indicator in response_text for indicator in split_indicators)
+                    
+                    # Check for muscle group mentions
+                    muscle_groups = ["chest", "shoulders", "triceps", "back", "biceps", "quads", "hamstrings", "glutes", "calves"]
+                    mentioned_muscles = [muscle for muscle in muscle_groups if muscle in response_text]
+                    
+                    # Also check for muscle groups with capital letters (like "Quads")
+                    response_text_original = data.get("response", "")
+                    capital_muscle_groups = ["Chest", "Shoulders", "Triceps", "Back", "Biceps", "Quads", "Hamstrings", "Glutes", "Calves"]
+                    capital_mentioned = [muscle for muscle in capital_muscle_groups if muscle in response_text_original]
+                    
+                    # Combine both lowercase and capital muscle mentions
+                    all_mentioned_muscles = mentioned_muscles + capital_mentioned
+                    
+                    # Check for bodybuilding style (8-15 rep ranges)
+                    rep_indicators = ["8-", "10-", "12-", "15", "hypertrophy", "pump", "isolation"]
+                    has_bodybuilding_style = any(indicator in response_text for indicator in rep_indicators)
+                    
+                    # Verify response quality
+                    checks = []
+                    if has_split_day:
+                        checks.append("✓ Mentions specific split day")
+                    else:
+                        checks.append("✗ No split day reference")
+                    
+                    if mentioned_muscles:
+                        checks.append(f"✓ Mentions muscle groups: {', '.join(mentioned_muscles)}")
+                    elif capital_mentioned:
+                        checks.append(f"✓ Mentions muscle groups: {', '.join(capital_mentioned)}")
+                    else:
+                        checks.append("✗ No muscle group mentions")
+                    
+                    if has_bodybuilding_style:
+                        checks.append("✓ Uses bodybuilding style")
+                    else:
+                        checks.append("✗ No bodybuilding style indicators")
+                    
+                    if session_id:
+                        checks.append("✓ Returns session_id")
+                    else:
+                        checks.append("✗ No session_id")
+                    
+                    # Test passes if it has split day context and muscle mentions
+                    test_passed = has_split_day and (len(mentioned_muscles) > 0 or len(capital_mentioned) > 0)
+                    
+                    details = f"Response length: {len(data.get('response', ''))} chars. Checks: {'; '.join(checks)}"
+                    
+                    self.log_result(test_name, test_passed, details)
+                    return test_passed
+                        
+                else:
+                    error_text = await resp.text()
+                    self.log_result(test_name, False, f"HTTP {resp.status}: {error_text}")
+                    return False
+                    
+        except Exception as e:
+            self.log_result(test_name, False, f"Request failed: {str(e)}")
+            return False
+    
+    async def run_all_tests(self):
+        """Run all backend tests"""
+        print("🏋️  Starting APEX Fitness Backend Testing")
+        print(f"📡 Testing URL: {BASE_URL}")
+        print("=" * 60)
+        
+        await self.setup()
+        
+        try:
+            # Run all tests in sequence
+            tests = [
+                self.test_health_check,
+                self.test_powerlifting_style_enforcement,
+                self.test_calisthenics_style_enforcement,
+                self.test_crossfit_style_enforcement,
+                self.test_coach_split_day_context
+            ]
+            
+            results = []
+            for test_func in tests:
+                result = await test_func()
+                results.append(result)
+                print()  # Empty line between tests
+            
+            # Summary
+            passed_count = sum(1 for r in results if r)
+            total_count = len(results)
+            
+            print("=" * 60)
+            print("📊 TEST SUMMARY")
+            print(f"✅ Passed: {passed_count}/{total_count}")
+            print(f"❌ Failed: {total_count - passed_count}/{total_count}")
+            
+            if passed_count == total_count:
+                print("🎉 ALL TESTS PASSED - Backend is working correctly!")
+                return True
             else:
-                print("❌ Workout actions failed: No actions array found or empty")
-                print(f"   Full response data: {json.dumps(data, indent=2)}")
+                print("⚠️  SOME TESTS FAILED - Issues found in backend")
                 return False
-        else:
-            print(f"❌ Workout actions failed: {response.status_code} - {response.text}")
-            return False
-    except requests.RequestException as e:
-        print(f"❌ Workout actions error: {e}")
-        return False
+                
+        finally:
+            await self.cleanup()
 
-def test_bodybuilding_training_style():
-    """Test 5: AI Coach with Bodybuilding training style"""
-    print("\n🔍 Test 5: Bodybuilding Training Style...")
-    
-    payload = {
-        "message": "What exercises should I do for chest today?",
-        "context": {
-            "trainingStyle": "bodybuilding",
-            "trainingSplit": "push_pull_legs", 
-            "userProfile": {
-                "name": "Alex",
-                "trainingExperience": "intermediate",
-                "trainingDaysPerWeek": 5
-            }
-        }
-    }
-    
-    try:
-        response = requests.post(
-            f"{BASE_URL}/coach/chat",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            ai_response = data.get("response", "").lower()
-            
-            print(f"✅ Bodybuilding API call passed: {response.status_code}")
-            print(f"   Response length: {len(data.get('response', ''))} characters")
-            print(f"   Sample response: {data.get('response', '')[:150]}...")
-            
-            # Check for bodybuilding-specific keywords
-            bb_keywords = ["hypertrophy", "volume", "isolation", "drop sets", "supersets", "pump", "mind-muscle", "8-12", "12-15"]
-            found_keywords = [kw for kw in bb_keywords if kw in ai_response]
-            
-            if found_keywords:
-                print(f"✅ Bodybuilding style VERIFIED - Found keywords: {found_keywords}")
-                return True
-            else:
-                print(f"   No specific bodybuilding keywords found, but response generated")
-                return True  # Still pass if we get a valid response
-        else:
-            print(f"❌ Bodybuilding test failed: {response.status_code} - {response.text}")
-            return False
-            
-    except requests.RequestException as e:
-        print(f"❌ Bodybuilding test error: {e}")
-        return False
-
-def test_sport_specific_training_style():
-    """Test 6: AI Coach with Sport Specific training style (Basketball)"""
-    print("\n🔍 Test 6: Sport Specific Training Style (Basketball)...")
-    
-    payload = {
-        "message": "Help me plan a workout for today",
-        "context": {
-            "trainingStyle": "sport_specific",
-            "sport": "basketball",
-            "trainingSplit": "athletic",
-            "userProfile": {
-                "name": "Jordan",
-                "trainingExperience": "advanced", 
-                "trainingDaysPerWeek": 4
-            }
-        }
-    }
-    
-    try:
-        response = requests.post(
-            f"{BASE_URL}/coach/chat",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            ai_response = data.get("response", "").lower()
-            
-            print(f"✅ Sport-specific API call passed: {response.status_code}")
-            print(f"   Response length: {len(data.get('response', ''))} characters")
-            print(f"   Sample response: {data.get('response', '')[:150]}...")
-            
-            # Check for basketball-specific keywords
-            bball_keywords = ["basketball", "plyometrics", "agility", "explosive", "jump", "vertical", "lateral", "sport"]
-            found_keywords = [kw for kw in bball_keywords if kw in ai_response]
-            
-            if found_keywords:
-                print(f"✅ Basketball style VERIFIED - Found keywords: {found_keywords}")
-                return True
-            else:
-                print(f"   No specific basketball keywords found, but response generated")
-                return True  # Still pass if we get a valid response
-        else:
-            print(f"❌ Sport-specific test failed: {response.status_code} - {response.text}")
-            return False
-            
-    except requests.RequestException as e:
-        print(f"❌ Sport-specific test error: {e}")
-        return False
-
-def test_hybrid_training_style():
-    """Test 7: AI Coach with Hybrid training style"""
-    print("\n🔍 Test 7: Hybrid Training Style...")
-    
-    payload = {
-        "message": "What should my training week look like?",
-        "context": {
-            "trainingStyle": "hybrid",
-            "hybridStyles": ["bodybuilding", "powerlifting", "crossfit"],
-            "trainingSplit": "full_body",
-            "userProfile": {
-                "name": "Sam",
-                "trainingExperience": "intermediate",
-                "trainingDaysPerWeek": 4
-            }
-        }
-    }
-    
-    try:
-        response = requests.post(
-            f"{BASE_URL}/coach/chat",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            ai_response = data.get("response", "").lower()
-            
-            print(f"✅ Hybrid API call passed: {response.status_code}")
-            print(f"   Response length: {len(data.get('response', ''))} characters")
-            print(f"   Sample response: {data.get('response', '')[:150]}...")
-            
-            # Check for hybrid/rotation keywords and specific style mentions
-            hybrid_keywords = ["rotate", "combining", "hybrid", "bodybuilding", "powerlifting", "crossfit", "alternating", "styles"]
-            found_keywords = [kw for kw in hybrid_keywords if kw in ai_response]
-            
-            if found_keywords:
-                print(f"✅ Hybrid style VERIFIED - Found keywords: {found_keywords}")
-                return True
-            else:
-                print(f"   No specific hybrid keywords found, but response generated")
-                return True  # Still pass if we get a valid response
-        else:
-            print(f"❌ Hybrid test failed: {response.status_code} - {response.text}")
-            return False
-            
-    except requests.RequestException as e:
-        print(f"❌ Hybrid test error: {e}")
-        return False
-
-def run_all_tests():
-    """Run all test scenarios from the review request"""
-    print("🚀 Starting AI Coach Backend Test Suite")
-    print(f"📡 Testing against: {BASE_URL}")
-    print("🎯 Focus: Training Preferences Integration Testing")
-    print("=" * 60)
-    
-    results = {}
-    
-    # Test 1: Health check - REQUIRED
-    results['health'] = test_health_check()
-    
-    # Test 2-4: Core functionality (existing tests)
-    basic_result, basic_data = test_basic_chat()
-    results['basic_chat'] = basic_result
-    results['conversation_memory'] = test_conversation_memory()
-    results['workout_actions'] = test_workout_actions()
-    
-    # Test 5-7: Training Preferences (NEW - as per review request)
-    results['bodybuilding_style'] = test_bodybuilding_training_style()
-    results['sport_specific_style'] = test_sport_specific_training_style()  
-    results['hybrid_style'] = test_hybrid_training_style()
-    
-    # Summary
-    print("\n" + "=" * 60)
-    print("📊 TEST RESULTS SUMMARY")
-    print("=" * 60)
-    
-    passed = 0
-    total = len(results)
-    
-    # Group results for better readability
-    core_tests = ['health', 'basic_chat', 'conversation_memory', 'workout_actions']
-    pref_tests = ['bodybuilding_style', 'sport_specific_style', 'hybrid_style']
-    
-    print("Core Functionality:")
-    for test_name in core_tests:
-        if test_name in results:
-            result = results[test_name]
-            status = "✅ PASS" if result else "❌ FAIL"
-            print(f"  {test_name.replace('_', ' ').title():<25} {status}")
-            if result:
-                passed += 1
-    
-    print("\nTraining Preferences Integration:")
-    for test_name in pref_tests:
-        if test_name in results:
-            result = results[test_name]
-            status = "✅ PASS" if result else "❌ FAIL"
-            print(f"  {test_name.replace('_', ' ').title():<25} {status}")
-            if result:
-                passed += 1
-    
-    print(f"\n🎯 Overall: {passed}/{total} tests passed")
-    
-    if passed == total:
-        print("🎉 ALL TESTS PASSED! Training preferences integration is working correctly.")
-        return True
-    else:
-        print("⚠️  SOME TESTS FAILED. Check individual test results above.")
-        return False
+# Main execution
+async def main():
+    tester = BackendTester()
+    success = await tester.run_all_tests()
+    sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
-    success = run_all_tests()
-    sys.exit(0 if success else 1)
+    asyncio.run(main())

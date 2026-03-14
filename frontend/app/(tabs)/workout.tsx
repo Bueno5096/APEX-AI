@@ -21,6 +21,7 @@ import { MetallicCard } from '../../src/components/MetallicCard';
 import { ApexBodyMap } from '../../src/components/ApexBodyMap';
 import { useHealthStore } from '../../src/store/healthStore';
 import { useUserStore } from '../../src/store/userStore';
+import { getTodaySplitDay, getGreeting } from '../../src/utils/trainingHelpers';
 import { CircularProgress } from '../../src/components/CircularProgress';
 import Constants from 'expo-constants';
 
@@ -133,6 +134,8 @@ export default function WorkoutScreen() {
             trainingSplit: profile?.trainingSplit || undefined,
             sport: profile?.sport || undefined,
             hybridStyles: profile?.hybridStyles || undefined,
+            trainingFrequency: profile?.trainingFrequency || undefined,
+            trainingDays: profile?.trainingDays || undefined,
           },
         }),
       });
@@ -697,9 +700,38 @@ export default function WorkoutScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
-            Today's Workout
+            {getGreeting(profile?.name)}
           </Text>
         </View>
+        
+        {/* Split Day Info */}
+        {profile?.trainingSplit && (
+          <View style={[styles.splitDayCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            {(() => {
+              const splitInfo = getTodaySplitDay(profile?.trainingSplit, profile?.trainingDays, profile?.trainingFrequency);
+              return (
+                <>
+                  <View style={styles.splitDayHeader}>
+                    <Ionicons name={splitInfo.isRestDay ? 'bed' : 'barbell'} size={18} color={splitInfo.isRestDay ? '#FF9800' : accentColor} />
+                    <Text style={[styles.splitDayLabel, { color: splitInfo.isRestDay ? '#FF9800' : accentColor }]}>
+                      {splitInfo.splitDayLabel}
+                    </Text>
+                    <Text style={[styles.splitDayName, { color: theme.colors.textMuted }]}>{splitInfo.dayName}</Text>
+                  </View>
+                  {splitInfo.isTrainingDay && splitInfo.targetMuscles.length > 0 && (
+                    <View style={styles.splitMuscleChips}>
+                      {splitInfo.targetMuscles.map((m) => (
+                        <View key={m} style={[styles.splitMuscleChip, { backgroundColor: accentColor + '15' }]}>
+                          <Text style={[styles.splitMuscleText, { color: accentColor }]}>{m}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </>
+              );
+            })()}
+          </View>
+        )}
         
         {/* Create Workout Buttons */}
         <View style={styles.createButtonsRow}>
@@ -1117,6 +1149,41 @@ const styles = StyleSheet.create({
   },
   savedMuscleChipText: {
     fontSize: 10,
+    fontWeight: '600',
+  },
+  splitDayCard: {
+    flexDirection: 'column',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    marginBottom: 16,
+  },
+  splitDayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  splitDayLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  splitDayName: {
+    fontSize: 13,
+    marginLeft: 'auto',
+  },
+  splitMuscleChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  splitMuscleChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  splitMuscleText: {
+    fontSize: 11,
     fontWeight: '600',
   },
   overviewCard: {

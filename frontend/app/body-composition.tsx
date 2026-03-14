@@ -200,6 +200,47 @@ export default function BodyCompositionScreen() {
     loadData();
   }, []);
 
+  // Pre-fill from profile if no existing measurements
+  useEffect(() => {
+    if (profile && !measurements.weight) {
+      const prefillM = { ...measurements };
+      let changed = false;
+      if (profile.weight && !measurements.weight) { prefillM.weight = profile.weight; changed = true; }
+      if (profile.height && !measurements.height) { prefillM.height = profile.height; changed = true; }
+      if (profile.age && !measurements.age) { prefillM.age = profile.age; changed = true; }
+      if (profile.gender && !measurements.gender) { prefillM.gender = profile.gender; changed = true; }
+      if (changed) setMeasurements(prefillM);
+    }
+  }, [profile]);
+
+  const [prefilled, setPrefilled] = useState(false);
+  useEffect(() => {
+    if (profile && (profile.weight || profile.height || profile.age)) {
+      setPrefilled(true);
+    }
+  }, [profile]);
+
+  // Info modal state
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [infoModalData, setInfoModalData] = useState<{ title: string; description: string; ranges?: string; whyItMatters?: string; howToUse?: string; scale?: string; note?: string } | null>(null);
+
+  const showInfoModal = (key: string) => {
+    const METRIC_INFO: Record<string, typeof infoModalData> = {
+      bodyFat: { title: 'What is Body Fat %?', description: 'Body fat percentage is how much of your total body weight is fat. It is calculated using the U.S. Navy method which measures specific body circumferences for a much more accurate result than traditional BMI. Lower is generally better for performance but going too low has health risks.', ranges: 'Healthy ranges: Men 6-24% / Women 14-31%' },
+      leanBMI: { title: 'What is Lean BMI?', description: 'Traditional BMI is notoriously inaccurate for people who exercise because it cannot tell the difference between fat and muscle. Lean BMI fixes this by calculating BMI using only your lean body mass — the muscle, bone, and organ weight — excluding fat entirely. This gives a far more accurate picture of your true body composition.', whyItMatters: 'A muscular athlete might have a traditional BMI of 28 which incorrectly labels them overweight. Their Lean BMI of 21 correctly shows they are in the healthy range.' },
+      ffmi: { title: 'What is FFMI?', description: 'FFMI measures how muscular you are relative to your height. It is the gold standard metric for tracking muscle building progress over time. Unlike the scale or BMI, FFMI only goes up when you actually build muscle.', scale: '17-18 is average. 20-22 is excellent for a natural athlete. 22-23 is superior. Above 26 is considered to exceed what is typically achievable naturally.', whyItMatters: 'Track this number over months — if it is going up you are building real muscle regardless of what the scale says.' },
+      tdee: { title: 'What is TDEE?', description: 'TDEE is the total number of calories your body burns in a day including exercise. It is calculated from your basal metabolic rate (the calories you burn just existing) multiplied by your activity level.', howToUse: 'Use this as a reference point. APEX uses this to understand your energy demands and structure your training accordingly. Note: APEX is a training app — nutrition planning is outside our scope.' },
+      idealWeight: { title: 'What is Ideal Weight Range?', description: 'This is the weight range where your body tends to perform best based on your height, frame size, and muscle mass. Unlike traditional ideal weight charts this range is adjusted upward for people with higher muscle mass so athletes are never told they are overweight.', note: 'This is a general guideline. How you feel and perform matters more than a number on the scale.' },
+      muscleToFat: { title: 'What is Muscle to Fat Ratio?', description: 'This ratio compares your lean muscle mass to your fat mass. A ratio of 3:1 means you have 3 times more lean mass than fat mass. Higher ratios indicate better body composition regardless of total body weight.', ranges: 'Below 2:1 needs improvement. 2-3:1 is good. 3-4:1 is athletic. Above 4:1 is elite.' },
+      compositionBar: { title: 'What does this bar show?', description: 'This bar visually splits your total body weight into lean mass (muscle, bone, organs, water) on the left and fat mass on the right. The goal over time is to see the lean mass side grow larger as you build muscle and reduce body fat through training.' },
+    };
+    const data = METRIC_INFO[key];
+    if (data) {
+      setInfoModalData(data);
+      setInfoModalVisible(true);
+    }
+  };
+
   // Initialize inputs from stored measurements (always metric internally)
   // Re-converts whenever unitSystem changes globally
   useEffect(() => {
@@ -384,6 +425,10 @@ export default function BodyCompositionScreen() {
           {/* Weight row */}
           <InputField label={`Weight (${isImperial ? 'lbs' : 'kg'})`} value={weight} onChangeText={setWeight} placeholder="0" theme={theme} tooltipField={tooltipField} setTooltipField={setTooltipField} />
 
+          {prefilled && weight && (
+            <Text style={[styles.prefilledNote, { color: theme.colors.textMuted }]}>Pre-filled from your profile — tap to edit</Text>
+          )}
+
           {/* Height: ft/in in imperial, cm in metric */}
           {isImperial ? (
             <HeightImperialInput ftValue={heightFt} inValue={heightIn} onChangeFt={setHeightFt} onChangeIn={setHeightIn} theme={theme} />
@@ -428,6 +473,9 @@ export default function BodyCompositionScreen() {
               <View style={styles.resultHeader}>
                 <Ionicons name="body" size={22} color={accentColor} />
                 <Text style={[styles.resultTitle, { color: theme.colors.textMuted }]}>BODY FAT</Text>
+                <TouchableOpacity onPress={() => showInfoModal('bodyFat')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[styles.infoIcon, { color: theme.colors.textMuted }]}>ⓘ</Text>
+                </TouchableOpacity>
               </View>
               <Text style={[styles.bigValue, { color: theme.colors.textPrimary }]}>{results.bodyFatPercent}%</Text>
               <Text style={[styles.categoryLabel, { color: accentColor }]}>{getBFCategory(results.bodyFatPercent, gender)}</Text>
@@ -462,6 +510,9 @@ export default function BodyCompositionScreen() {
               <View style={styles.resultHeader}>
                 <Ionicons name="fitness" size={22} color={accentColor} />
                 <Text style={[styles.resultTitle, { color: theme.colors.textMuted }]}>FFMI</Text>
+                <TouchableOpacity onPress={() => showInfoModal('ffmi')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[styles.infoIcon, { color: theme.colors.textMuted }]}>ⓘ</Text>
+                </TouchableOpacity>
               </View>
               <Text style={[styles.bigValue, { color: theme.colors.textPrimary }]}>{results.ffmi}</Text>
               <Text style={[styles.categoryLabel, { color: accentColor }]}>{getFFMICategory(results.ffmi)}</Text>
@@ -493,6 +544,9 @@ export default function BodyCompositionScreen() {
               <View style={styles.resultHeader}>
                 <Ionicons name="speedometer" size={22} color={accentColor} />
                 <Text style={[styles.resultTitle, { color: theme.colors.textMuted }]}>LEAN BMI</Text>
+                <TouchableOpacity onPress={() => showInfoModal('leanBMI')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[styles.infoIcon, { color: theme.colors.textMuted }]}>ⓘ</Text>
+                </TouchableOpacity>
               </View>
               <Text style={[styles.bigValue, { color: theme.colors.textPrimary }]}>{results.bmi}</Text>
               <Text style={[styles.categoryLabel, { color: accentColor }]}>{getBMICategory(results.bmi)}</Text>
@@ -513,7 +567,12 @@ export default function BodyCompositionScreen() {
 
             {/* Composition Breakdown Bar */}
             <MetallicCard style={styles.resultCard} delay={320}>
-              <Text style={[styles.resultTitle, { color: theme.colors.textMuted, marginBottom: 12 }]}>COMPOSITION BREAKDOWN</Text>
+              <View style={styles.resultHeader}>
+                <Text style={[styles.resultTitle, { color: theme.colors.textMuted }]}>COMPOSITION BREAKDOWN</Text>
+                <TouchableOpacity onPress={() => showInfoModal('compositionBar')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[styles.infoIcon, { color: theme.colors.textMuted }]}>ⓘ</Text>
+                </TouchableOpacity>
+              </View>
               <View style={styles.breakdownBar}>
                 <View style={[styles.breakdownLean, { width: `${100 - results.bodyFatPercent}%`, backgroundColor: accentColor }]} />
                 <View style={[styles.breakdownFat, { width: `${results.bodyFatPercent}%`, backgroundColor: theme.colors.textMuted + '40' }]} />
@@ -535,6 +594,9 @@ export default function BodyCompositionScreen() {
               <View style={styles.resultHeader}>
                 <Ionicons name="flame" size={22} color={accentColor} />
                 <Text style={[styles.resultTitle, { color: theme.colors.textMuted }]}>DAILY CALORIES</Text>
+                <TouchableOpacity onPress={() => showInfoModal('tdee')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[styles.infoIcon, { color: theme.colors.textMuted }]}>ⓘ</Text>
+                </TouchableOpacity>
               </View>
               <Text style={[styles.tdeeSubtitle, { color: theme.colors.textMuted }]}>Estimated calories burned per day</Text>
               <Text style={[styles.bigValue, { color: theme.colors.textPrimary }]}>{results.tdee}</Text>
@@ -560,6 +622,9 @@ export default function BodyCompositionScreen() {
               <View style={styles.resultHeader}>
                 <Ionicons name="scale" size={22} color={accentColor} />
                 <Text style={[styles.resultTitle, { color: theme.colors.textMuted }]}>IDEAL WEIGHT</Text>
+                <TouchableOpacity onPress={() => showInfoModal('idealWeight')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[styles.infoIcon, { color: theme.colors.textMuted }]}>ⓘ</Text>
+                </TouchableOpacity>
               </View>
               <Text style={[styles.tdeeSubtitle, { color: theme.colors.textMuted }]}>Based on your height and frame</Text>
               <Text style={[styles.bigValue, { color: theme.colors.textPrimary }]}>
@@ -575,6 +640,9 @@ export default function BodyCompositionScreen() {
               <View style={styles.resultHeader}>
                 <Ionicons name="analytics" size={22} color={accentColor} />
                 <Text style={[styles.resultTitle, { color: theme.colors.textMuted }]}>MUSCLE TO FAT RATIO</Text>
+                <TouchableOpacity onPress={() => showInfoModal('muscleToFat')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[styles.infoIcon, { color: theme.colors.textMuted }]}>ⓘ</Text>
+                </TouchableOpacity>
               </View>
               <View style={styles.mfrBarContainer}>
                 <View style={[styles.mfrLean, { width: `${100 - results.bodyFatPercent}%`, backgroundColor: accentColor }]}>
@@ -674,6 +742,52 @@ export default function BodyCompositionScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
       </KeyboardAvoidingView>
+      
+      {/* Info Modal */}
+      {infoModalVisible && infoModalData && (
+        <TouchableOpacity 
+          style={styles.infoModalOverlay}
+          activeOpacity={1}
+          onPress={() => setInfoModalVisible(false)}
+        >
+          <View style={[styles.infoModalContent, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            <Text style={[styles.infoModalTitle, { color: accentColor }]}>{infoModalData.title}</Text>
+            <Text style={[styles.infoModalDesc, { color: theme.colors.textPrimary }]}>{infoModalData.description}</Text>
+            {infoModalData.ranges && (
+              <View style={[styles.infoModalSection, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                <Text style={[styles.infoModalSectionText, { color: theme.colors.textSecondary }]}>{infoModalData.ranges}</Text>
+              </View>
+            )}
+            {infoModalData.scale && (
+              <View style={[styles.infoModalSection, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                <Text style={[styles.infoModalSectionLabel, { color: theme.colors.textMuted }]}>Scale</Text>
+                <Text style={[styles.infoModalSectionText, { color: theme.colors.textSecondary }]}>{infoModalData.scale}</Text>
+              </View>
+            )}
+            {infoModalData.whyItMatters && (
+              <View style={[styles.infoModalSection, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                <Text style={[styles.infoModalSectionLabel, { color: theme.colors.textMuted }]}>Why It Matters</Text>
+                <Text style={[styles.infoModalSectionText, { color: theme.colors.textSecondary }]}>{infoModalData.whyItMatters}</Text>
+              </View>
+            )}
+            {infoModalData.howToUse && (
+              <View style={[styles.infoModalSection, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                <Text style={[styles.infoModalSectionLabel, { color: theme.colors.textMuted }]}>How To Use</Text>
+                <Text style={[styles.infoModalSectionText, { color: theme.colors.textSecondary }]}>{infoModalData.howToUse}</Text>
+              </View>
+            )}
+            {infoModalData.note && (
+              <Text style={[styles.infoModalNote, { color: theme.colors.textMuted }]}>{infoModalData.note}</Text>
+            )}
+            <TouchableOpacity 
+              style={[styles.infoModalCloseBtn, { backgroundColor: accentColor }]} 
+              onPress={() => setInfoModalVisible(false)}
+            >
+              <Text style={styles.infoModalCloseBtnText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -786,4 +900,19 @@ const styles = StyleSheet.create({
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 14, gap: 8, marginTop: 16 },
   saveBtnText: { color: '#000', fontSize: 17, fontWeight: '700' },
   bottomSpacer: { height: 40 },
+  // Pre-filled note
+  prefilledNote: { fontSize: 11, fontStyle: 'italic', marginTop: -4, marginBottom: 8, paddingHorizontal: 4 },
+  // Info icon
+  infoIcon: { fontSize: 16, marginLeft: 'auto' },
+  // Info modal
+  infoModalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  infoModalContent: { padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 0.5, maxHeight: '60%' },
+  infoModalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
+  infoModalDesc: { fontSize: 14, lineHeight: 22, marginBottom: 12 },
+  infoModalSection: { padding: 12, borderRadius: 12, marginBottom: 10 },
+  infoModalSectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
+  infoModalSectionText: { fontSize: 13, lineHeight: 20 },
+  infoModalNote: { fontSize: 12, fontStyle: 'italic', marginBottom: 12, lineHeight: 18 },
+  infoModalCloseBtn: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  infoModalCloseBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

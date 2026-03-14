@@ -69,6 +69,8 @@ class ChatContext(BaseModel):
     trainingSplit: Optional[str] = None
     sport: Optional[str] = None
     hybridStyles: Optional[List[str]] = None
+    trainingFrequency: Optional[int] = None
+    trainingDays: Optional[List[str]] = None
 
 class ConversationMessage(BaseModel):
     role: str  # 'user' or 'coach'
@@ -250,6 +252,7 @@ THEIR GOALS:
     training_style_str = 'Not set'
     training_split_str = 'Not set'
     training_pref_instructions = ''
+    style_enforcement = ''
     
     if context and context.trainingStyle:
         style_map = {
@@ -268,18 +271,118 @@ THEIR GOALS:
             hybrid_names = [style_map.get(s, s).split(' — ')[0] for s in context.hybridStyles]
             training_style_str += f' (combining: {", ".join(hybrid_names)})'
         
-        # Style-specific coaching instructions
-        style_instructions = {
-            'bodybuilding': 'Emphasize isolation exercises, drop sets, supersets, and time under tension. Always include pump work.',
-            'powerlifting': 'Always include squat/bench/deadlift as the main lift. Use RPE-based programming. Allow 3-5 min rest between heavy sets.',
-            'calisthenics': 'Only recommend bodyweight exercises. Use progressions (easier → harder variations). Include skill work.',
-            'yoga': 'Recommend yoga on rest days. Focus on mobility, breathing cues, and stress relief.',
-            'pilates': 'Emphasize core exercises, breathing patterns, postural alignment. Keep it low impact.',
-            'sport_specific': f'Tailor all exercises to improve {context.sport or "athletic"} performance. Include plyometrics, agility, and sport-specific drills.',
-            'crossfit': 'Program WOD-style workouts (AMRAP, EMOM, For Time). Include Olympic lift variations and conditioning.',
-            'hybrid': 'Rotate between training styles across the week. Balance strength, hypertrophy, and conditioning.',
+        # STRICT style enforcement rules
+        style_enforcement_map = {
+            'bodybuilding': """STYLE ENFORCEMENT RULES (BODYBUILDING):
+- All exercises MUST use 8-15 rep ranges (8-12 compound, 12-15 isolation)
+- MUST include isolation movements (curls, flies, raises, extensions)
+- Include mind-muscle connection cues in every exercise note
+- Recommend drop sets, supersets, and time under tension techniques
+- Rest periods: 60-90s isolation, 90-120s compound
+- Never recommend exercises below 6 reps or above 20 reps
+- Always include pump finisher exercises""",
+            'powerlifting': """STYLE ENFORCEMENT RULES (POWERLIFTING):
+- Every workout MUST include squat, bench press, OR deadlift as the MAIN lift
+- Main lifts: 1-5 reps, RPE 7-9
+- Accessory lifts: 3-8 reps
+- Rest periods: 3-5 minutes between heavy sets
+- Programming must be RPE-based or percentage-based
+- Never recommend isolation-only workouts
+- Include warm-up set progressions for main lifts""",
+            'calisthenics': """STYLE ENFORCEMENT RULES (CALISTHENICS):
+- ONLY recommend bodyweight exercises — NO barbells, dumbbells, cables, or machines
+- Use skill progressions (easier → harder variations)
+- Include skill work: L-sit, handstand, muscle-up progressions
+- Rep ranges: 5-15 for strength, holds for skill work
+- Equipment allowed: pull-up bar, dip bars, resistance bands ONLY
+- Never recommend bench press, curls with weights, or machine exercises""",
+            'yoga': """STYLE ENFORCEMENT RULES (YOGA):
+- Recommend pose flows, flexibility movements, and breathing exercises
+- Focus on recovery, stress relief, and mobility
+- Include breathing cues (pranayama) with every recommendation
+- Pose holds: 30s-2min
+- No heavy lifting or high-impact exercises
+- Recommend yoga specifically on rest days""",
+            'pilates': """STYLE ENFORCEMENT RULES (PILATES):
+- All movements MUST be slow and controlled
+- Core-focused in every session
+- Rep ranges: 10-20 reps
+- Low impact ONLY — no jumping, no heavy weights
+- Emphasize breathing patterns with every exercise
+- Focus on postural alignment and body awareness""",
+            'sport_specific': f"""STYLE ENFORCEMENT RULES (SPORT SPECIFIC - {context.sport or 'GENERAL'}):
+- All exercises must improve {context.sport or 'athletic'} performance
+- Include plyometrics, agility drills, and explosive movements
+- Include sport-specific movement patterns
+- Power development: 3-6 reps explosive
+- Conditioning: sport-specific intervals
+- Never recommend exercises that don't translate to sport performance""",
+            'crossfit': """STYLE ENFORCEMENT RULES (CROSSFIT/FUNCTIONAL):
+- Program workouts as AMRAP, EMOM, or For Time format
+- Include functional movements: Olympic lifts, kettlebell work, gymnastics
+- High intensity — short rest periods (30-60s)
+- Include conditioning component in every workout
+- Varied modalities: weightlifting + gymnastics + cardio
+- Never recommend bodybuilding-style isolation splits""",
+            'hybrid': """STYLE ENFORCEMENT RULES (HYBRID):
+- Rotate between training styles across the week
+- Day 1: Heavy/Strength focus (powerlifting style)
+- Day 2: Volume/Hypertrophy focus (bodybuilding style)
+- Day 3: Conditioning/Functional (crossfit style)
+- Balance all three energy systems
+- Include mobility work from yoga/pilates as warm-up/cool-down""",
         }
-        training_pref_instructions = style_instructions.get(context.trainingStyle, '')
+        style_enforcement = style_enforcement_map.get(context.trainingStyle, '')
+        training_pref_instructions = style_enforcement
+    
+    # Training frequency context
+    training_freq = context.trainingFrequency if context else None
+    training_days_list = context.trainingDays if context and context.trainingDays else None
+    freq_block = ''
+    if training_freq:
+        freq_block = f"\n- Training Frequency: {training_freq} days per week"
+        if training_days_list:
+            freq_block += f"\n- Training Days: {', '.join(training_days_list)}"
+            # Determine rest days
+            all_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            rest_days = [d for d in all_days if d not in training_days_list]
+            if rest_days:
+                freq_block += f"\n- Rest Days: {', '.join(rest_days)}"
+    
+    # Split day context
+    split_day_block = ''
+    if context and context.trainingSplit and training_days_list:
+        import datetime as dt
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        today = day_names[dt.datetime.now().weekday()]
+        is_training_today = today in training_days_list
+        
+        if is_training_today:
+            training_idx = training_days_list.index(today)
+            split = context.trainingSplit
+            
+            split_day_muscles = {
+                'full_body': (['Chest', 'Back', 'Shoulders', 'Quads', 'Hamstrings', 'Core'], 'Full Body'),
+                'upper_lower': (['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps'] if training_idx % 2 == 0 else ['Quads', 'Hamstrings', 'Glutes', 'Calves'], 'Upper Body' if training_idx % 2 == 0 else 'Lower Body'),
+                'push_pull_legs': ([['Chest', 'Shoulders', 'Triceps'], ['Back', 'Biceps'], ['Quads', 'Hamstrings', 'Glutes', 'Calves']][training_idx % 3], ['Push', 'Pull', 'Legs'][training_idx % 3]),
+                'bro_split': ([['Chest', 'Triceps'], ['Back', 'Biceps'], ['Shoulders'], ['Biceps', 'Triceps'], ['Quads', 'Hamstrings', 'Glutes', 'Calves']][training_idx % 5], ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs'][training_idx % 5]),
+                'arnold_split': ([['Chest', 'Back'], ['Shoulders', 'Biceps', 'Triceps'], ['Quads', 'Hamstrings', 'Glutes', 'Calves']][training_idx % 3], ['Chest+Back', 'Shoulders+Arms', 'Legs'][training_idx % 3]),
+            }
+            
+            if split in split_day_muscles:
+                muscles, label = split_day_muscles[split]
+                split_day_block = f"""
+CURRENT SPLIT DAY: {label} ({today})
+TARGET MUSCLES FOR TODAY: {', '.join(muscles)}
+SPLIT ENFORCEMENT RULES:
+- Today's workout MUST target: {', '.join(muscles)}
+- Do NOT recommend training muscle groups that are not part of today's split day
+- Exception: if a muscle is below 40% readiness, swap it for the next most recovered muscle in the split"""
+        else:
+            split_day_block = f"""
+CURRENT SPLIT DAY: Rest Day ({today})
+- Today is a rest day. Recommend active recovery, mobility work, or light activity only.
+- Do NOT recommend a full workout on rest days."""
     
     if context and context.trainingSplit:
         split_map = {
@@ -301,9 +404,10 @@ THEIR TRAINING PROFILE:
 - Workout Style: {workout_style}
 - Injuries or Limitations: {injuries}
 - Training Style Preference: {training_style_str}
-- Training Split: {training_split_str}
+- Training Split: {training_split_str}{freq_block}
 - Current Streak: {streak} days
-- Workouts This Month: {workouts_month}"""
+- Workouts This Month: {workouts_month}
+{split_day_block}"""
 
     # ─── Extract muscle readiness ───
     muscles = context.muscleReadiness if context and context.muscleReadiness else None
@@ -721,6 +825,60 @@ async def generate_workout(request: GenerateWorkoutRequest):
         }
         equipment_desc = equipment_map.get(request.equipment, request.equipment)
         
+        # Build strict style enforcement rules for the prompt
+        style_rules = {
+            'bodybuilding': """STRICT STYLE RULES (BODYBUILDING):
+- ALL exercises must use 8-15 rep ranges (8-12 compound, 12-15 isolation)
+- MUST include at least 2 isolation movements (curls, flies, raises, extensions)
+- Add "mind-muscle connection" cues in every exercise note
+- Include at least one drop set or superset suggestion
+- Rest periods: 60-90s isolation, 90-120s compound""",
+            'powerlifting': """STRICT STYLE RULES (POWERLIFTING):
+- The FIRST exercise MUST be Barbell Squat, Barbell Bench Press, OR Deadlift
+- Main lift: 1-5 reps, RPE 7-9
+- Accessory lifts: 3-8 reps
+- Rest periods: 180-300 seconds (3-5 minutes) for main lifts
+- Include warm-up set note for the main lift
+- NO isolation-only exercises as main movements""",
+            'calisthenics': """STRICT STYLE RULES (CALISTHENICS):
+- ONLY bodyweight exercises. NO barbells, dumbbells, cables, or machines
+- Equipment allowed: pull-up bar, dip bars, resistance bands ONLY
+- Include skill progressions (easier and harder variations in notes)
+- Rep ranges: 5-15 for strength movements
+- Include at least one skill/hold exercise (L-sit, handstand, planche progression)""",
+            'yoga': """STRICT STYLE RULES (YOGA):
+- Only yoga poses, flows, and flexibility movements
+- Include breathing cues in every exercise note
+- Use pose hold times (30s-2min) instead of traditional reps
+- Focus on flexibility, balance, and mindfulness
+- NO heavy lifting or high-impact movements""",
+            'pilates': """STRICT STYLE RULES (PILATES):
+- All movements must be slow and controlled
+- Core-focused: at least 60% of exercises target core
+- Rep ranges: 10-20 reps
+- LOW IMPACT ONLY — no jumping, no heavy weights
+- Include breathing pattern cues in every exercise note""",
+            'sport_specific': f"""STRICT STYLE RULES (SPORT SPECIFIC - {request.sport or 'GENERAL'}):
+- All exercises must translate to {request.sport or 'athletic'} performance
+- Include at least 2 plyometric/explosive movements
+- Include agility or sport-specific movement patterns
+- Power movements: 3-6 reps explosive
+- Include conditioning intervals""",
+            'crossfit': """STRICT STYLE RULES (CROSSFIT):
+- Format as AMRAP, EMOM, or For Time in the title and notes
+- Include functional movements: Olympic lifts, kettlebell, gymnastics
+- Short rest periods (30-60s) or no rest (AMRAP style)
+- Mix modalities: weightlifting + bodyweight + conditioning
+- Include a time cap or round count in the title""",
+            'hybrid': """STRICT STYLE RULES (HYBRID):
+- Mix heavy compound lifts with isolation work and conditioning
+- Include at least one heavy strength movement (1-5 reps)
+- Include at least one hypertrophy movement (8-12 reps)
+- Include at least one conditioning element (circuit, AMRAP, or cardio)""",
+        }
+        
+        style_enforcement = style_rules.get(request.trainingStyle, '') if request.trainingStyle else ''
+        
         prompt = f"""Generate a complete workout plan. Return ONLY valid JSON, no other text.
 
 REQUIREMENTS:
@@ -730,6 +888,8 @@ REQUIREMENTS:
 - Intensity: {request.intensity}
 - {style_ctx}
 - {profile_ctx}
+
+{style_enforcement}
 
 Return this exact JSON structure:
 {{
@@ -751,7 +911,7 @@ Return this exact JSON structure:
   ]
 }}
 
-Include 5-8 exercises. Match the training style. Be specific with exercise names."""
+Include 5-8 exercises. STRICTLY follow the style rules above. Be specific with exercise names."""
 
         chat = LlmChat(
             api_key=api_key,

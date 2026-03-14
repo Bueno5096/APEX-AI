@@ -11,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeStore } from '../src/store/themeStore';
 import { WORKOUT_TEMPLATES } from '../src/store/exerciseStore';
+import { useUserStore } from '../src/store/userStore';
+import { STYLE_TEMPLATE_COMPAT } from '../src/utils/trainingHelpers';
 
 const CATEGORIES = ['All', 'Push', 'Pull', 'Legs', 'Upper', 'Full Body', 'Bodyweight', 'Strength', 'HIIT', 'Dumbbell'];
 
@@ -18,12 +20,28 @@ export default function WorkoutTemplatesScreen() {
   const router = useRouter();
   const theme = useThemeStore((s) => s.theme);
   const accentColor = useThemeStore((s) => s.accentColor);
+  const { profile } = useUserStore();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const filtered = selectedCategory === 'All'
+  const userStyle = profile?.trainingStyle;
+  const styleCompat = userStyle ? STYLE_TEMPLATE_COMPAT[userStyle] : null;
+
+  const getStyleStatus = (tpl: typeof WORKOUT_TEMPLATES[0]): 'match' | 'conflict' | 'neutral' => {
+    if (!styleCompat) return 'neutral';
+    if (styleCompat.match.includes(tpl.category)) return 'match';
+    if (styleCompat.conflict.includes(tpl.category)) return 'conflict';
+    return 'neutral';
+  };
+
+  const base = selectedCategory === 'All'
     ? WORKOUT_TEMPLATES
     : WORKOUT_TEMPLATES.filter((t) => t.category === selectedCategory);
+
+  const filtered = [...base].sort((a, b) => {
+    const order = { match: 0, neutral: 1, conflict: 2 };
+    return (order[getStyleStatus(a)] || 1) - (order[getStyleStatus(b)] || 1);
+  });
 
   const getDifficultyColor = (d: string) => {
     if (d === 'beginner') return '#4CAF50';
@@ -73,6 +91,19 @@ export default function WorkoutTemplatesScreen() {
           const isExpanded = expandedId === template.id;
           return (
             <View key={template.id} style={[styles.templateCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+              {/* Style Match/Conflict Tag */}
+              {userStyle && getStyleStatus(template) === 'match' && (
+                <View style={[styles.styleTag, { backgroundColor: '#4CAF5015' }]}>
+                  <Ionicons name="checkmark-circle" size={12} color="#4CAF50" />
+                  <Text style={[styles.styleTagText, { color: '#4CAF50' }]}>MATCHES YOUR STYLE</Text>
+                </View>
+              )}
+              {userStyle && getStyleStatus(template) === 'conflict' && (
+                <View style={[styles.styleTag, { backgroundColor: '#F4433615' }]}>
+                  <Ionicons name="warning" size={12} color="#F44336" />
+                  <Text style={[styles.styleTagText, { color: '#F44336' }]}>Doesn't match your {userStyle.replace('_', ' ')} style</Text>
+                </View>
+              )}
               <TouchableOpacity
                 style={styles.templateHeader}
                 onPress={() => setExpandedId(isExpanded ? null : template.id)}
@@ -165,6 +196,8 @@ const styles = StyleSheet.create({
   filterChipText: { fontSize: 12, fontWeight: '600' },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
   templateCard: { borderRadius: 14, borderWidth: 0.5, marginBottom: 12, overflow: 'hidden' },
+  styleTag: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6 },
+  styleTagText: { fontSize: 11, fontWeight: '700' },
   templateHeader: { flexDirection: 'row', alignItems: 'flex-start', padding: 16, gap: 12 },
   templateTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   templateName: { fontSize: 16, fontWeight: '700' },

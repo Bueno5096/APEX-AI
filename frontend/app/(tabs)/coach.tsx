@@ -291,6 +291,8 @@ export default function CoachScreen() {
             trainingSplit: profile?.trainingSplit || undefined,
             sport: profile?.sport || undefined,
             hybridStyles: profile?.hybridStyles || undefined,
+            trainingFrequency: profile?.trainingFrequency || undefined,
+            trainingDays: profile?.trainingDays || undefined,
           },
         }),
       });

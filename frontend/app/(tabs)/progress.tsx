@@ -691,8 +691,12 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
     <View style={styles.listHeader}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Progress</Text>
-        <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted }]}>PERFORMANCE TRACKING</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
+          {profile?.name ? `${profile.name}'s Progress` : 'Progress'}
+        </Text>
+        <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted }]}>
+          {profile?.fitnessGoals?.[0] ? profile.fitnessGoals[0].toUpperCase() : 'PERFORMANCE TRACKING'}
+        </Text>
       </View>
 
       {/* Time Period Selector */}

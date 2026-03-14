@@ -424,8 +424,8 @@ export default function OnboardingScreen() {
 
     await setProfile(profile);
     await setOnboardingComplete(true);
-    // Route to training preferences before profile creation
-    router.replace('/training-style?fromOnboarding=true');
+    // Route to training frequency → style → split before profile creation
+    router.replace('/training-frequency?fromOnboarding=true');
   }, [userData, setProfile, setOnboardingComplete, setUnitSystem, router]);
 
   // ── Loading Screen ──

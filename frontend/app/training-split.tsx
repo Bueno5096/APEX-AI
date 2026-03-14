@@ -12,6 +12,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemeStore } from '../src/store/themeStore';
 import { useUserStore, TrainingSplit } from '../src/store/userStore';
 import { TRAINING_SPLITS, TrainingSplitInfo } from '../src/store/exerciseStore';
+import { FREQUENCY_SPLIT_COMPAT } from '../src/utils/trainingHelpers';
 
 const SPLIT_ICONS: Record<string, string> = {
   full_body: 'body',
@@ -107,6 +108,11 @@ export default function TrainingSplitScreen() {
           const isRecommended = split.key === recommendation;
           const daysMatch = getDaysMatchIndicator(split);
           const iconName = SPLIT_ICONS[split.key] || 'grid';
+          
+          // Frequency compatibility check
+          const freq = profile?.trainingFrequency;
+          const compatSplits = freq ? (FREQUENCY_SPLIT_COMPAT[freq] || []) : [];
+          const isIncompat = freq ? !compatSplits.includes(split.key) : false;
 
           return (
             <TouchableOpacity
@@ -118,8 +124,9 @@ export default function TrainingSplitScreen() {
                   borderColor: isSelected ? accentColor : theme.colors.cardBorder,
                 },
                 isSelected && { borderLeftWidth: 3, borderLeftColor: accentColor },
+                isIncompat && { opacity: 0.5 },
               ]}
-              onPress={() => setSelected(split.key)}
+              onPress={() => !isIncompat && setSelected(split.key)}
               activeOpacity={0.7}
             >
               <View style={styles.splitContent}>
@@ -168,6 +175,12 @@ export default function TrainingSplitScreen() {
 
                 <Text style={[styles.splitDesc, { color: theme.colors.textMuted }]}>{split.description}</Text>
                 <Text style={[styles.splitBest, { color: theme.colors.textMuted }]}>Best for: {split.bestFor}</Text>
+
+                {isIncompat && freq && (
+                  <Text style={[styles.incompatNote, { color: '#F44336' }]}>
+                    Requires {split.daysPerWeek} days/week — your frequency is {freq}
+                  </Text>
+                )}
 
                 {/* Expand details */}
                 <TouchableOpacity
@@ -242,6 +255,7 @@ const styles = StyleSheet.create({
   scheduleBox: { marginTop: 8, marginLeft: 52, padding: 12, borderRadius: 10, borderWidth: 0.5 },
   scheduleTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 6 },
   scheduleText: { fontSize: 13, lineHeight: 20 },
+  incompatNote: { fontSize: 11, fontWeight: '600', marginLeft: 52, marginTop: 4 },
   selectBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14, marginTop: 12 },
   selectBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

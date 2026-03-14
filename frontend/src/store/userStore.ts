@@ -23,6 +23,8 @@ interface UserProfile {
   trainingSplit?: TrainingSplit;
   sport?: string;
   hybridStyles?: TrainingStyle[];
+  trainingFrequency?: number;
+  trainingDays?: string[];
 }
 
 interface UserSettings {

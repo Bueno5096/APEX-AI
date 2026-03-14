@@ -17,6 +17,7 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { useHealthStore } from '../../src/store/healthStore';
 import { useMuscleStore } from '../../src/store/muscleStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
+import { useUserStore } from '../../src/store/userStore';
 import { ApexBodyMap } from '../../src/components/ApexBodyMap';
 import { MUSCLE_REGIONS } from '../../src/constants/exerciseData';
 import { getReadinessColor, getReadinessLabel } from '../../src/constants/theme';
@@ -149,6 +150,7 @@ export default function RecoveryScreen() {
   const { recoveryData, isLoading, refreshData, fetchHealthData } = useHealthStore();
   const { muscles, loadState, getRecommendation, initializeMuscles } = useMuscleStore();
   const { setTodayWorkoutByType } = useWorkoutStore();
+  const { profile } = useUserStore();
   const router = useRouter();
   const [isInitialized, setIsInitialized] = useState(false);
   const [workoutApplied, setWorkoutApplied] = useState(false);
@@ -198,7 +200,9 @@ export default function RecoveryScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Recovery</Text>
+            <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
+              {profile?.name ? `Recovery — ${profile.name}` : 'Recovery'}
+            </Text>
             <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted }]}>BODY READINESS</Text>
           </View>
           <View style={[styles.statusBadge, { borderColor: accentColor + '40' }]}>
