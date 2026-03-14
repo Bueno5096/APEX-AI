@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Animated,
   ActivityIndicator,
+  Modal,
+  ScrollView as RNScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +25,7 @@ import Constants from 'expo-constants';
 
 // ─── Types ──────────────────────────────────────────────
 type TimePeriod = '7d' | '15d' | '30d' | 'all';
-type SectionId = 'strength' | 'records' | 'analysis' | 'stats';
+type SectionId = 'strength' | 'calendar' | 'records' | 'analysis';
 
 interface Section {
   key: SectionId;
@@ -59,7 +61,7 @@ const MUSCLE_EXERCISE_MAP: { [muscle: string]: string[] } = {
   'Traps': ['Shrugs', 'Face Pull'],
 };
 
-const DEFAULT_SECTION_ORDER: SectionId[] = ['strength', 'records', 'analysis', 'stats'];
+const DEFAULT_SECTION_ORDER: SectionId[] = ['strength', 'calendar', 'records', 'analysis'];
 const SECTION_ORDER_KEY = 'apex_progress_section_order';
 
 // ─── Helper: get backend URL ────────────────────────────
@@ -189,6 +191,13 @@ export default function ProgressScreen() {
 
   const isDark = theme.name === 'dark';
 
+  // Calendar state
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
+
   // Load saved section order
   useEffect(() => {
     const loadOrder = async () => {
@@ -302,33 +311,49 @@ export default function ProgressScreen() {
   }, [filteredWorkouts, muscleGains, recoveryData, workoutHistory]);
 
   // ─── AI Analysis ────────────────────────────────────
-  const fetchAiAnalysis = useCallback(async () => {
+  const [aiRetryCount, setAiRetryCount] = useState(0);
+
+  const fetchAiAnalysis = useCallback(async (retryAttempt: number = 0) => {
     setAiLoading(true);
-    setAiAnalysis(null);
+    if (retryAttempt === 0) setAiAnalysis(null);
     const periodLabel = timePeriod === '7d' ? '7 days' : timePeriod === '15d' ? '15 days' : timePeriod === '30d' ? '30 days' : 'all time';
     const gainsSummary = muscleGains.map(g => `${g.muscle}: ${g.gainPercent > 0 ? '+' : ''}${g.gainPercent}% (${g.exercise})`).join(', ');
     const goals = profile?.fitnessGoals?.join(', ') || 'general fitness';
+    const recoverySummary = recoveryData?.muscles?.map(m => `${m.name}: ${m.readiness}%`).join(', ') || 'No recovery data';
     const message = `Analyze my progress data for the last ${periodLabel}. Give me exactly 4 bullet point insights (use bullet characters). Here is my data:
 Muscle strength gains ranked: ${gainsSummary || 'No data yet'}
 Total workouts: ${stats.totalWorkouts}
 Average recovery score: ${stats.avgRecovery}%
 Current streak: ${stats.streak} days
 Fitness goals: ${goals}
+Muscle readiness: ${recoverySummary}
 Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or lagging, 3) Whether I'm overtrained in any area, 4) One specific actionable recommendation. Keep each point to 1-2 sentences. Do NOT include any action blocks.`;
     try {
       const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, context: { coachStyle: 'analytical' } }),
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       setAiAnalysis(data.response || 'Unable to generate analysis.');
-    } catch {
-      setAiAnalysis('Unable to connect to APEX AI. Check your connection and try again.');
+      setAiRetryCount(0);
+    } catch (e: any) {
+      if (retryAttempt < 2) {
+        // Auto-retry up to 3 times
+        console.log(`[APEX] Retry ${retryAttempt + 1}/3`);
+        setTimeout(() => fetchAiAnalysis(retryAttempt + 1), 1500 * (retryAttempt + 1));
+        return; // Don't set loading to false yet
+      }
+      const errorMsg = e?.message?.includes('401') || e?.message?.includes('403')
+        ? 'Coach AI is not configured. Please check your API settings.'
+        : 'Unable to connect to APEX AI. Check your connection and try again.';
+      setAiAnalysis(errorMsg);
+      setAiRetryCount(retryAttempt + 1);
     } finally {
-      setAiLoading(false);
+      if (retryAttempt >= 2 || !aiLoading) setAiLoading(false);
     }
-  }, [timePeriod, muscleGains, stats, profile]);
+  }, [timePeriod, muscleGains, stats, profile, recoveryData]);
 
   useEffect(() => {
     if (muscleGains.length > 0) fetchAiAnalysis();
@@ -433,9 +458,20 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
             <ActivityIndicator size="small" color={accentColor} style={{ marginTop: 8 }} />
           </View>
         ) : aiAnalysis ? (
-          <Text style={[styles.aiText, { color: theme.colors.textSecondary }]}>{aiAnalysis}</Text>
+          <View>
+            <Text style={[styles.aiText, { color: theme.colors.textSecondary }]}>{aiAnalysis}</Text>
+            {aiAnalysis.includes('Unable to connect') || aiAnalysis.includes('not configured') ? (
+              <TouchableOpacity
+                onPress={() => fetchAiAnalysis(0)}
+                style={[styles.generateBtn, { borderColor: accentColor + '40', marginTop: 12 }]}
+              >
+                <Ionicons name="refresh" size={16} color={accentColor} />
+                <Text style={[styles.generateBtnText, { color: accentColor }]}>Retry</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         ) : (
-          <TouchableOpacity onPress={fetchAiAnalysis} style={[styles.generateBtn, { borderColor: accentColor + '40' }]}>
+          <TouchableOpacity onPress={() => fetchAiAnalysis(0)} style={[styles.generateBtn, { borderColor: accentColor + '40' }]}>
             <Ionicons name="refresh" size={16} color={accentColor} />
             <Text style={[styles.generateBtnText, { color: accentColor }]}>Generate Analysis</Text>
           </TouchableOpacity>
@@ -480,14 +516,175 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
     </View>
   );
 
+  // ─── Workout History Calendar ────────────────────────
+  const workoutDatesMap = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    workoutHistory.forEach(w => {
+      if (w.date) {
+        const d = new Date(w.date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (!map[key]) map[key] = [];
+        map[key].push(w);
+      }
+    });
+    return map;
+  }, [workoutHistory]);
+
+  const streaks = useMemo(() => {
+    const dates = Object.keys(workoutDatesMap).sort().reverse();
+    let current = 0;
+    let longest = 0;
+    let streak = 0;
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    // Calculate streaks based on consecutive days
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (workoutDatesMap[key]) {
+        streak++;
+        if (i === 0 || streak > 1) current = Math.max(current, streak);
+      } else {
+        if (i === 0) current = 0; // no workout today
+        longest = Math.max(longest, streak);
+        if (i > 0 && current === 0) break; // stop counting current if broken early
+        streak = 0;
+      }
+    }
+    longest = Math.max(longest, streak);
+    if (current === 0 && workoutDatesMap[todayStr]) current = streak;
+    return { current: Math.max(current, streak), longest };
+  }, [workoutDatesMap]);
+
+  const renderCalendarSection = useCallback((drag: () => void, isActive: boolean) => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const monthName = calendarMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    const cells: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const selectedWorkouts = selectedCalendarDate ? workoutDatesMap[selectedCalendarDate] || [] : [];
+
+    return (
+      <View>
+        <SectionHeader title="WORKOUT HISTORY" drag={drag} isActive={isActive} theme={theme} accentColor={accentColor} />
+        
+        {/* Streak */}
+        <View style={[styles.streakRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+          <View style={styles.streakItem}>
+            <Ionicons name="flame" size={18} color={accentColor} />
+            <Text style={[styles.streakValue, { color: theme.colors.textPrimary }]}>{streaks.current}</Text>
+            <Text style={[styles.streakLabel, { color: theme.colors.textMuted }]}>Current</Text>
+          </View>
+          <View style={[styles.streakDivider, { backgroundColor: theme.colors.cardBorder }]} />
+          <View style={styles.streakItem}>
+            <Ionicons name="trophy" size={18} color="#FFD700" />
+            <Text style={[styles.streakValue, { color: theme.colors.textPrimary }]}>{streaks.longest}</Text>
+            <Text style={[styles.streakLabel, { color: theme.colors.textMuted }]}>Best</Text>
+          </View>
+        </View>
+
+        <MetallicCard style={styles.calendarCard}>
+          {/* Month Nav */}
+          <View style={styles.calMonthNav}>
+            <TouchableOpacity onPress={() => setCalendarMonth(new Date(year, month - 1, 1))}>
+              <Ionicons name="chevron-back" size={22} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+            <Text style={[styles.calMonthText, { color: theme.colors.textPrimary }]}>{monthName}</Text>
+            <TouchableOpacity onPress={() => setCalendarMonth(new Date(year, month + 1, 1))}>
+              <Ionicons name="chevron-forward" size={22} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Day Headers */}
+          <View style={styles.calRow}>
+            {DAYS.map((d, i) => (
+              <View key={i} style={styles.calCell}>
+                <Text style={[styles.calDayHeader, { color: theme.colors.textMuted }]}>{d}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Calendar Grid */}
+          {Array.from({ length: Math.ceil(cells.length / 7) }).map((_, rowIdx) => (
+            <View key={rowIdx} style={styles.calRow}>
+              {cells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => {
+                if (day === null) return <View key={colIdx} style={styles.calCell} />;
+                const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasWorkout = !!workoutDatesMap[dateKey];
+                const isToday = dateKey === `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+                const isSelected = selectedCalendarDate === dateKey;
+
+                return (
+                  <TouchableOpacity
+                    key={colIdx}
+                    style={[styles.calCell, isSelected && { backgroundColor: accentColor + '20', borderRadius: 8 }]}
+                    onPress={() => hasWorkout && setSelectedCalendarDate(isSelected ? null : dateKey)}
+                    activeOpacity={hasWorkout ? 0.6 : 1}
+                  >
+                    <Text style={[
+                      styles.calDayText,
+                      { color: isToday ? accentColor : theme.colors.textPrimary },
+                      isToday && styles.calDayToday,
+                    ]}>{day}</Text>
+                    {hasWorkout && <View style={[styles.calDot, { backgroundColor: accentColor }]} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </MetallicCard>
+
+        {/* Selected Date Detail Modal */}
+        <Modal visible={!!selectedCalendarDate && selectedWorkouts.length > 0} transparent animationType="fade" onRequestClose={() => setSelectedCalendarDate(null)}>
+          <TouchableOpacity style={styles.calModalOverlay} activeOpacity={1} onPress={() => setSelectedCalendarDate(null)}>
+            <View style={[styles.calModal, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+              <View style={styles.calModalHeader}>
+                <Text style={[styles.calModalTitle, { color: theme.colors.textPrimary }]}>
+                  {selectedCalendarDate ? new Date(selectedCalendarDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : ''}
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedCalendarDate(null)}>
+                  <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <RNScrollView style={{ maxHeight: 350 }}>
+                {selectedWorkouts.map((w: any, wi: number) => (
+                  <View key={wi} style={[styles.calModalWorkout, wi > 0 && { borderTopWidth: 0.5, borderTopColor: theme.colors.cardBorder, marginTop: 12, paddingTop: 12 }]}>
+                    <Text style={[styles.calModalWorkoutTitle, { color: accentColor }]}>{w.title}</Text>
+                    <Text style={[styles.calModalMeta, { color: theme.colors.textMuted }]}>{w.duration} min • {w.intensity}</Text>
+                    {w.exercises?.map((ex: any, ei: number) => (
+                      <View key={ei} style={styles.calModalExRow}>
+                        <Text style={[styles.calModalExName, { color: theme.colors.textPrimary }]}>{ex.name}</Text>
+                        <Text style={[styles.calModalExDetail, { color: theme.colors.textMuted }]}>
+                          {ex.completedSets || ex.sets}x{ex.reps}{ex.weight ? ` @ ${ex.weight}kg` : ''}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+              </RNScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      </View>
+    );
+  }, [calendarMonth, workoutDatesMap, selectedCalendarDate, streaks, theme, accentColor]);
+
   // ─── Draggable section renderer ─────────────────────
   const renderSection = useCallback(({ item, drag, isActive }: RenderItemParams<Section>) => {
     const content = (() => {
       switch (item.key) {
         case 'strength': return renderStrengthSection(drag, isActive);
+        case 'calendar': return renderCalendarSection(drag, isActive);
         case 'records': return renderRecordsSection(drag, isActive);
         case 'analysis': return renderAnalysisSection(drag, isActive);
-        case 'stats': return renderStatsSection(drag, isActive);
         default: return null;
       }
     })();
@@ -499,7 +696,7 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
         </View>
       </ScaleDecorator>
     );
-  }, [theme, accentColor, muscleGains, personalRecords, stats, aiAnalysis, aiLoading, animKey, isDark, maxGain, timePeriod]);
+  }, [theme, accentColor, muscleGains, personalRecords, stats, aiAnalysis, aiLoading, animKey, isDark, maxGain, timePeriod, calendarMonth, workoutDatesMap, selectedCalendarDate, streaks, renderCalendarSection]);
 
   const onDragEnd = useCallback(({ data }: { data: Section[] }) => {
     setSections(data);
@@ -918,5 +1115,122 @@ const styles = StyleSheet.create({
   goalStatusText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  // Calendar styles
+  streakRow: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    borderWidth: 0.5,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  streakItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  streakValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  streakLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  streakDivider: {
+    width: 0.5,
+    height: '80%',
+    alignSelf: 'center',
+  },
+  calendarCard: {
+    marginBottom: 16,
+  },
+  calMonthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  calMonthText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  calRow: {
+    flexDirection: 'row',
+  },
+  calCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    minHeight: 36,
+  },
+  calDayHeader: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  calDayText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  calDayToday: {
+    fontWeight: '800',
+  },
+  calDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    marginTop: 2,
+  },
+  calModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  calModal: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 16,
+    borderWidth: 0.5,
+    padding: 20,
+  },
+  calModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  calModalWorkout: {},
+  calModalWorkoutTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  calModalMeta: {
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  calModalExRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  calModalExName: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  calModalExDetail: {
+    fontSize: 12,
   },
 });

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
@@ -49,6 +50,7 @@ const WORKOUT_SUGGESTIONS = [
 export default function WorkoutScreen() {
   const { theme, accentColor, unitSystem } = useThemeStore();
   const { recoveryData } = useHealthStore();
+  const router = useRouter();
   const {
     todayWorkout,
     activeWorkout,
@@ -413,17 +415,31 @@ export default function WorkoutScreen() {
             
             {/* Navigation */}
             {!activeWorkout.isResting && currentExercise.isCompleted && (
-              <TouchableOpacity
-                style={[styles.nextExButton, { backgroundColor: accentColor + '20' }]}
-                onPress={nextExercise}
-              >
-                <Text style={[styles.nextExText, { color: accentColor }]}>
-                  Next Exercise
-                </Text>
-                <Ionicons name="arrow-forward" size={20} color={accentColor} />
-              </TouchableOpacity>
+              activeWorkout.currentExerciseIndex < workout.exercises.length - 1 ? (
+                <TouchableOpacity
+                  style={[styles.nextExButton, { backgroundColor: accentColor + '20' }]}
+                  onPress={nextExercise}
+                >
+                  <Text style={[styles.nextExText, { color: accentColor }]}>
+                    Next Exercise
+                  </Text>
+                  <Ionicons name="arrow-forward" size={20} color={accentColor} />
+                </TouchableOpacity>
+              ) : null
             )}
           </MetallicCard>
+          
+          {/* Finish Workout Button - shows when all exercises have at least 1 set done */}
+          {workout.exercises.every((ex) => ex.completedSets > 0) && (
+            <TouchableOpacity
+              style={[styles.finishWorkoutButton, { backgroundColor: accentColor }]}
+              onPress={() => router.push('/workout-summary')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
+              <Text style={styles.finishWorkoutText}>Finish Workout</Text>
+            </TouchableOpacity>
+          )}
           
           {/* Quick Coach Assist */}
           <TouchableOpacity
@@ -1222,6 +1238,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  finishWorkoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  finishWorkoutText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   coachAssist: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1301,17 +1331,19 @@ const styles = StyleSheet.create({
   chatMessages: {
     flex: 1,
     minHeight: 180,
+    maxHeight: 300,
   },
   chatMessagesContent: {
     padding: 12,
     gap: 10,
+    flexGrow: 1,
   },
   chatBubble: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     padding: 12,
     borderRadius: 12,
-    maxWidth: '88%',
+    maxWidth: '90%',
   },
   chatBubbleUser: {
     alignSelf: 'flex-end',

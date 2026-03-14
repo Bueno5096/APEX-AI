@@ -104,18 +104,18 @@ export const LIGHT_THEME = {
   name: 'light',
   colors: {
     ...DARK_THEME.colors,
-    // Backgrounds — Warm cream / sand
-    background: '#f5f2ed',
+    // Backgrounds — Soft off-white, easier on the eyes
+    background: '#f5f5f5',
     backgroundSecondary: '#ede9e2',
     card: '#ebe6df',
     cardSecondary: '#e3ddd5',
-    cardBorder: '#d5cec4',
+    cardBorder: '#c8c8c8',
     cardHighlight: '#e8e3dc',
 
-    // Text — Warm browns
-    textPrimary: '#2c2418',
-    textSecondary: '#6b5e4e',
-    textMuted: '#8a7e6e',
+    // Text — Darker for better contrast
+    textPrimary: '#1a1a1a',
+    textSecondary: '#444444',
+    textMuted: '#666666',
 
     // Metallic — Warm tones
     metallic: '#c8c0b4',
@@ -130,11 +130,11 @@ export const LIGHT_THEME = {
 
     // Surfaces
     input: '#e0d9d0',
-    divider: '#d5cec4',
+    divider: '#c8c8c8',
 
     // Navigation
-    tabBar: '#f5f2ed',
-    tabBarBorder: '#d5cec4',
+    tabBar: '#f5f5f5',
+    tabBarBorder: '#c8c8c8',
 
     // Status — Earth tones
     success: '#4a7a52',

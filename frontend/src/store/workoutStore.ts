@@ -27,6 +27,32 @@ export interface Workout {
   date?: Date; // When the workout was completed
 }
 
+// ─── Workout Log with feedback ───
+export type OverallFeedback = 'too_easy' | 'just_right' | 'hard_but_good' | 'too_hard' | 'exhausted';
+export type ExerciseFeedback = 'too_easy' | 'good' | 'too_hard' | 'had_pain';
+
+export interface WorkoutLog {
+  id: string;
+  workoutTitle: string;
+  workoutType: string;
+  date: Date;
+  durationSeconds: number;
+  exercises: {
+    name: string;
+    sets: number;
+    completedSets: number;
+    reps: string;
+    weight?: number;
+    targetMuscles: string[];
+    feedback?: ExerciseFeedback;
+  }[];
+  totalSetsCompleted: number;
+  totalExercisesCompleted: number;
+  overallFeedback?: OverallFeedback;
+  notes?: string;
+  targetMuscles: string[];
+}
+
 export interface ActiveWorkoutState {
   workout: Workout | null;
   currentExerciseIndex: number;
@@ -259,6 +285,7 @@ interface WorkoutState {
   todayWorkout: Workout | null;
   activeWorkout: ActiveWorkoutState;
   workoutHistory: Workout[];
+  workoutLogs: WorkoutLog[];
   
   loadTodayWorkout: () => void;
   setTodayWorkoutByType: (type: string, title: string) => void;
@@ -273,6 +300,7 @@ interface WorkoutState {
   modifyExercise: (exerciseName: string, changes: { sets?: number; reps?: string; weight?: number }) => void;
   applyCoachActions: (actions: any[]) => void;
   reorderExercise: (fromIndex: number, toIndex: number) => void;
+  saveWorkoutLog: (log: WorkoutLog) => void;
 }
 
 // Generate seeded workout history spanning ~30 days for Progress tracking
@@ -415,6 +443,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     isResting: false,
   },
   workoutHistory: generateSeededWorkoutHistory(),
+  workoutLogs: [],
   
   loadTodayWorkout: () => {
     set({ todayWorkout: generateTodayWorkout() });
@@ -664,6 +693,46 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       exercises.splice(toIndex, 0, moved);
       return {
         todayWorkout: { ...state.todayWorkout, exercises },
+      };
+    });
+  },
+
+  saveWorkoutLog: (log: WorkoutLog) => {
+    set((state) => {
+      // Also add the workout to workoutHistory (legacy format) for compatibility
+      const historyEntry: Workout = {
+        id: log.id,
+        title: log.workoutTitle,
+        type: log.workoutType as Workout['type'],
+        duration: Math.round(log.durationSeconds / 60),
+        intensity: 'moderate',
+        targetMuscles: log.targetMuscles,
+        date: log.date,
+        exercises: log.exercises.map((ex, i) => ({
+          id: `${log.id}_ex_${i}`,
+          name: ex.name,
+          targetMuscles: ex.targetMuscles,
+          sets: ex.sets,
+          reps: ex.reps,
+          weight: ex.weight,
+          isCompleted: ex.completedSets >= ex.sets,
+          completedSets: ex.completedSets,
+        })),
+      };
+      
+      console.log(`[WorkoutStore] Saved workout log: ${log.workoutTitle} (${log.totalExercisesCompleted} exercises, ${log.totalSetsCompleted} sets)`);
+      
+      return {
+        workoutLogs: [log, ...state.workoutLogs],
+        workoutHistory: [historyEntry, ...state.workoutHistory],
+        // Reset active workout
+        activeWorkout: {
+          workout: null,
+          currentExerciseIndex: 0,
+          startTime: null,
+          restTimer: 0,
+          isResting: false,
+        },
       };
     });
   },

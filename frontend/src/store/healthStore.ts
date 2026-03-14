@@ -110,6 +110,7 @@ interface HealthState {
   connectionSource: 'simulated' | 'health_connect' | 'apple_health' | 'samsung_health';
   fetchHealthData: () => Promise<void>;
   refreshData: () => Promise<void>;
+  updateMuscleReadiness: (trainedMuscles: string[], fatigueFactor: number) => void;
 }
 
 export const useHealthStore = create<HealthState>((set) => ({
@@ -134,5 +135,36 @@ export const useHealthStore = create<HealthState>((set) => ({
     await new Promise(resolve => setTimeout(resolve, 500));
     const data = generateSimulatedData();
     set({ recoveryData: data, isLoading: false });
+  },
+  
+  updateMuscleReadiness: (trainedMuscles: string[], fatigueFactor: number) => {
+    set((state) => {
+      if (!state.recoveryData) return state;
+      
+      // fatigueFactor: 0.3 (too_easy) to 0.8 (exhausted)
+      const updatedMuscles = state.recoveryData.muscles.map((muscle) => {
+        const isTrained = trainedMuscles.some(
+          (tm) => tm.toLowerCase() === muscle.id.toLowerCase() || tm.toLowerCase() === muscle.name.toLowerCase()
+        );
+        
+        if (isTrained) {
+          const newReadiness = Math.max(5, Math.round(muscle.readiness * (1 - fatigueFactor)));
+          return {
+            ...muscle,
+            readiness: newReadiness,
+            lastTrained: new Date(),
+            estimatedRecovery: Math.round((100 - newReadiness) * 0.6),
+          };
+        }
+        return muscle;
+      });
+      
+      return {
+        recoveryData: {
+          ...state.recoveryData,
+          muscles: updatedMuscles,
+        },
+      };
+    });
   },
 }));
