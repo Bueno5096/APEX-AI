@@ -87,7 +87,7 @@ export default function WorkoutScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://workout-fixes-branch.preview.emergentagent.com';
+      || '';
     return backendUrl;
   };
   
