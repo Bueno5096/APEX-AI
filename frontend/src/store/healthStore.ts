@@ -111,6 +111,7 @@ interface HealthState {
   fetchHealthData: () => Promise<void>;
   refreshData: () => Promise<void>;
   updateMuscleReadiness: (trainedMuscles: string[], fatigueFactor: number) => void;
+  resetStore: () => void;
 }
 
 export const useHealthStore = create<HealthState>((set) => ({
@@ -166,5 +167,16 @@ export const useHealthStore = create<HealthState>((set) => ({
         },
       };
     });
+  },
+  
+  resetStore: () => {
+    // Reset recovery data with all muscles at 100% readiness
+    const freshData = generateSimulatedData();
+    freshData.muscles = freshData.muscles.map((m) => ({
+      ...m,
+      readiness: 100,
+      estimatedRecovery: 0,
+    }));
+    set({ recoveryData: freshData, isLoading: false });
   },
 }));

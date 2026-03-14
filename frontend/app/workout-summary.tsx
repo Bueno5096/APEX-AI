@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,14 @@ import {
   Easing,
   Platform,
   KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useWorkoutStore, OverallFeedback, ExerciseFeedback, WorkoutLog } from '../src/store/workoutStore';
 import { useHealthStore } from '../src/store/healthStore';
 import { useThemeStore } from '../src/store/themeStore';
-import { darkTheme, lightTheme } from '../src/constants/theme';
 
 const OVERALL_OPTIONS: { key: OverallFeedback; label: string; icon: string }[] = [
   { key: 'too_easy', label: 'Too Easy', icon: 'happy-outline' },
@@ -34,7 +34,6 @@ const EXERCISE_OPTIONS: { key: ExerciseFeedback; label: string }[] = [
   { key: 'had_pain', label: 'Had Pain' },
 ];
 
-// Fatigue factor based on overall feedback
 const FATIGUE_MAP: Record<OverallFeedback, number> = {
   too_easy: 0.25,
   just_right: 0.45,
@@ -45,21 +44,45 @@ const FATIGUE_MAP: Record<OverallFeedback, number> = {
 
 export default function WorkoutSummaryScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const isDark = useThemeStore((s) => s.isDarkMode);
-  const theme = isDark ? darkTheme : lightTheme;
+  const theme = useThemeStore((s) => s.theme);
   const accentColor = useThemeStore((s) => s.accentColor);
 
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
   const saveWorkoutLog = useWorkoutStore((s) => s.saveWorkoutLog);
   const updateMuscleReadiness = useHealthStore((s) => s.updateMuscleReadiness);
 
-  // Workout data
-  const workout = activeWorkout.workout;
-  const startTime = activeWorkout.startTime;
-  const durationSeconds = startTime
-    ? Math.round((Date.now() - new Date(startTime).getTime()) / 1000)
-    : 0;
+  // CRITICAL: Snapshot workout data into local state on mount so that
+  // when saveWorkoutLog resets activeWorkout to null, we still have data
+  const [snapshotWorkout] = useState(() => {
+    const w = activeWorkout?.workout;
+    if (!w) return null;
+    return {
+      title: w.title || 'Workout',
+      type: w.type || 'full',
+      exercises: (w.exercises || []).map((ex) => ({
+        id: ex.id || `ex_${Math.random()}`,
+        name: ex.name || 'Unknown Exercise',
+        targetMuscles: ex.targetMuscles || [],
+        sets: ex.sets || 0,
+        reps: ex.reps || '0',
+        weight: ex.weight,
+        isCompleted: ex.isCompleted || false,
+        completedSets: ex.completedSets || 0,
+      })),
+      targetMuscles: w.targetMuscles || [],
+    };
+  });
+
+  const [snapshotStartTime] = useState(() => activeWorkout?.startTime || null);
+
+  const durationSeconds = useMemo(() => {
+    if (!snapshotStartTime) return 0;
+    try {
+      return Math.max(0, Math.round((Date.now() - new Date(snapshotStartTime).getTime()) / 1000));
+    } catch {
+      return 0;
+    }
+  }, [snapshotStartTime]);
 
   // State
   const [overallFeedback, setOverallFeedback] = useState<OverallFeedback | null>(null);
@@ -67,6 +90,7 @@ export default function WorkoutSummaryScreen() {
   const [notes, setNotes] = useState('');
   const [showExerciseRatings, setShowExerciseRatings] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Animations
   const checkmarkScale = useRef(new Animated.Value(0)).current;
@@ -74,7 +98,6 @@ export default function WorkoutSummaryScreen() {
   const celebrationScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Entry animation
     Animated.sequence([
       Animated.timing(checkmarkScale, {
         toValue: 1,
@@ -90,12 +113,14 @@ export default function WorkoutSummaryScreen() {
     ]).start();
   }, []);
 
-  if (!workout) {
+  // No workout data — show safe fallback
+  if (!snapshotWorkout) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.emptyState}>
+          <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textMuted} />
           <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>No active workout found</Text>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: accentColor }]}>
+          <TouchableOpacity onPress={() => router.replace('/(tabs)/workout')} style={[styles.backBtn, { backgroundColor: accentColor }]}>
             <Text style={styles.backBtnText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -103,62 +128,76 @@ export default function WorkoutSummaryScreen() {
     );
   }
 
-  const exercises = workout.exercises;
-  const completedExercises = exercises.filter((e) => e.completedSets > 0);
-  const totalSetsCompleted = exercises.reduce((acc, e) => acc + e.completedSets, 0);
-  const totalSets = exercises.reduce((acc, e) => acc + e.sets, 0);
-  const allTargetMuscles = [...new Set(exercises.flatMap((e) => e.targetMuscles))];
+  const exercises = snapshotWorkout.exercises;
+  const completedExercises = exercises.filter((e) => (e.completedSets || 0) > 0);
+  const totalSetsCompleted = exercises.reduce((acc, e) => acc + (e.completedSets || 0), 0);
+  const totalSets = exercises.reduce((acc, e) => acc + (e.sets || 0), 0);
+  const allTargetMuscles = [...new Set(exercises.flatMap((e) => e.targetMuscles || []))];
 
   const formatDuration = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
+    const secs = Math.max(0, seconds || 0);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
     if (h > 0) return `${h}h ${m}m`;
     return `${m}m ${s}s`;
   };
 
   const handleSave = () => {
-    const log: WorkoutLog = {
-      id: `log_${Date.now()}`,
-      workoutTitle: workout.title,
-      workoutType: workout.type,
-      date: new Date(),
-      durationSeconds,
-      exercises: exercises.map((e) => ({
-        name: e.name,
-        sets: e.sets,
-        completedSets: e.completedSets,
-        reps: e.reps,
-        weight: e.weight,
-        targetMuscles: e.targetMuscles,
-        feedback: exerciseFeedback[e.id],
-      })),
-      totalSetsCompleted,
-      totalExercisesCompleted: completedExercises.length,
-      overallFeedback: overallFeedback || undefined,
-      notes: notes.trim() || undefined,
-      targetMuscles: allTargetMuscles,
-    };
+    try {
+      setError(null);
+      const log: WorkoutLog = {
+        id: `log_${Date.now()}`,
+        workoutTitle: snapshotWorkout.title,
+        workoutType: snapshotWorkout.type,
+        date: new Date(),
+        durationSeconds: durationSeconds || 0,
+        exercises: exercises.map((e) => ({
+          name: e.name || 'Unknown',
+          sets: e.sets || 0,
+          completedSets: e.completedSets || 0,
+          reps: e.reps || '0',
+          weight: e.weight,
+          targetMuscles: e.targetMuscles || [],
+          feedback: exerciseFeedback[e.id],
+        })),
+        totalSetsCompleted: totalSetsCompleted || 0,
+        totalExercisesCompleted: completedExercises.length || 0,
+        overallFeedback: overallFeedback || undefined,
+        notes: notes.trim() || undefined,
+        targetMuscles: allTargetMuscles,
+      };
 
-    // Save workout log
-    saveWorkoutLog(log);
+      // Save workout log (this resets activeWorkout, but we use snapshotWorkout)
+      saveWorkoutLog(log);
 
-    // Update muscle readiness (body map)
-    const fatigueFactor = overallFeedback ? FATIGUE_MAP[overallFeedback] : 0.5;
-    updateMuscleReadiness(allTargetMuscles, fatigueFactor);
+      // Update muscle readiness
+      const fatigueFactor = overallFeedback ? FATIGUE_MAP[overallFeedback] : 0.5;
+      if (allTargetMuscles.length > 0) {
+        updateMuscleReadiness(allTargetMuscles, fatigueFactor);
+      }
 
-    // Celebration animation
-    setSaved(true);
-    Animated.spring(celebrationScale, {
-      toValue: 1,
-      friction: 4,
-      tension: 60,
-      useNativeDriver: true,
-    }).start(() => {
-      setTimeout(() => {
-        router.replace('/(tabs)/workout');
-      }, 1200);
-    });
+      // Celebration
+      setSaved(true);
+      Animated.spring(celebrationScale, {
+        toValue: 1,
+        friction: 4,
+        tension: 60,
+        useNativeDriver: true,
+      }).start(() => {
+        setTimeout(() => {
+          try {
+            router.replace('/(tabs)/workout');
+          } catch {
+            // Fallback navigation
+            router.back();
+          }
+        }, 1200);
+      });
+    } catch (err: any) {
+      console.error('[WorkoutSummary] Save error:', err);
+      setError('Something went wrong saving your workout. Please try again.');
+    }
   };
 
   if (saved) {
@@ -188,7 +227,7 @@ export default function WorkoutSummaryScreen() {
             </Animated.View>
             <Animated.View style={{ opacity: headerOpacity }}>
               <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>WORKOUT COMPLETE</Text>
-              <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted }]}>{workout.title}</Text>
+              <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted }]}>{snapshotWorkout.title}</Text>
             </Animated.View>
           </View>
 
@@ -219,17 +258,17 @@ export default function WorkoutSummaryScreen() {
             {exercises.map((ex, i) => (
               <View key={ex.id} style={[styles.exerciseRow, i < exercises.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: theme.colors.cardBorder }]}>
                 <View style={styles.exerciseLeft}>
-                  <View style={[styles.exerciseStatus, { backgroundColor: ex.completedSets >= ex.sets ? accentColor : theme.colors.textMuted + '30' }]}>
-                    {ex.completedSets >= ex.sets ? (
+                  <View style={[styles.exerciseStatus, { backgroundColor: (ex.completedSets || 0) >= (ex.sets || 1) ? accentColor : (theme.colors.textMuted + '30') }]}>
+                    {(ex.completedSets || 0) >= (ex.sets || 1) ? (
                       <Ionicons name="checkmark" size={12} color="#fff" />
                     ) : (
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 10 }}>{ex.completedSets}</Text>
+                      <Text style={{ color: theme.colors.textMuted, fontSize: 10 }}>{ex.completedSets || 0}</Text>
                     )}
                   </View>
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <Text style={[styles.exerciseName, { color: theme.colors.textPrimary }]}>{ex.name}</Text>
                     <Text style={[styles.exerciseDetail, { color: theme.colors.textMuted }]}>
-                      {ex.completedSets}/{ex.sets} sets x {ex.reps} reps{ex.weight ? ` @ ${ex.weight}kg` : ''}
+                      {ex.completedSets || 0}/{ex.sets || 0} sets x {ex.reps || '0'} reps{ex.weight ? ` @ ${ex.weight}kg` : ''}
                     </Text>
                   </View>
                 </View>
@@ -316,6 +355,14 @@ export default function WorkoutSummaryScreen() {
             </View>
           )}
 
+          {/* Error Message */}
+          {error && (
+            <View style={[styles.errorBanner, { backgroundColor: '#8B3A3A20', borderColor: '#8B3A3A' }]}>
+              <Ionicons name="alert-circle" size={18} color="#e74c3c" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           {/* Save Button */}
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: accentColor }]}
@@ -334,207 +381,45 @@ export default function WorkoutSummaryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  checkmarkContainer: {
-    marginBottom: 12,
-  },
-  checkCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 2,
-    textAlign: 'center',
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    borderRadius: 16,
-    borderWidth: 0.5,
-    paddingVertical: 16,
-    marginBottom: 16,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statDivider: {
-    width: 0.5,
-    height: '80%',
-    alignSelf: 'center',
-  },
-  section: {
-    borderRadius: 16,
-    borderWidth: 0.5,
-    padding: 16,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  exerciseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-  },
-  exerciseLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  exerciseStatus: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exerciseName: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  exerciseDetail: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  feedbackRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  feedbackPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 50,
-    borderWidth: 1,
-  },
-  feedbackPillText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  notesInput: {
-    borderWidth: 0.5,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 80,
-  },
-  expandHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  exerciseRatingBlock: {
-    marginBottom: 12,
-  },
-  exerciseRatingName: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  exerciseRatingRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  exRatingPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 50,
-    borderWidth: 1,
-  },
-  exRatingText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 14,
-    marginTop: 8,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-  },
-  backBtn: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  backBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  celebrationContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  celebrationCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  celebrationTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  celebrationSub: {
-    fontSize: 16,
-  },
+  container: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },
+  header: { alignItems: 'center', marginBottom: 24 },
+  checkmarkContainer: { marginBottom: 12 },
+  checkCircle: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 22, fontWeight: '800', letterSpacing: 2, textAlign: 'center' },
+  headerSubtitle: { fontSize: 15, marginTop: 4, textAlign: 'center' },
+  statsRow: { flexDirection: 'row', borderRadius: 16, borderWidth: 0.5, paddingVertical: 16, marginBottom: 16 },
+  statItem: { flex: 1, alignItems: 'center', gap: 4 },
+  statValue: { fontSize: 18, fontWeight: '700' },
+  statLabel: { fontSize: 11, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statDivider: { width: 0.5, height: '80%', alignSelf: 'center' },
+  section: { borderRadius: 16, borderWidth: 0.5, padding: 16, marginBottom: 12 },
+  sectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
+  exerciseRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
+  exerciseLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  exerciseStatus: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  exerciseName: { fontSize: 14, fontWeight: '600' },
+  exerciseDetail: { fontSize: 12, marginTop: 2 },
+  feedbackRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  feedbackPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 50, borderWidth: 1 },
+  feedbackPillText: { fontSize: 13, fontWeight: '600' },
+  notesInput: { borderWidth: 0.5, borderRadius: 12, padding: 12, fontSize: 14, minHeight: 80 },
+  expandHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  exerciseRatingBlock: { marginBottom: 12 },
+  exerciseRatingName: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  exerciseRatingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  exRatingPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 50, borderWidth: 1 },
+  exRatingText: { fontSize: 12, fontWeight: '600' },
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 0.5, marginBottom: 12 },
+  errorText: { color: '#e74c3c', fontSize: 13, fontWeight: '500', flex: 1 },
+  saveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14, marginTop: 8 },
+  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  emptyText: { fontSize: 16 },
+  backBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  backBtnText: { color: '#fff', fontWeight: '600' },
+  celebrationContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  celebrationCircle: { width: 120, height: 120, borderRadius: 60, alignItems: 'center', justifyContent: 'center' },
+  celebrationTitle: { fontSize: 24, fontWeight: '800' },
+  celebrationSub: { fontSize: 16 },
 });

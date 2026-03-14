@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   TextInput,
   Modal,
   Platform,
+  Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +18,9 @@ import { useRouter } from 'expo-router';
 import { useThemeStore, formatWeight, formatHeight } from '../../src/store/themeStore';
 import { useUserStore, CoachStyle } from '../../src/store/userStore';
 import { useGoalStore } from '../../src/store/goalStore';
+import { useWorkoutStore } from '../../src/store/workoutStore';
+import { useHealthStore } from '../../src/store/healthStore';
+import { useBodyCompStore } from '../../src/store/bodyCompositionStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import { ACCENT_PRESETS } from '../../src/constants/theme';
 import ColorPicker, { Panel5, BrightnessSlider, Preview } from 'reanimated-color-picker';
@@ -38,6 +43,13 @@ export default function ProfileScreen() {
   const [editHeightFt, setEditHeightFt] = useState('5');
   const [editHeightIn, setEditHeightIn] = useState('10');
   const [pickerHeightCm, setPickerHeightCm] = useState(profile?.height || 178);
+  
+  // Reset flow state
+  const [resetStep, setResetStep] = useState(0); // 0=hidden, 1=first warning, 2=second, 3=final
+  const [resetCheckbox, setResetCheckbox] = useState(false);
+  const [resetCountdown, setResetCountdown] = useState(5);
+  const [isResetting, setIsResetting] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const [pickerWeightKg, setPickerWeightKg] = useState(profile?.weight || 75);
   
   const openColorPicker = () => {
@@ -101,6 +113,67 @@ export default function ProfileScreen() {
       setGender(editGender);
     }
     setShowEditProfile(false);
+  };
+
+  // ─── Reset Flow ─────────────────────
+  // Start countdown when step 3 opens
+  useEffect(() => {
+    if (resetStep === 3) {
+      setResetCountdown(5);
+      const interval = setInterval(() => {
+        setResetCountdown((c) => {
+          if (c <= 1) { clearInterval(interval); return 0; }
+          return c - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [resetStep]);
+
+  const handleResetAll = async () => {
+    setIsResetting(true);
+    setResetStep(0);
+
+    try {
+      // Clear all stores
+      const resetUser = useUserStore.getState().resetStore;
+      const resetGoal = useGoalStore.getState().resetStore;
+      const resetWorkout = useWorkoutStore.getState().resetStore;
+      const resetHealth = useHealthStore.getState().resetStore;
+      const resetBodyComp = useBodyCompStore.getState().resetStore;
+
+      await resetUser();
+      await resetGoal();
+      resetWorkout();
+      resetHealth();
+      await resetBodyComp();
+
+      // Set pending coach message for fresh start
+      useUserStore.getState().setPendingCoachMessage(
+        "Welcome back. It looks like you are starting fresh — I am ready to build your new program from scratch. Let's get to know each other again. What is your name?"
+      );
+    } catch (err) {
+      console.error('[Reset] Error:', err);
+    }
+
+    // Show fade-to-black transition
+    await new Promise((resolve) => {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start(resolve);
+    });
+
+    setIsResetting(false);
+    // Navigate to onboarding — onboardingComplete is now false
+    router.replace('/');
+  };
+
+  const closeResetFlow = () => {
+    setResetStep(0);
+    setResetCheckbox(false);
+    setResetCountdown(5);
   };
   
   const coachStyles: { key: CoachStyle; label: string; desc: string }[] = [
@@ -441,6 +514,19 @@ export default function ProfileScreen() {
           </MetallicCard>
         </View>
         
+        {/* Danger Zone */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: '#c0392b' }]}>DANGER ZONE</Text>
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={() => setResetStep(1)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash-outline" size={18} color="#c0392b" />
+            <Text style={styles.resetButtonText}>Reset My Information</Text>
+          </TouchableOpacity>
+        </View>
+        
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={[styles.appName, { color: theme.colors.textSecondary }]}>
@@ -775,6 +861,91 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ─── Reset Confirmation Modals ──── */}
+      {/* Step 1: First Warning */}
+      <Modal visible={resetStep === 1} transparent animationType="fade" onRequestClose={closeResetFlow}>
+        <View style={styles.resetOverlay}>
+          <View style={styles.resetModal}>
+            <Text style={styles.resetModalTitle}>Reset Your Information?</Text>
+            <Text style={styles.resetModalBody}>
+              This will delete your profile, workout history, body composition data, goals, and Coach memory. You will be taken back to the onboarding screen to start fresh.
+            </Text>
+            <View style={styles.resetModalButtons}>
+              <TouchableOpacity style={styles.resetCancelBtn} onPress={closeResetFlow}>
+                <Text style={styles.resetCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.resetContinueBtn} onPress={() => { setResetCheckbox(false); setResetStep(2); }}>
+                <Text style={styles.resetContinueText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Step 2: Second Warning */}
+      <Modal visible={resetStep === 2} transparent animationType="fade" onRequestClose={closeResetFlow}>
+        <View style={styles.resetOverlay}>
+          <View style={styles.resetModal}>
+            <Text style={styles.resetModalTitle}>Are You Sure?</Text>
+            <Text style={styles.resetModalBody}>
+              {'⚠️ This action will permanently delete all of your personal data including your workout history, progress tracking, body composition measurements, and all Coach conversations. This cannot be undone.'}
+            </Text>
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setResetCheckbox(!resetCheckbox)} activeOpacity={0.7}>
+              <View style={[styles.checkbox, resetCheckbox && styles.checkboxChecked]}>
+                {resetCheckbox && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </View>
+              <Text style={styles.checkboxLabel}>I understand my data will be permanently deleted</Text>
+            </TouchableOpacity>
+            <View style={styles.resetModalButtons}>
+              <TouchableOpacity style={styles.resetCancelBtn} onPress={() => setResetStep(1)}>
+                <Text style={styles.resetCancelText}>Go Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.resetDestroyBtn, !resetCheckbox && styles.resetBtnDisabled]}
+                onPress={() => resetCheckbox && setResetStep(3)}
+                disabled={!resetCheckbox}
+              >
+                <Text style={[styles.resetDestroyText, !resetCheckbox && { opacity: 0.4 }]}>Yes, Delete Everything</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Step 3: Final Confirmation with Countdown */}
+      <Modal visible={resetStep === 3} transparent animationType="fade" onRequestClose={closeResetFlow}>
+        <View style={styles.resetOverlay}>
+          <View style={styles.resetModal}>
+            <Text style={styles.resetModalTitle}>Last Chance</Text>
+            <Text style={styles.resetModalBody}>
+              Once you confirm, your information will be deleted immediately and cannot be recovered. Are you absolutely sure you want to start over?
+            </Text>
+            <View style={styles.resetModalButtons}>
+              <TouchableOpacity style={styles.resetCancelBtn} onPress={closeResetFlow}>
+                <Text style={styles.resetCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.resetDestroyBtn, resetCountdown > 0 && styles.resetBtnDisabled]}
+                onPress={() => resetCountdown === 0 && handleResetAll()}
+                disabled={resetCountdown > 0}
+              >
+                <Text style={[styles.resetDestroyText, resetCountdown > 0 && { opacity: 0.4 }]}>
+                  {resetCountdown > 0 ? `Wait ${resetCountdown}...` : 'Delete and Start Over'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Resetting overlay */}
+      {isResetting && (
+        <Animated.View style={[styles.resetFullOverlay, { opacity: fadeAnim }]}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.resetFullText}>Resetting...</Text>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
@@ -1260,5 +1431,134 @@ const styles = StyleSheet.create({
   },
   customToggleThumbActive: {
     alignSelf: 'flex-end',
+  },
+  // Reset / Danger Zone styles
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: '#c0392b40',
+  },
+  resetButtonText: {
+    color: '#c0392b',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  resetModal: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#000000',
+    borderRadius: 20,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
+    padding: 24,
+  },
+  resetModalTitle: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  resetModalBody: {
+    color: '#8a8a8a',
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  resetModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  resetCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
+    alignItems: 'center',
+  },
+  resetCancelText: {
+    color: '#8a8a8a',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resetContinueBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: '#c0392b',
+    alignItems: 'center',
+  },
+  resetContinueText: {
+    color: '#c0392b',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resetDestroyBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#e74c3c',
+    alignItems: 'center',
+  },
+  resetDestroyText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  resetBtnDisabled: {
+    backgroundColor: '#3a1515',
+    opacity: 0.6,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#2a2a2a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#e74c3c',
+    borderColor: '#e74c3c',
+  },
+  checkboxLabel: {
+    color: '#8a8a8a',
+    fontSize: 13,
+    flex: 1,
+  },
+  resetFullOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    gap: 16,
+  },
+  resetFullText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });

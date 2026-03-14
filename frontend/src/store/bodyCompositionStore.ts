@@ -45,6 +45,7 @@ interface BodyCompState {
   setResults: (r: BodyCompResults) => void;
   saveEntry: () => Promise<void>;
   loadData: () => Promise<void>;
+  resetStore: () => Promise<void>;
 }
 
 const STORAGE_KEY = 'apex_body_composition';
@@ -235,5 +236,16 @@ export const useBodyCompStore = create<BodyCompState>((set, get) => ({
     } catch (e) {
       console.log('Error loading body comp:', e);
     }
+  },
+  
+  resetStore: async () => {
+    await AsyncStorage.removeItem(STORAGE_KEY);
+    set({
+      measurements: defaultMeasurements,
+      results: null,
+      history: [],
+      lastUpdated: null,
+      hasCalculated: false,
+    });
   },
 }));

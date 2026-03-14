@@ -774,10 +774,11 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
           keyExtractor={(item) => item.key}
           renderItem={renderSection}
           ListHeaderComponent={ListHeader}
-          ListFooterComponent={<View style={styles.bottomSpacer} />}
+          ListFooterComponent={<View style={{ height: 100 }} />}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          activationDistance={10}
+          activationDistance={30}
+          dragHitSlop={{ top: -10, bottom: -10, left: 0, right: 0 }}
         />
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -791,6 +792,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
+    paddingBottom: 100,
   },
   listHeader: {
     paddingTop: 20,

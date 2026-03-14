@@ -301,6 +301,7 @@ interface WorkoutState {
   applyCoachActions: (actions: any[]) => void;
   reorderExercise: (fromIndex: number, toIndex: number) => void;
   saveWorkoutLog: (log: WorkoutLog) => void;
+  resetStore: () => void;
 }
 
 // Generate seeded workout history spanning ~30 days for Progress tracking
@@ -734,6 +735,21 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           isResting: false,
         },
       };
+    });
+  },
+
+  resetStore: () => {
+    set({
+      todayWorkout: null,
+      activeWorkout: {
+        workout: null,
+        currentExerciseIndex: 0,
+        startTime: null,
+        restTimer: 0,
+        isResting: false,
+      },
+      workoutHistory: [],
+      workoutLogs: [],
     });
   },
 }));

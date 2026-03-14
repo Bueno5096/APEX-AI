@@ -47,6 +47,7 @@ interface GoalState {
   dismissCoachSuggestion: () => void;
   resetCoachSuggestion: () => void;
   loadGoals: () => Promise<void>;
+  resetStore: () => Promise<void>;
 }
 
 const GOAL_STORAGE_KEY = 'apex_goal_layering';
@@ -114,5 +115,15 @@ export const useGoalStore = create<GoalState>((set, get) => ({
     } catch (e) {
       console.log('Error loading goals:', e);
     }
+  },
+  
+  resetStore: async () => {
+    await AsyncStorage.removeItem(GOAL_STORAGE_KEY);
+    set({
+      secondaryGoal: null,
+      hasActiveGoalLayeringPlan: false,
+      generatedPlan: null,
+      coachSuggestionDismissed: false,
+    });
   },
 }));

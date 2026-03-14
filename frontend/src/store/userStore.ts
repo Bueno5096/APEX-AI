@@ -41,6 +41,7 @@ interface UserState {
   setOnboardingComplete: (complete: boolean) => void;
   setPendingCoachMessage: (message: string | null) => void;
   loadUser: () => Promise<void>;
+  resetStore: () => Promise<void>;
 }
 
 const defaultSettings: UserSettings = {
@@ -141,5 +142,19 @@ export const useUserStore = create<UserState>((set) => ({
       console.log('Error loading user:', error);
       set({ isLoaded: true });
     }
+  },
+  
+  resetStore: async () => {
+    await AsyncStorage.multiRemove([
+      'coach_profile', 'coach_settings', 'coach_gender', 'apex_onboarding_complete',
+    ]);
+    set({
+      profile: null,
+      settings: defaultSettings,
+      gender: 'male',
+      onboardingComplete: false,
+      isLoaded: true,
+      pendingCoachMessage: null,
+    });
   },
 }));
