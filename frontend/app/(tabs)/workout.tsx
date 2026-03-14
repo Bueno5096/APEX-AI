@@ -64,6 +64,7 @@ export default function WorkoutScreen() {
   
   const [showCoachAssist, setShowCoachAssist] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [restTimerMax, setRestTimerMax] = useState(90);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   
   // Mini coach chat state
@@ -180,10 +181,14 @@ export default function WorkoutScreen() {
     return () => clearInterval(interval);
   }, [activeWorkout.startTime]);
   
-  // Rest timer countdown
+  // Rest timer countdown — track max for ring progress
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (activeWorkout.isResting && activeWorkout.restTimer > 0) {
+      // Set max to current timer value when rest starts (first tick)
+      if (activeWorkout.restTimer > restTimerMax) {
+        setRestTimerMax(activeWorkout.restTimer);
+      }
       interval = setInterval(() => {
         decrementRestTimer();
       }, 1000);
@@ -351,16 +356,55 @@ export default function WorkoutScreen() {
             {activeWorkout.isResting ? (
               <View style={styles.restTimerContainer}>
                 <CircularProgress
-                  value={(activeWorkout.restTimer / 90) * 100}
-                  size={160}
-                  strokeWidth={12}
-                  label="REST"
-                  sublabel={formatTime(activeWorkout.restTimer)}
+                  value={activeWorkout.restTimer <= 0 ? 100 : (activeWorkout.restTimer / Math.max(restTimerMax, 1)) * 100}
+                  size={180}
+                  strokeWidth={14}
+                  label={activeWorkout.restTimer <= 0 ? "READY!" : "REST"}
+                  sublabel={activeWorkout.restTimer <= 0 ? "Next set" : formatTime(activeWorkout.restTimer)}
                 />
                 
-                {/* Rest duration quick-adjust buttons */}
+                {activeWorkout.restTimer <= 0 && (
+                  <Text style={[styles.restCompleteText, { color: accentColor }]}>Rest Complete — Ready for next set!</Text>
+                )}
+                
+                {/* +/- 30s controls */}
+                <View style={styles.restControlsRow}>
+                  <TouchableOpacity
+                    style={[styles.restAdjustBtn, { borderColor: theme.colors.cardBorder }]}
+                    onPress={() => {
+                      const newVal = Math.max(0, activeWorkout.restTimer - 30);
+                      useWorkoutStore.getState().setRestTimer(newVal);
+                    }}
+                  >
+                    <Ionicons name="remove" size={18} color={theme.colors.textSecondary} />
+                    <Text style={[styles.restAdjustText, { color: theme.colors.textSecondary }]}>30s</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.restAdjustBtn, { borderColor: theme.colors.cardBorder }]}
+                    onPress={() => {
+                      useWorkoutStore.getState().setRestTimer(restTimerMax);
+                    }}
+                  >
+                    <Ionicons name="refresh" size={16} color={theme.colors.textSecondary} />
+                    <Text style={[styles.restAdjustText, { color: theme.colors.textSecondary }]}>Restart</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.restAdjustBtn, { borderColor: theme.colors.cardBorder }]}
+                    onPress={() => {
+                      const newVal = Math.min(300, activeWorkout.restTimer + 30);
+                      useWorkoutStore.getState().setRestTimer(newVal);
+                    }}
+                  >
+                    <Ionicons name="add" size={18} color={theme.colors.textSecondary} />
+                    <Text style={[styles.restAdjustText, { color: theme.colors.textSecondary }]}>30s</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Quick presets */}
                 <View style={styles.restPresetsRow}>
-                  {[30, 60, 90, 120].map((sec) => (
+                  {[60, 90, 120, 180].map((sec) => (
                     <TouchableOpacity
                       key={sec}
                       style={[
@@ -374,7 +418,7 @@ export default function WorkoutScreen() {
                         styles.restPresetText,
                         { color: activeWorkout.restTimer === sec ? accentColor : theme.colors.textSecondary },
                       ]}>
-                        {sec}s
+                        {sec >= 60 ? `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, '0')}` : `${sec}s`}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -1213,6 +1257,32 @@ const styles = StyleSheet.create({
   restTimerContainer: {
     alignItems: 'center',
     marginTop: 20,
+    gap: 12,
+  },
+  restCompleteText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginTop: -4,
+  },
+  restControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 4,
+  },
+  restAdjustBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 50,
+    borderWidth: 0.5,
+  },
+  restAdjustText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   skipRestButton: {
     marginTop: 16,

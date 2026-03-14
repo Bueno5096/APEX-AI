@@ -424,7 +424,7 @@ export default function OnboardingScreen() {
 
     await setProfile(profile);
     await setOnboardingComplete(true);
-    router.replace('/(tabs)/recovery');
+    router.replace('/profile-creation');
   }, [userData, setProfile, setOnboardingComplete, setUnitSystem, router]);
 
   // ── Loading Screen ──

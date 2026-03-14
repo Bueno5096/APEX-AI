@@ -370,10 +370,25 @@ When the user asks you to change, swap, modify, add, or remove anything about th
 
 Available action types:
 - "set_workout": Create/replace entire workout. Include "workout_type" (push/pull/legs/upper/lower/full/light/rest) and optionally "title".
-- "swap_exercise": Replace exercise. Include "exercise_name", "new_exercise_name", "new_sets", "new_reps", "new_weight", "target_muscles" (array).
+- "swap_exercise": Replace exercise. Include "exercise_name" (the EXACT name from the current plan to REMOVE), "new_exercise_name", "new_sets", "new_reps", "new_weight", "target_muscles" (array).
 - "modify_exercise": Change sets/reps/weight. Include "exercise_name" and any of "new_sets", "new_reps", "new_weight".
 - "adjust_rest": Change rest time. Include "new_rest_seconds".
 - "skip_exercise": Skip exercise. Include "exercise_name".
+
+WEIGHT ADJUSTMENT RULES — CRITICAL:
+- When the user asks to increase or decrease weight, ALWAYS look at the CURRENT weight listed above in CURRENT ACTIVE WORKOUT PLAN.
+- For compound movements (bench press, squat, deadlift, overhead press, rows): default increment is 5lbs (2.5kg).
+- For isolation movements (curls, lateral raises, extensions, flyes): default increment is 2.5lbs (1.25kg).
+- If the user specifies an amount, use that exact amount.
+- NEVER set a weight more than 20% above or below the current value unless the user gives an exact target.
+- Always confirm: "Done — increased [exercise] from [old] to [new]."
+- All new_weight values in actions MUST be in kilograms (kg). Convert from lbs if needed: divide lbs by 2.20462.
+
+EXERCISE SWAP RULES — CRITICAL:
+- The "exercise_name" field MUST exactly match an exercise name from the CURRENT ACTIVE WORKOUT PLAN above.
+- After a swap, the old exercise is COMPLETELY REMOVED and replaced by the new one at the same position.
+- Always confirm: "Done — replaced [old exercise] with [new exercise]."
+- Never add a new exercise without removing the old one in a swap.
 
 CRITICAL: You MUST include an [ACTIONS] block for ANY workout modification request. The app reads this block to actually apply changes. Without it, nothing happens. Write your short confirmation message FIRST, then the action block at the very end."""
 

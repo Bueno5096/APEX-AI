@@ -309,8 +309,12 @@ export default function CoachScreen() {
       
       // Auto-apply workout actions if returned
       if (data.actions && data.actions.length > 0) {
-        console.log('[Coach] Applying workout actions:', JSON.stringify(data.actions));
-        useWorkoutStore.getState().applyCoachActions(data.actions);
+        try {
+          console.log('[Coach] Applying workout actions:', JSON.stringify(data.actions));
+          useWorkoutStore.getState().applyCoachActions(data.actions);
+        } catch (actionErr) {
+          console.error('[Coach] Error applying actions:', actionErr);
+        }
       }
       
       if (ttsEnabled) {

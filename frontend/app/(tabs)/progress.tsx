@@ -7,14 +7,12 @@ import {
   Animated,
   ActivityIndicator,
   Modal,
-  ScrollView as RNScrollView,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { useHealthStore } from '../../src/store/healthStore';
@@ -322,36 +320,47 @@ export default function ProgressScreen() {
     const recoverySummary = recoveryData?.muscles?.map(m => `${m.name}: ${m.readiness}%`).join(', ') || 'No recovery data';
     const message = `Analyze my progress data for the last ${periodLabel}. Give me exactly 4 bullet point insights (use bullet characters). Here is my data:
 Muscle strength gains ranked: ${gainsSummary || 'No data yet'}
-Total workouts: ${stats.totalWorkouts}
-Average recovery score: ${stats.avgRecovery}%
-Current streak: ${stats.streak} days
+Total workouts: ${stats.totalWorkouts || 0}
+Average recovery score: ${stats.avgRecovery || 0}%
+Current streak: ${stats.streak || 0} days
 Fitness goals: ${goals}
 Muscle readiness: ${recoverySummary}
 Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or lagging, 3) Whether I'm overtrained in any area, 4) One specific actionable recommendation. Keep each point to 1-2 sentences. Do NOT include any action blocks.`;
     try {
-      const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
+      const backendUrl = getBackendUrl();
+      const url = backendUrl ? `${backendUrl}/api/coach/chat` : '/api/coach/chat';
+      console.log(`[APEX] Fetching analysis from: ${url} (attempt ${retryAttempt + 1})`);
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, context: { coachStyle: 'analytical' } }),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`HTTP ${response.status}: ${errText.slice(0, 200)}`);
+      }
       const data = await response.json();
       setAiAnalysis(data.response || 'Unable to generate analysis.');
       setAiRetryCount(0);
+      setAiLoading(false);
     } catch (e: any) {
+      console.log(`[APEX] Error (attempt ${retryAttempt + 1}):`, e?.message || e);
       if (retryAttempt < 2) {
-        // Auto-retry up to 3 times
-        console.log(`[APEX] Retry ${retryAttempt + 1}/3`);
-        setTimeout(() => fetchAiAnalysis(retryAttempt + 1), 1500 * (retryAttempt + 1));
-        return; // Don't set loading to false yet
+        setTimeout(() => fetchAiAnalysis(retryAttempt + 1), 2000 * (retryAttempt + 1));
+        return;
       }
-      const errorMsg = e?.message?.includes('401') || e?.message?.includes('403')
-        ? 'Coach AI is not configured. Please check your API settings.'
-        : 'Unable to connect to APEX AI. Check your connection and try again.';
+      // Final failure
+      let errorMsg: string;
+      if (e?.message?.includes('401') || e?.message?.includes('403')) {
+        errorMsg = 'Coach AI is not configured. Please add your API key in settings.';
+      } else if (e?.message?.includes('NetworkError') || e?.message?.includes('Failed to fetch')) {
+        errorMsg = 'No internet connection. Please check your connection and try again.';
+      } else {
+        errorMsg = `APEX AI connection error: ${e?.message || 'Unknown error'}. Tap Retry to try again.`;
+      }
       setAiAnalysis(errorMsg);
       setAiRetryCount(retryAttempt + 1);
-    } finally {
-      if (retryAttempt >= 2 || !aiLoading) setAiLoading(false);
+      setAiLoading(false);
     }
   }, [timePeriod, muscleGains, stats, profile, recoveryData]);
 
@@ -654,7 +663,7 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
                   <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
               </View>
-              <RNScrollView style={{ maxHeight: 350 }}>
+              <ScrollView style={{ maxHeight: 350 }}>
                 {selectedWorkouts.map((w: any, wi: number) => (
                   <View key={wi} style={[styles.calModalWorkout, wi > 0 && { borderTopWidth: 0.5, borderTopColor: theme.colors.cardBorder, marginTop: 12, paddingTop: 12 }]}>
                     <Text style={[styles.calModalWorkoutTitle, { color: accentColor }]}>{w.title}</Text>
@@ -669,39 +678,13 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
                     ))}
                   </View>
                 ))}
-              </RNScrollView>
+              </ScrollView>
             </View>
           </TouchableOpacity>
         </Modal>
       </View>
     );
   }, [calendarMonth, workoutDatesMap, selectedCalendarDate, streaks, theme, accentColor]);
-
-  // ─── Draggable section renderer ─────────────────────
-  const renderSection = useCallback(({ item, drag, isActive }: RenderItemParams<Section>) => {
-    const content = (() => {
-      switch (item.key) {
-        case 'strength': return renderStrengthSection(drag, isActive);
-        case 'calendar': return renderCalendarSection(drag, isActive);
-        case 'records': return renderRecordsSection(drag, isActive);
-        case 'analysis': return renderAnalysisSection(drag, isActive);
-        default: return null;
-      }
-    })();
-
-    return (
-      <ScaleDecorator activeScale={0.97}>
-        <View style={[isActive && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}>
-          {content}
-        </View>
-      </ScaleDecorator>
-    );
-  }, [theme, accentColor, muscleGains, personalRecords, stats, aiAnalysis, aiLoading, animKey, isDark, maxGain, timePeriod, calendarMonth, workoutDatesMap, selectedCalendarDate, streaks, renderCalendarSection]);
-
-  const onDragEnd = useCallback(({ data }: { data: Section[] }) => {
-    setSections(data);
-    saveSectionOrder(data);
-  }, [saveSectionOrder]);
 
   // ─── Header + filter (always at top, not draggable) ─
   const ListHeader = () => (
@@ -766,22 +749,25 @@ Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or 
   }
 
   return (
-    <GestureHandlerRootView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <SafeAreaView style={styles.container}>
-        <DraggableFlatList
-          data={sections}
-          onDragEnd={onDragEnd}
-          keyExtractor={(item) => item.key}
-          renderItem={renderSection}
-          ListHeaderComponent={ListHeader}
-          ListFooterComponent={<View style={{ height: 100 }} />}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          activationDistance={30}
-          dragHitSlop={{ top: -10, bottom: -10, left: 0, right: 0 }}
-        />
-      </SafeAreaView>
-    </GestureHandlerRootView>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <ListHeader />
+        {sections.map((section) => {
+          const item = section;
+          switch (item.key) {
+            case 'strength': return <View key={item.key}>{renderStrengthSection(() => {}, false)}</View>;
+            case 'calendar': return <View key={item.key}>{renderCalendarSection(() => {}, false)}</View>;
+            case 'records': return <View key={item.key}>{renderRecordsSection(() => {}, false)}</View>;
+            case 'analysis': return <View key={item.key}>{renderAnalysisSection(() => {}, false)}</View>;
+            default: return null;
+          }
+        })}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

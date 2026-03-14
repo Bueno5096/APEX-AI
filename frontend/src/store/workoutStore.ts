@@ -633,55 +633,108 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
   
   applyCoachActions: (actions: any[]) => {
-    const { modifyExercise, swapExercise, setRestTimer, todayWorkout, nextExercise, setTodayWorkoutByType } = get();
-    console.log(`[WorkoutStore] applyCoachActions called with ${actions.length} actions:`, JSON.stringify(actions));
-    
-    for (const action of actions) {
-      switch (action.type) {
-        case 'set_workout': {
-          const workoutType = action.workout_type || 'push';
-          const title = action.title || '';
-          setTodayWorkoutByType(workoutType, title);
-          break;
-        }
-        
-        case 'modify_exercise':
-          modifyExercise(action.exercise_name, {
-            sets: action.new_sets,
-            reps: action.new_reps,
-            weight: action.new_weight,
-          });
-          break;
-          
-        case 'swap_exercise': {
-          const existingEx = todayWorkout?.exercises.find(
-            (e) => e.name.toLowerCase() === (action.exercise_name || '').toLowerCase()
-          );
-          if (existingEx) {
-            swapExercise(existingEx.id, {
-              ...existingEx,
-              name: action.new_exercise_name || existingEx.name,
-              sets: action.new_sets ?? existingEx.sets,
-              reps: action.new_reps ?? existingEx.reps,
-              weight: action.new_weight ?? existingEx.weight,
-              targetMuscles: action.target_muscles ?? existingEx.targetMuscles,
-              completedSets: 0,
-              isCompleted: false,
-            });
+    try {
+      const { modifyExercise, swapExercise, setRestTimer, todayWorkout, nextExercise, setTodayWorkoutByType } = get();
+      console.log(`[WorkoutStore] applyCoachActions called with ${actions.length} actions:`, JSON.stringify(actions));
+      
+      for (const action of actions) {
+        try {
+          switch (action.type) {
+            case 'set_workout': {
+              const workoutType = action.workout_type || 'push';
+              const title = action.title || '';
+              setTodayWorkoutByType(workoutType, title);
+              break;
+            }
+            
+            case 'modify_exercise': {
+              // Validate weight changes
+              let newWeight = action.new_weight;
+              if (newWeight !== undefined && newWeight !== null && todayWorkout) {
+                const existing = todayWorkout.exercises.find(
+                  (e) => e.name.toLowerCase() === (action.exercise_name || '').toLowerCase()
+                );
+                const currentWeight = existing?.weight || 0;
+                
+                // Clamp to valid range
+                newWeight = Math.max(0, Math.min(360, newWeight)); // 0-800lbs (~360kg)
+                
+                // If more than 50% different from current and current > 0, cap at 20% change
+                if (currentWeight > 0 && Math.abs(newWeight - currentWeight) > currentWeight * 0.5) {
+                  console.warn(`[WorkoutStore] Weight change too large: ${currentWeight}kg -> ${newWeight}kg. Capping at 20%.`);
+                  newWeight = newWeight > currentWeight
+                    ? Math.round(currentWeight * 1.2 * 10) / 10
+                    : Math.round(currentWeight * 0.8 * 10) / 10;
+                }
+              }
+              modifyExercise(action.exercise_name, {
+                sets: action.new_sets,
+                reps: action.new_reps,
+                weight: newWeight,
+              });
+              break;
+            }
+              
+            case 'swap_exercise': {
+              if (!todayWorkout) break;
+              const existingEx = todayWorkout.exercises.find(
+                (e) => e.name.toLowerCase() === (action.exercise_name || '').toLowerCase()
+              );
+              if (existingEx) {
+                const newExercise = {
+                  ...existingEx,
+                  id: `ex_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                  name: action.new_exercise_name || existingEx.name,
+                  sets: action.new_sets ?? existingEx.sets,
+                  reps: action.new_reps ?? existingEx.reps,
+                  weight: action.new_weight != null ? Math.max(0, Math.min(360, action.new_weight)) : existingEx.weight,
+                  targetMuscles: action.target_muscles ?? existingEx.targetMuscles,
+                  completedSets: 0,
+                  isCompleted: false,
+                };
+                swapExercise(existingEx.id, newExercise);
+                
+                // Verify the swap - old exercise should be gone
+                const postSwapState = get();
+                const stillExists = postSwapState.todayWorkout?.exercises.some(
+                  (e) => e.name.toLowerCase() === (action.exercise_name || '').toLowerCase()
+                );
+                if (stillExists && action.exercise_name.toLowerCase() !== action.new_exercise_name?.toLowerCase()) {
+                  console.warn(`[WorkoutStore] Swap verification failed — old exercise still present. Retrying...`);
+                  // Force remove old + add new
+                  set((state) => {
+                    if (!state.todayWorkout) return state;
+                    const idx = state.todayWorkout.exercises.findIndex(
+                      (e) => e.name.toLowerCase() === (action.exercise_name || '').toLowerCase()
+                    );
+                    if (idx === -1) return state;
+                    const exercises = [...state.todayWorkout.exercises];
+                    exercises[idx] = newExercise;
+                    return { todayWorkout: { ...state.todayWorkout, exercises } };
+                  });
+                }
+              } else {
+                console.warn(`[WorkoutStore] swap_exercise: exercise "${action.exercise_name}" not found in current workout`);
+              }
+              break;
+            }
+              
+            case 'adjust_rest':
+              if (action.new_rest_seconds) {
+                setRestTimer(action.new_rest_seconds);
+              }
+              break;
+              
+            case 'skip_exercise':
+              nextExercise();
+              break;
           }
-          break;
+        } catch (actionErr) {
+          console.error(`[WorkoutStore] Error applying action ${action.type}:`, actionErr);
         }
-          
-        case 'adjust_rest':
-          if (action.new_rest_seconds) {
-            setRestTimer(action.new_rest_seconds);
-          }
-          break;
-          
-        case 'skip_exercise':
-          nextExercise();
-          break;
       }
+    } catch (err) {
+      console.error(`[WorkoutStore] applyCoachActions critical error:`, err);
     }
   },
 
