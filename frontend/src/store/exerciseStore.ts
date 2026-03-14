@@ -45,6 +45,137 @@ export const TRAINING_SPLITS: TrainingSplitInfo[] = [
   { key: 'bodyweight_only', name: 'Bodyweight Only', description: 'No equipment needed — build strength anywhere', bestFor: 'Home workouts, travelers, beginners', schedule: 'Push / Pull / Legs — all bodyweight movements', daysPerWeek: 3 },
 ];
 
+// ─── Workout Templates ─────────────────────────────
+export interface WorkoutTemplate {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  duration: number;
+  targetMuscles: string[];
+  equipment: string;
+  exercises: {
+    name: string;
+    sets: number;
+    reps: string;
+    restSeconds: number;
+    notes?: string;
+  }[];
+}
+
+export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
+  // PUSH
+  {
+    id: 'tpl_push_1', name: 'Classic Push Day', category: 'Push', description: 'Chest, shoulders, triceps with compound lifts', difficulty: 'intermediate', duration: 50, targetMuscles: ['Chest', 'Shoulders', 'Triceps'], equipment: 'Full Gym',
+    exercises: [
+      { name: 'Barbell Bench Press', sets: 4, reps: '8-10', restSeconds: 120 },
+      { name: 'Incline Dumbbell Press', sets: 3, reps: '10-12', restSeconds: 90 },
+      { name: 'Overhead Press', sets: 3, reps: '8-10', restSeconds: 90 },
+      { name: 'Lateral Raise', sets: 3, reps: '12-15', restSeconds: 60 },
+      { name: 'Tricep Pushdown', sets: 3, reps: '12-15', restSeconds: 60 },
+      { name: 'Skull Crusher', sets: 3, reps: '10-12', restSeconds: 60 },
+    ],
+  },
+  // PULL
+  {
+    id: 'tpl_pull_1', name: 'Back & Biceps Blast', category: 'Pull', description: 'Heavy back work with bicep finishers', difficulty: 'intermediate', duration: 50, targetMuscles: ['Back', 'Biceps'], equipment: 'Full Gym',
+    exercises: [
+      { name: 'Deadlift', sets: 4, reps: '5', restSeconds: 180 },
+      { name: 'Pull Up', sets: 4, reps: '6-10', restSeconds: 120 },
+      { name: 'Barbell Row', sets: 4, reps: '8-10', restSeconds: 120 },
+      { name: 'Face Pull', sets: 3, reps: '15', restSeconds: 60 },
+      { name: 'Barbell Curl', sets: 3, reps: '10-12', restSeconds: 60 },
+      { name: 'Hammer Curl', sets: 3, reps: '12', restSeconds: 60 },
+    ],
+  },
+  // LEGS
+  {
+    id: 'tpl_legs_1', name: 'Leg Day Destroyer', category: 'Legs', description: 'Quads, hamstrings, and glutes', difficulty: 'intermediate', duration: 55, targetMuscles: ['Quads', 'Hamstrings', 'Glutes', 'Calves'], equipment: 'Full Gym',
+    exercises: [
+      { name: 'Barbell Squat', sets: 4, reps: '8-10', restSeconds: 180 },
+      { name: 'Romanian Deadlift', sets: 3, reps: '10-12', restSeconds: 120 },
+      { name: 'Leg Press', sets: 3, reps: '12-15', restSeconds: 120 },
+      { name: 'Leg Curl', sets: 3, reps: '12-15', restSeconds: 60 },
+      { name: 'Hip Thrust', sets: 3, reps: '12', restSeconds: 90 },
+      { name: 'Calf Raise', sets: 4, reps: '15-20', restSeconds: 60 },
+    ],
+  },
+  // UPPER BODY
+  {
+    id: 'tpl_upper_1', name: 'Upper Body Power', category: 'Upper', description: 'Complete upper body with heavy compounds', difficulty: 'intermediate', duration: 55, targetMuscles: ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps'], equipment: 'Full Gym',
+    exercises: [
+      { name: 'Barbell Bench Press', sets: 4, reps: '6-8', restSeconds: 120 },
+      { name: 'Barbell Row', sets: 4, reps: '6-8', restSeconds: 120 },
+      { name: 'Dumbbell Shoulder Press', sets: 3, reps: '10-12', restSeconds: 90 },
+      { name: 'Lat Pulldown', sets: 3, reps: '10-12', restSeconds: 90 },
+      { name: 'Barbell Curl', sets: 3, reps: '10-12', restSeconds: 60 },
+      { name: 'Tricep Pushdown', sets: 3, reps: '12-15', restSeconds: 60 },
+    ],
+  },
+  // FULL BODY
+  {
+    id: 'tpl_full_1', name: 'Full Body Fundamentals', category: 'Full Body', description: 'Hit every muscle group in one session', difficulty: 'beginner', duration: 45, targetMuscles: ['Chest', 'Back', 'Shoulders', 'Quads', 'Core'], equipment: 'Full Gym',
+    exercises: [
+      { name: 'Barbell Squat', sets: 3, reps: '10', restSeconds: 120 },
+      { name: 'Barbell Bench Press', sets: 3, reps: '10', restSeconds: 90 },
+      { name: 'Barbell Row', sets: 3, reps: '10', restSeconds: 90 },
+      { name: 'Overhead Press', sets: 3, reps: '10', restSeconds: 90 },
+      { name: 'Romanian Deadlift', sets: 3, reps: '10', restSeconds: 90 },
+      { name: 'Plank', sets: 3, reps: '45s', restSeconds: 60 },
+    ],
+  },
+  // BODYWEIGHT
+  {
+    id: 'tpl_bw_1', name: 'No Equipment Required', category: 'Bodyweight', description: 'Full body workout anywhere, no gym needed', difficulty: 'beginner', duration: 35, targetMuscles: ['Chest', 'Back', 'Core', 'Quads', 'Glutes'], equipment: 'None',
+    exercises: [
+      { name: 'Push Up', sets: 4, reps: '15', restSeconds: 60 },
+      { name: 'Bodyweight Squat', sets: 4, reps: '20', restSeconds: 60 },
+      { name: 'Pull Up', sets: 3, reps: '6-10', restSeconds: 90, notes: 'Use door-frame bar or find a bar' },
+      { name: 'Reverse Lunge', sets: 3, reps: '12 each', restSeconds: 60 },
+      { name: 'Mountain Climber', sets: 3, reps: '20', restSeconds: 60 },
+      { name: 'Plank', sets: 3, reps: '45s', restSeconds: 60 },
+      { name: 'Glute Bridge', sets: 3, reps: '20', restSeconds: 60 },
+    ],
+  },
+  // STRENGTH
+  {
+    id: 'tpl_str_1', name: '5×5 Strength Builder', category: 'Strength', description: 'Classic 5×5 for maximum strength gains', difficulty: 'intermediate', duration: 60, targetMuscles: ['Chest', 'Back', 'Quads', 'Shoulders'], equipment: 'Barbell',
+    exercises: [
+      { name: 'Barbell Squat', sets: 5, reps: '5', restSeconds: 180 },
+      { name: 'Barbell Bench Press', sets: 5, reps: '5', restSeconds: 180 },
+      { name: 'Barbell Row', sets: 5, reps: '5', restSeconds: 180 },
+      { name: 'Overhead Press', sets: 3, reps: '8', restSeconds: 120 },
+      { name: 'Deadlift', sets: 1, reps: '5', restSeconds: 180, notes: 'Work up to top set' },
+    ],
+  },
+  // HIIT
+  {
+    id: 'tpl_hiit_1', name: 'HIIT Conditioning', category: 'HIIT', description: 'High intensity circuit for fat burning and endurance', difficulty: 'intermediate', duration: 30, targetMuscles: ['Full Body', 'Core'], equipment: 'Minimal',
+    exercises: [
+      { name: 'Burpee', sets: 4, reps: '10', restSeconds: 30 },
+      { name: 'Kettlebell Swing', sets: 4, reps: '15', restSeconds: 30 },
+      { name: 'Box Jump', sets: 4, reps: '8', restSeconds: 30 },
+      { name: 'Mountain Climber', sets: 4, reps: '20', restSeconds: 30 },
+      { name: 'Jump Squat', sets: 4, reps: '12', restSeconds: 30 },
+      { name: 'High Knees', sets: 4, reps: '30s', restSeconds: 30 },
+    ],
+  },
+  // DUMBBELL ONLY
+  {
+    id: 'tpl_db_1', name: 'Dumbbell Only Full Body', category: 'Dumbbell', description: 'Complete workout with just dumbbells', difficulty: 'beginner', duration: 40, targetMuscles: ['Chest', 'Back', 'Shoulders', 'Quads', 'Biceps', 'Triceps'], equipment: 'Dumbbells',
+    exercises: [
+      { name: 'Dumbbell Bench Press', sets: 4, reps: '10', restSeconds: 90 },
+      { name: 'Dumbbell Row', sets: 3, reps: '10 each', restSeconds: 90 },
+      { name: 'Dumbbell Shoulder Press', sets: 3, reps: '12', restSeconds: 90 },
+      { name: 'Goblet Squat', sets: 3, reps: '12', restSeconds: 90 },
+      { name: 'Dumbbell Romanian Deadlift', sets: 3, reps: '12', restSeconds: 90 },
+      { name: 'Hammer Curl', sets: 3, reps: '12', restSeconds: 60 },
+      { name: 'Overhead Tricep Extension', sets: 3, reps: '12', restSeconds: 60 },
+    ],
+  },
+];
+
 // ─── Exercise Database ─────────────────────────────
 
 export interface ExerciseData {

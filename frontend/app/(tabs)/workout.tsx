@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
+import { useExerciseStore } from '../../src/store/exerciseStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import { ApexBodyMap } from '../../src/components/ApexBodyMap';
 import { useHealthStore } from '../../src/store/healthStore';
@@ -52,6 +53,7 @@ export default function WorkoutScreen() {
   const { theme, accentColor, unitSystem } = useThemeStore();
   const { recoveryData } = useHealthStore();
   const { profile } = useUserStore();
+  const { savedWorkouts, loadSavedWorkouts, deleteWorkout } = useExerciseStore();
   const router = useRouter();
   const {
     todayWorkout,
@@ -75,6 +77,11 @@ export default function WorkoutScreen() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [pendingActions, setPendingActions] = useState<any[]>([]);
   const chatScrollRef = useRef<ScrollView>(null);
+  
+  // Load saved workouts on mount
+  useEffect(() => {
+    loadSavedWorkouts();
+  }, []);
   
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
@@ -694,6 +701,64 @@ export default function WorkoutScreen() {
           </Text>
         </View>
         
+        {/* Create Workout Buttons */}
+        <View style={styles.createButtonsRow}>
+          <TouchableOpacity
+            style={[styles.createWorkoutBtn, { backgroundColor: accentColor }]}
+            onPress={() => router.push('/create-workout')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add-circle" size={18} color="#fff" />
+            <Text style={styles.createBtnText}>Create Workout +</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.aiGenerateBtn, { backgroundColor: '#7C3AED' }]}
+            onPress={() => router.push('/ai-generate-workout')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="sparkles" size={18} color="#fff" />
+            <Text style={styles.createBtnText}>AI Generate</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* My Workouts Library */}
+        {savedWorkouts.length > 0 && (
+          <View style={styles.myWorkoutsSection}>
+            <View style={styles.myWorkoutsHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>My Workouts</Text>
+              <Text style={[styles.myWorkoutsCount, { color: theme.colors.textMuted }]}>{savedWorkouts.length}</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.myWorkoutsList}>
+              {savedWorkouts.map((wk) => (
+                <TouchableOpacity
+                  key={wk.id}
+                  style={[styles.savedWorkoutCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.savedWorkoutHeader}>
+                    <Text style={[styles.savedWorkoutName, { color: theme.colors.textPrimary }]} numberOfLines={1}>{wk.name}</Text>
+                    <TouchableOpacity onPress={() => deleteWorkout(wk.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="trash-outline" size={14} color={theme.colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.savedWorkoutMeta}>
+                    <Text style={[styles.savedWorkoutInfo, { color: theme.colors.textMuted }]}>
+                      {wk.exercises.length} exercises · ~{wk.estimatedDuration}min
+                    </Text>
+                  </View>
+                  <View style={styles.savedMuscleChips}>
+                    {wk.targetMuscles.slice(0, 3).map((m) => (
+                      <View key={m} style={[styles.savedMuscleChip, { backgroundColor: accentColor + '15' }]}>
+                        <Text style={[styles.savedMuscleChipText, { color: accentColor }]}>{m}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+        
         {/* Workout Overview */}
         <MetallicCard style={styles.overviewCard} intensity="medium">
           <View style={styles.overviewTop}>
@@ -966,12 +1031,93 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.5,
+  },
+  createButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  createWorkoutBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  aiGenerateBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  createBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  myWorkoutsSection: {
+    marginBottom: 20,
+  },
+  myWorkoutsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  myWorkoutsCount: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  myWorkoutsList: {
+    gap: 10,
+  },
+  savedWorkoutCard: {
+    width: 180,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 0.5,
+  },
+  savedWorkoutHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  savedWorkoutName: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  savedWorkoutMeta: {
+    marginBottom: 8,
+  },
+  savedWorkoutInfo: {
+    fontSize: 11,
+  },
+  savedMuscleChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  savedMuscleChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  savedMuscleChipText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   overviewCard: {
     marginBottom: 24,

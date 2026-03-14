@@ -681,6 +681,112 @@ async def get_analytics(user_id: str, days: int = 30):
         "recovery_entries": len(recovery_logs)
     }
 
+# AI Workout Generator endpoint
+class GenerateWorkoutRequest(BaseModel):
+    focusMuscles: List[str] = []
+    equipment: str = "full_gym"
+    duration: int = 45
+    intensity: str = "moderate"
+    trainingStyle: Optional[str] = None
+    trainingSplit: Optional[str] = None
+    sport: Optional[str] = None
+    userProfile: Optional[Dict[str, Any]] = None
+
+@api_router.post("/generate-workout")
+async def generate_workout(request: GenerateWorkoutRequest):
+    """AI-powered workout generator"""
+    try:
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            raise HTTPException(status_code=500, detail="LLM API key not configured")
+        
+        # Build context
+        profile_ctx = ""
+        if request.userProfile:
+            name = request.userProfile.get('name', 'User')
+            exp = request.userProfile.get('trainingExperience', 'intermediate')
+            injuries = request.userProfile.get('injuries', 'None')
+            profile_ctx = f"User: {name}, Experience: {exp}, Injuries/Limitations: {injuries}"
+        
+        style_ctx = f"Training Style: {request.trainingStyle or 'General'}"
+        if request.sport:
+            style_ctx += f" (Sport: {request.sport})"
+        
+        equipment_map = {
+            'full_gym': 'Full gym with all equipment (barbells, dumbbells, cables, machines)',
+            'dumbbells_only': 'Dumbbells only',
+            'bodyweight': 'No equipment - bodyweight only',
+            'home_gym': 'Home gym (dumbbells, pull-up bar, resistance bands)',
+            'barbell_only': 'Barbell and plates only',
+        }
+        equipment_desc = equipment_map.get(request.equipment, request.equipment)
+        
+        prompt = f"""Generate a complete workout plan. Return ONLY valid JSON, no other text.
+
+REQUIREMENTS:
+- Focus muscles: {', '.join(request.focusMuscles) if request.focusMuscles else 'Full body'}
+- Equipment available: {equipment_desc}
+- Target duration: {request.duration} minutes
+- Intensity: {request.intensity}
+- {style_ctx}
+- {profile_ctx}
+
+Return this exact JSON structure:
+{{
+  "title": "Workout name",
+  "type": "push/pull/legs/upper/lower/full/cardio",
+  "targetMuscles": ["muscle1", "muscle2"],
+  "duration": {request.duration},
+  "intensity": "{request.intensity}",
+  "exercises": [
+    {{
+      "name": "Exercise Name",
+      "sets": 3,
+      "reps": "8-10",
+      "weight": null,
+      "targetMuscles": ["Primary Muscle"],
+      "restSeconds": 90,
+      "notes": "Brief form tip"
+    }}
+  ]
+}}
+
+Include 5-8 exercises. Match the training style. Be specific with exercise names."""
+
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=str(uuid.uuid4()),
+            system_message="You are a workout programming expert. Return ONLY valid JSON. No markdown, no explanation, just the JSON object.",
+        )
+        chat = chat.with_model('anthropic', 'claude-sonnet-4-6')
+        chat = chat.with_params(max_tokens=2048)
+        
+        response = await chat.send_message(UserMessage(text=prompt))
+        
+        # Parse JSON from response
+        import json as json_module
+        # Try to extract JSON from the response
+        clean = response.strip()
+        if clean.startswith('```'):
+            # Remove markdown code fences
+            lines = clean.split('\n')
+            clean = '\n'.join(lines[1:-1] if lines[-1].strip() == '```' else lines[1:])
+        
+        workout_data = json_module.loads(clean)
+        
+        # Add IDs to exercises
+        for i, ex in enumerate(workout_data.get('exercises', [])):
+            ex['id'] = f"gen_{uuid.uuid4().hex[:8]}"
+        
+        workout_data['id'] = f"ai_{uuid.uuid4().hex[:8]}"
+        
+        logger.info(f"Generated workout: {workout_data.get('title', 'Unknown')}")
+        return workout_data
+        
+    except Exception as e:
+        logger.error(f"Workout generation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate workout: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 

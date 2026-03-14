@@ -1,0 +1,302 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+import { useThemeStore } from '../src/store/themeStore';
+import { useUserStore } from '../src/store/userStore';
+
+const MUSCLE_OPTIONS = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Quads', 'Hamstrings', 'Glutes', 'Core', 'Full Body'];
+const EQUIPMENT_OPTIONS = [
+  { key: 'full_gym', label: 'Full Gym', icon: 'fitness' },
+  { key: 'dumbbells_only', label: 'Dumbbells Only', icon: 'barbell' },
+  { key: 'bodyweight', label: 'Bodyweight', icon: 'body' },
+  { key: 'home_gym', label: 'Home Gym', icon: 'home' },
+];
+const DURATION_OPTIONS = [20, 30, 45, 60, 75, 90];
+const INTENSITY_OPTIONS = ['low', 'moderate', 'high', 'brutal'];
+
+export default function AIGenerateWorkoutScreen() {
+  const router = useRouter();
+  const theme = useThemeStore((s) => s.theme);
+  const accentColor = useThemeStore((s) => s.accentColor);
+  const { profile } = useUserStore();
+
+  const [focusMuscles, setFocusMuscles] = useState<string[]>([]);
+  const [equipment, setEquipment] = useState('full_gym');
+  const [duration, setDuration] = useState(45);
+  const [intensity, setIntensity] = useState('moderate');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState('');
+
+  const toggleMuscle = (m: string) => {
+    if (m === 'Full Body') {
+      setFocusMuscles(focusMuscles.includes('Full Body') ? [] : ['Full Body']);
+      return;
+    }
+    setFocusMuscles((prev) => {
+      const without = prev.filter((x) => x !== 'Full Body');
+      return without.includes(m) ? without.filter((x) => x !== m) : [...without, m];
+    });
+  };
+
+  const getBackendUrl = () => {
+    const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL
+      || process.env.EXPO_PUBLIC_BACKEND_URL
+      || '';
+    return backendUrl;
+  };
+
+  const handleGenerate = async () => {
+    if (focusMuscles.length === 0) {
+      Alert.alert('Select Focus', 'Pick at least one muscle group to focus on');
+      return;
+    }
+
+    setIsGenerating(true);
+    const phases = ['Analyzing your profile...', 'Selecting exercises...', 'Optimizing workout...', 'Finalizing plan...'];
+    let phaseIdx = 0;
+    setLoadingPhase(phases[0]);
+    const interval = setInterval(() => {
+      phaseIdx = Math.min(phaseIdx + 1, phases.length - 1);
+      setLoadingPhase(phases[phaseIdx]);
+    }, 2000);
+
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/generate-workout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          focusMuscles,
+          equipment,
+          duration,
+          intensity,
+          trainingStyle: profile?.trainingStyle || null,
+          trainingSplit: profile?.trainingSplit || null,
+          sport: profile?.sport || null,
+          userProfile: profile ? {
+            name: profile.name,
+            trainingExperience: profile.trainingExperience,
+            injuries: profile.injuries,
+          } : null,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to generate workout');
+      const data = await res.json();
+      clearInterval(interval);
+      setIsGenerating(false);
+
+      // Navigate to workout builder with the generated data
+      router.push({
+        pathname: '/workout-builder',
+        params: { aiWorkout: JSON.stringify(data) },
+      });
+    } catch (err) {
+      clearInterval(interval);
+      setIsGenerating(false);
+      Alert.alert('Generation Failed', 'Could not generate workout. Please try again.');
+    }
+  };
+
+  const getIntensityColor = (i: string) => {
+    if (i === 'low') return '#4CAF50';
+    if (i === 'moderate') return '#FF9800';
+    if (i === 'high') return '#F44336';
+    return '#9C27B0';
+  };
+
+  if (isGenerating) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.loadingContainer}>
+          <View style={[styles.loadingPulse, { backgroundColor: accentColor + '20' }]}>
+            <Ionicons name="sparkles" size={48} color={accentColor} />
+          </View>
+          <Text style={[styles.loadingTitle, { color: theme.colors.textPrimary }]}>GENERATING YOUR WORKOUT</Text>
+          <Text style={[styles.loadingPhase, { color: accentColor }]}>{loadingPhase}</Text>
+          <ActivityIndicator size="large" color={accentColor} style={{ marginTop: 20 }} />
+          <View style={[styles.loadingInfo, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            <Text style={[styles.loadingInfoText, { color: theme.colors.textMuted }]}>
+              APEX is creating a personalized workout based on your profile, training style, and preferences...
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color={theme.colors.textPrimary} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>AI GENERATE</Text>
+          <Text style={[styles.headerSub, { color: theme.colors.textMuted }]}>Tell APEX what you want</Text>
+        </View>
+        <Ionicons name="sparkles" size={22} color={accentColor} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Focus Muscles */}
+        <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Focus Muscles</Text>
+        <View style={styles.muscleGrid}>
+          {MUSCLE_OPTIONS.map((m) => {
+            const isSelected = focusMuscles.includes(m);
+            return (
+              <TouchableOpacity
+                key={m}
+                style={[
+                  styles.muscleChip,
+                  { borderColor: theme.colors.cardBorder },
+                  isSelected && { backgroundColor: accentColor + '20', borderColor: accentColor },
+                ]}
+                onPress={() => toggleMuscle(m)}
+              >
+                <Text style={[styles.muscleChipText, { color: isSelected ? accentColor : theme.colors.textSecondary }]}>{m}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Equipment */}
+        <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Equipment Available</Text>
+        <View style={styles.equipGrid}>
+          {EQUIPMENT_OPTIONS.map((eq) => {
+            const isSelected = equipment === eq.key;
+            return (
+              <TouchableOpacity
+                key={eq.key}
+                style={[
+                  styles.equipCard,
+                  { backgroundColor: theme.colors.card, borderColor: isSelected ? accentColor : theme.colors.cardBorder },
+                  isSelected && { borderWidth: 1.5 },
+                ]}
+                onPress={() => setEquipment(eq.key)}
+              >
+                <Ionicons name={eq.icon as any} size={22} color={isSelected ? accentColor : theme.colors.textSecondary} />
+                <Text style={[styles.equipLabel, { color: isSelected ? accentColor : theme.colors.textSecondary }]}>{eq.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Duration */}
+        <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Duration (minutes)</Text>
+        <View style={styles.durationRow}>
+          {DURATION_OPTIONS.map((d) => {
+            const isSelected = duration === d;
+            return (
+              <TouchableOpacity
+                key={d}
+                style={[
+                  styles.durationBtn,
+                  { borderColor: theme.colors.cardBorder },
+                  isSelected && { backgroundColor: accentColor + '20', borderColor: accentColor },
+                ]}
+                onPress={() => setDuration(d)}
+              >
+                <Text style={[styles.durationText, { color: isSelected ? accentColor : theme.colors.textSecondary }]}>{d}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Intensity */}
+        <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Intensity</Text>
+        <View style={styles.intensityRow}>
+          {INTENSITY_OPTIONS.map((i) => {
+            const isSelected = intensity === i;
+            const color = getIntensityColor(i);
+            return (
+              <TouchableOpacity
+                key={i}
+                style={[
+                  styles.intensityBtn,
+                  { borderColor: theme.colors.cardBorder },
+                  isSelected && { backgroundColor: color + '15', borderColor: color },
+                ]}
+                onPress={() => setIntensity(i)}
+              >
+                <Text style={[styles.intensityText, { color: isSelected ? color : theme.colors.textSecondary }]}>
+                  {i.charAt(0).toUpperCase() + i.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Context Info */}
+        {profile?.trainingStyle && (
+          <View style={[styles.contextCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            <Ionicons name="information-circle-outline" size={16} color={accentColor} />
+            <Text style={[styles.contextText, { color: theme.colors.textMuted }]}>
+              APEX will generate this workout using your {profile.trainingStyle.replace('_', ' ')} training style
+              {profile.trainingSplit ? ` and ${profile.trainingSplit.replace(/_/g, ' ')} split` : ''}.
+            </Text>
+          </View>
+        )}
+
+        {/* Generate Button */}
+        <TouchableOpacity
+          style={[
+            styles.generateBtn,
+            { backgroundColor: focusMuscles.length > 0 ? '#7C3AED' : theme.colors.metallic },
+          ]}
+          onPress={handleGenerate}
+          disabled={focusMuscles.length === 0}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="sparkles" size={20} color="#fff" />
+          <Text style={[styles.generateBtnText, { opacity: focusMuscles.length > 0 ? 1 : 0.5 }]}>Generate Workout</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, gap: 8 },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '800', letterSpacing: 1.5 },
+  headerSub: { fontSize: 12, marginTop: 2 },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', marginTop: 20, marginBottom: 10 },
+  muscleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  muscleChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  muscleChipText: { fontSize: 13, fontWeight: '600' },
+  equipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  equipCard: { width: '47%', paddingVertical: 16, paddingHorizontal: 12, borderRadius: 14, borderWidth: 0.5, alignItems: 'center', gap: 6 },
+  equipLabel: { fontSize: 13, fontWeight: '600' },
+  durationRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  durationBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  durationText: { fontSize: 16, fontWeight: '700' },
+  intensityRow: { flexDirection: 'row', gap: 10 },
+  intensityBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  intensityText: { fontSize: 13, fontWeight: '700' },
+  contextCard: { flexDirection: 'row', gap: 8, padding: 14, borderRadius: 12, borderWidth: 0.5, marginTop: 20, alignItems: 'flex-start' },
+  contextText: { fontSize: 13, lineHeight: 18, flex: 1 },
+  generateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14, marginTop: 24 },
+  generateBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  loadingPulse: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  loadingTitle: { fontSize: 18, fontWeight: '800', letterSpacing: 1.5, marginBottom: 8 },
+  loadingPhase: { fontSize: 15, fontWeight: '600' },
+  loadingInfo: { marginTop: 30, padding: 16, borderRadius: 14, borderWidth: 0.5 },
+  loadingInfoText: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
+});
