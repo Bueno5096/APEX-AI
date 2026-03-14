@@ -148,7 +148,7 @@ export default function CoachScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://smart-workout-ai-14.preview.emergentagent.com';
+      || 'https://workout-create-hub.preview.emergentagent.com';
     return backendUrl;
   };
   
@@ -286,6 +286,11 @@ export default function CoachScreen() {
             strengthProgress: strengthProgressContext,
             goalLayeringActive: hasActiveGoalLayeringPlan,
             unitSystem: unitSystem,
+            // ─── Training preferences ───
+            trainingStyle: profile?.trainingStyle || undefined,
+            trainingSplit: profile?.trainingSplit || undefined,
+            sport: profile?.sport || undefined,
+            hybridStyles: profile?.hybridStyles || undefined,
           },
         }),
       });

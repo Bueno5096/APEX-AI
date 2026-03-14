@@ -64,6 +64,11 @@ class ChatContext(BaseModel):
     goalLayeringActive: Optional[bool] = False
     unitSystem: Optional[str] = "imperial"                 # "imperial" or "metric"
     fullWorkoutPlan: Optional[List[Dict[str, Any]]] = None # Full exercises in current workout
+    # ─── Training preferences ───
+    trainingStyle: Optional[str] = None
+    trainingSplit: Optional[str] = None
+    sport: Optional[str] = None
+    hybridStyles: Optional[List[str]] = None
 
 class ConversationMessage(BaseModel):
     role: str  # 'user' or 'coach'
@@ -240,12 +245,63 @@ THEIR GOALS:
     sp = context.strengthProgress if context and context.strengthProgress else None
     streak = sp.get('streak', 0) if sp else 0
     workouts_month = sp.get('workoutsThisMonth', 0) if sp else 0
+    
+    # Training preferences
+    training_style_str = 'Not set'
+    training_split_str = 'Not set'
+    training_pref_instructions = ''
+    
+    if context and context.trainingStyle:
+        style_map = {
+            'bodybuilding': 'Bodybuilding — Focus on hypertrophy, 8-12 reps compound, 12-15 isolation, mind-muscle connection, pump, volume, drop sets, supersets',
+            'powerlifting': 'Powerlifting — Focus on the big three (squat/bench/deadlift), 1-5 reps main lifts, 3-8 accessories, RPE-based, longer rest 3-5min',
+            'calisthenics': 'Calisthenics — Bodyweight only, skill progressions, 5-15 reps, movement quality, includes skill work like L-sit/handstand',
+            'yoga': 'Yoga — Pose holds, flow sequences, flexibility, breathing, recovery-focused',
+            'pilates': 'Pilates — 10-20 reps slow and controlled, core stability, posture, breathing patterns, low impact',
+            'sport_specific': f'Sport Specific ({context.sport or "general"}) — Power, speed, agility, sport-specific patterns, plyometrics, explosive movements',
+            'crossfit': 'CrossFit/Functional — High reps, AMRAP/EMOM/For Time, Olympic lifts, kettlebells, conditioning focus',
+            'hybrid': 'Hybrid — Rotates between heavy days, volume days, conditioning days',
+        }
+        training_style_str = style_map.get(context.trainingStyle, context.trainingStyle)
+        
+        if context.trainingStyle == 'hybrid' and context.hybridStyles:
+            hybrid_names = [style_map.get(s, s).split(' — ')[0] for s in context.hybridStyles]
+            training_style_str += f' (combining: {", ".join(hybrid_names)})'
+        
+        # Style-specific coaching instructions
+        style_instructions = {
+            'bodybuilding': 'Emphasize isolation exercises, drop sets, supersets, and time under tension. Always include pump work.',
+            'powerlifting': 'Always include squat/bench/deadlift as the main lift. Use RPE-based programming. Allow 3-5 min rest between heavy sets.',
+            'calisthenics': 'Only recommend bodyweight exercises. Use progressions (easier → harder variations). Include skill work.',
+            'yoga': 'Recommend yoga on rest days. Focus on mobility, breathing cues, and stress relief.',
+            'pilates': 'Emphasize core exercises, breathing patterns, postural alignment. Keep it low impact.',
+            'sport_specific': f'Tailor all exercises to improve {context.sport or "athletic"} performance. Include plyometrics, agility, and sport-specific drills.',
+            'crossfit': 'Program WOD-style workouts (AMRAP, EMOM, For Time). Include Olympic lift variations and conditioning.',
+            'hybrid': 'Rotate between training styles across the week. Balance strength, hypertrophy, and conditioning.',
+        }
+        training_pref_instructions = style_instructions.get(context.trainingStyle, '')
+    
+    if context and context.trainingSplit:
+        split_map = {
+            'full_body': 'Full Body (all major muscle groups each session)',
+            'upper_lower': 'Upper/Lower (alternate upper and lower body days)',
+            'push_pull_legs': 'Push/Pull/Legs (one movement pattern per session)',
+            'fresh_muscle': 'Fresh Muscle Groups (AI selects based on recovery data)',
+            'bro_split': 'Bro Split (one muscle group per day)',
+            'arnold_split': 'Arnold Split (chest+back / shoulders+arms / legs)',
+            'athletic': 'Athletic Performance (power/strength/conditioning rotation)',
+            'bodyweight_only': 'Bodyweight Only (no equipment needed)',
+        }
+        training_split_str = split_map.get(context.trainingSplit, context.trainingSplit)
+    
     training_block = f"""
 THEIR TRAINING PROFILE:
 - Experience Level: {experience}
 - Training Days Per Week: {training_days}
 - Workout Style: {workout_style}
 - Injuries or Limitations: {injuries}
+- Training Style Preference: {training_style_str}
+- Training Split: {training_split_str}
 - Current Streak: {streak} days
 - Workouts This Month: {workouts_month}"""
 
@@ -334,6 +390,9 @@ STRENGTH PROGRESS THIS MONTH:
 
 MEASUREMENT UNITS:
 - {unit_instruction}
+
+TRAINING STYLE INSTRUCTIONS:
+- {training_pref_instructions if training_pref_instructions else 'No specific training style preference set. Default to balanced programming.'}
 
 RESPONSE RULES — FOLLOW THESE EXACTLY:
 - When the user asks you to make ANY change to their workout: MAKE THE CHANGE FIRST using [ACTIONS], THEN confirm it in 1-2 sentences maximum. Do not explain what you are about to do — just do it.

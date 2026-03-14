@@ -23,6 +23,7 @@ import { useHealthStore } from '../../src/store/healthStore';
 import { useBodyCompStore } from '../../src/store/bodyCompositionStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import { ACCENT_PRESETS } from '../../src/constants/theme';
+import { TRAINING_STYLES, TRAINING_SPLITS } from '../../src/store/exerciseStore';
 import ColorPicker, { Panel5, BrightnessSlider, Preview } from 'reanimated-color-picker';
 
 export default function ProfileScreen() {
@@ -297,6 +298,75 @@ export default function ProfileScreen() {
             </View>
           </MetallicCard>
         </TouchableOpacity>
+        
+        {/* Training Preferences */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
+            Training Preferences
+          </Text>
+          
+          {/* Training Style */}
+          <TouchableOpacity onPress={() => router.push('/training-style')} activeOpacity={0.7}>
+            <MetallicCard style={styles.integrationCard}>
+              <View style={styles.integrationRow}>
+                <View style={styles.integrationInfo}>
+                  <View style={[styles.bodyCompIcon, { backgroundColor: accentColor + '15' }]}>
+                    <Ionicons name="barbell" size={20} color={accentColor} />
+                  </View>
+                  <View style={styles.integrationText}>
+                    <Text style={[styles.integrationName, { color: theme.colors.textPrimary }]}>
+                      Training Style
+                    </Text>
+                    <Text style={[styles.integrationStatus, { color: theme.colors.textMuted }]}>
+                      {profile?.trainingStyle
+                        ? TRAINING_STYLES.find(s => s.key === profile.trainingStyle)?.name || 'Not set'
+                        : 'Not set — tap to choose'}
+                    </Text>
+                  </View>
+                </View>
+                {profile?.trainingStyle && (
+                  <View style={[styles.connectionBadge, { backgroundColor: accentColor + '20' }]}>
+                    <Text style={[styles.connectionText, { color: accentColor }]}>
+                      {TRAINING_STYLES.find(s => s.key === profile.trainingStyle)?.name}
+                    </Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+              </View>
+            </MetallicCard>
+          </TouchableOpacity>
+          
+          {/* Training Split */}
+          <TouchableOpacity onPress={() => router.push('/training-split')} activeOpacity={0.7}>
+            <MetallicCard style={styles.integrationCard}>
+              <View style={styles.integrationRow}>
+                <View style={styles.integrationInfo}>
+                  <View style={[styles.bodyCompIcon, { backgroundColor: accentColor + '15' }]}>
+                    <Ionicons name="calendar" size={20} color={accentColor} />
+                  </View>
+                  <View style={styles.integrationText}>
+                    <Text style={[styles.integrationName, { color: theme.colors.textPrimary }]}>
+                      Training Split
+                    </Text>
+                    <Text style={[styles.integrationStatus, { color: theme.colors.textMuted }]}>
+                      {profile?.trainingSplit
+                        ? TRAINING_SPLITS.find(s => s.key === profile.trainingSplit)?.name || 'Not set'
+                        : 'Not set — tap to choose'}
+                    </Text>
+                  </View>
+                </View>
+                {profile?.trainingSplit && (
+                  <View style={[styles.connectionBadge, { backgroundColor: accentColor + '20' }]}>
+                    <Text style={[styles.connectionText, { color: accentColor }]}>
+                      {TRAINING_SPLITS.find(s => s.key === profile.trainingSplit)?.name}
+                    </Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+              </View>
+            </MetallicCard>
+          </TouchableOpacity>
+        </View>
         
         {/* Health Integration */}
         <View style={styles.section}>

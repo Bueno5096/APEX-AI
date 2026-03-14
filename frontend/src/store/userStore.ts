@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type CoachStyle = 'neutral' | 'direct' | 'supportive';
 export type Gender = 'male' | 'female';
+export type TrainingStyle = 'bodybuilding' | 'powerlifting' | 'calisthenics' | 'yoga' | 'pilates' | 'sport_specific' | 'crossfit' | 'hybrid';
+export type TrainingSplit = 'full_body' | 'upper_lower' | 'push_pull_legs' | 'fresh_muscle' | 'bro_split' | 'arnold_split' | 'athletic' | 'bodyweight_only';
 
 interface UserProfile {
   id: string;
@@ -17,6 +19,10 @@ interface UserProfile {
   trainingDaysPerWeek?: number;
   workoutLocation?: string;
   injuries?: string | null;
+  trainingStyle?: TrainingStyle;
+  trainingSplit?: TrainingSplit;
+  sport?: string;
+  hybridStyles?: TrainingStyle[];
 }
 
 interface UserSettings {

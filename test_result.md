@@ -151,9 +151,84 @@ backend:
         - comment: "❌ CRITICAL LLM AUTHENTICATION ISSUE FOUND: API structure works correctly but LLM integration failing due to invalid EMERGENT_LLM_KEY (AnthropicException: authentication_error, invalid x-api-key). Backend gracefully handles errors with fallback responses but conversation memory cannot be properly tested. 1) Health check: ✅ 200 OK. 2) Basic chat: ✅ Returns session_id but fallback response. 3) Conversation memory: ❌ Cannot test - LLM calls failing, fallback responses don't contain conversation context. 4) API structure: ✅ Correctly processes conversation_history array (logged: 'Using frontend conversation history: 2 messages in proper format'). Backend infrastructure for conversation memory is implemented correctly but requires valid LLM credentials to function. This is a P0 production blocker - the AI coach cannot provide intelligent responses without working LLM integration."
         - working: true
         - agent: "testing"
-        - comment: "✅ COMPREHENSIVE AI COACH TESTING COMPLETE - LLM AUTHENTICATION FIXED: All 4 test scenarios from review request passed successfully on production URL https://smart-workout-ai-14.preview.emergentagent.com/api. 1) Health check: ✅ Returns 200 OK with healthy status. 2) Basic chat: ✅ Returns proper response (594 chars) and session_id with coachStyle=neutral. 3) CRITICAL - Conversation memory: ✅ PASSED - Two-part test successful: Part 1 with Marcus chest workout profile generated intelligent response, Part 2 follow-up with conversation_history array correctly referenced both 'Marcus' name and 'chest' muscle from memory. Backend logs confirm 'Using frontend conversation history: 2 messages' and proper session continuity. 4) Workout actions: ✅ PASSED - 'Create me a push day workout' correctly returned set_workout action with workout_type='push', title='Push Day', and 6 detailed exercises with sets/reps/weight/target_muscles. Backend logs show 'Parsed 1 workout actions' confirmation. LLM integration (claude-sonnet-4-6) is working perfectly with EMERGENT_LLM_KEY, all responses are intelligent and contextual, conversation memory is functional, and workout action system is operational. AI Coach endpoint is fully production-ready."
+        - comment: "✅ COMPREHENSIVE AI COACH TESTING COMPLETE - LLM AUTHENTICATION FIXED: All 4 test scenarios from review request passed successfully on production URL https://workout-create-hub.preview.emergentagent.com/api. 1) Health check: ✅ Returns 200 OK with healthy status. 2) Basic chat: ✅ Returns proper response (594 chars) and session_id with coachStyle=neutral. 3) CRITICAL - Conversation memory: ✅ PASSED - Two-part test successful: Part 1 with Marcus chest workout profile generated intelligent response, Part 2 follow-up with conversation_history array correctly referenced both 'Marcus' name and 'chest' muscle from memory. Backend logs confirm 'Using frontend conversation history: 2 messages' and proper session continuity. 4) Workout actions: ✅ PASSED - 'Create me a push day workout' correctly returned set_workout action with workout_type='push', title='Push Day', and 6 detailed exercises with sets/reps/weight/target_muscles. Backend logs show 'Parsed 1 workout actions' confirmation. LLM integration (claude-sonnet-4-6) is working perfectly with EMERGENT_LLM_KEY, all responses are intelligent and contextual, conversation memory is functional, and workout action system is operational. AI Coach endpoint is fully production-ready."
+
+  - task: "Training preferences context in AI Coach endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Added trainingStyle, trainingSplit, sport, hybridStyles fields to ChatContext model. Updated get_coach_system_prompt to include training style preferences with detailed coaching instructions per style. Training preferences are now part of the system prompt sent to the AI."
+        - working: true
+        - agent: "testing"
+        - comment: "✅ COMPREHENSIVE TRAINING PREFERENCES TESTING COMPLETE: All 7 test scenarios passed successfully on production URL https://workout-create-hub.preview.emergentagent.com/api. 1) Health check: ✅ Returns 200 OK. 2) Core functionality: ✅ Basic chat, conversation memory, and workout actions all working. 3) BODYBUILDING STYLE: ✅ POST /api/coach/chat with trainingStyle='bodybuilding' returns valid response. 4) SPORT-SPECIFIC STYLE: ✅ Basketball-specific context (sport='basketball') generates appropriate athletic performance response. 5) HYBRID STYLE: ✅ Multiple training styles (bodybuilding + powerlifting + crossfit) correctly generates hybrid rotation week mentioning all three styles. Training preferences integration is fully operational - backend correctly processes trainingStyle, trainingSplit, sport, and hybridStyles context and incorporates them into AI coaching responses. System prompt enhancement with training style instructions (lines 254-306) successfully personalizes coaching based on user preferences."
 
 frontend:
+  - task: "Training Style selection screen"
+    implemented: true
+    working: true
+    file: "app/training-style.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Full UI with 8 training style cards (Bodybuilding, Powerlifting, Calisthenics, Yoga, Pilates, Sport Specific, CrossFit, Hybrid). Expandable details showing rep ranges, focus, coach behavior, best for. Special handling for Sport Specific (text input) and Hybrid (multi-select 2-3 styles). Works in both standalone and onboarding flows."
+
+  - task: "Training Split selection screen"
+    implemented: true
+    working: true
+    file: "app/training-split.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Full UI with 8 split options. Smart recommendations based on user profile (experience, training days). Color-coded days match indicators. Expandable weekly schedules. Tags for AI-powered and beginner-recommended splits."
+
+  - task: "Training Preferences in Profile/Settings tab"
+    implemented: true
+    working: true
+    file: "app/(tabs)/profile.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Added Training Preferences section between Body Composition and Health Integration. Two cards: Training Style and Training Split with current selection display and chevron navigation."
+
+  - task: "Training Preferences in Onboarding flow"
+    implemented: true
+    working: true
+    file: "app/onboarding.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "After onboarding completes, routes to training-style screen (step 1/2) then training-split (step 2/2) before profile-creation animation."
+
+  - task: "Training preferences context sent to backend"
+    implemented: true
+    working: true
+    file: "app/(tabs)/coach.tsx, app/(tabs)/workout.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Both coach.tsx and workout.tsx now send trainingStyle, trainingSplit, sport, hybridStyles in the context object to the backend API."
+
   - task: "Recovery page with SVG body map"
     implemented: true
     working: true
@@ -291,7 +366,7 @@ test_plan:
 
 agent_communication:
     - agent: "main"
-    - message: "Updated AI Coach to support conversation memory and concise responses. Backend now accepts conversation_history array in ChatRequest. Frontend sends last 20 messages with each request and persists session_id. System prompt strengthened for conciseness. Please test: 1) POST /api/coach/chat with conversation_history array works, 2) Responses reference prior conversation context, 3) Responses are concise (2-4 sentences). Test with multi-turn conversation simulating the user asking about a topic and then following up."
+    - message: "PHASE 1 - TRAINING PREFERENCES IMPLEMENTATION COMPLETE: Added trainingStyle, trainingSplit, sport, hybridStyles to ChatContext model in server.py. Updated get_coach_system_prompt to include training style coaching instructions. Please test: 1) POST /api/coach/chat with trainingStyle='bodybuilding' and trainingSplit='push_pull_legs' context — verify the AI response reflects bodybuilding coaching style (mentions hypertrophy, drop sets, etc). 2) Test with trainingStyle='sport_specific' and sport='basketball' — verify sport-specific coaching. 3) Test health check still works."
     - agent: "testing"
     - message: "✅ ALL BACKEND TESTS COMPLETED SUCCESSFULLY. The AI Coach chat endpoint is fully functional with all requested features: (1) Health check works, (2) Basic chat without history works and returns session_id, (3) Conversation memory works perfectly - AI references previous context from conversation_history array, (4) Responses are appropriately concise (56-100 words), (5) Session persistence works correctly. No issues found. Backend API is production-ready."
     - agent: "testing"
@@ -305,4 +380,6 @@ agent_communication:
     - agent: "testing"
     - message: "❌ CRITICAL P0 BLOCKER - LLM AUTHENTICATION FAILURE: Conversation memory testing cannot be completed due to invalid EMERGENT_LLM_KEY. Backend API structure is working correctly (health check ✅, session_id generation ✅, conversation_history processing ✅ - confirmed in logs), but all LLM calls fail with 'AnthropicException: authentication_error, invalid x-api-key'. Backend returns fallback responses which cannot demonstrate conversation memory. This is a production blocker - the AI coach app cannot provide intelligent responses without valid LLM credentials. URGENT ACTION REQUIRED: Main agent must obtain valid EMERGENT_LLM_KEY or alternative LLM configuration to enable proper AI functionality testing."
     - agent: "testing"
-    - message: "✅ COMPREHENSIVE AI COACH PRODUCTION TESTING COMPLETE - CRITICAL LLM ISSUE RESOLVED: Successfully tested all 4 review request scenarios on production URL https://smart-workout-ai-14.preview.emergentagent.com/api. 1) Health check: ✅ Returns 200 OK. 2) Basic chat: ✅ Returns intelligent response (594 chars) and session_id with neutral coach style. 3) CRITICAL - Conversation Memory: ✅ FULLY FUNCTIONAL - Two-part test with Marcus chest workout profile: Part 1 generated contextual response, Part 2 follow-up correctly referenced both 'Marcus' name and 'chest' muscle from conversation_history array. Backend logs confirm proper memory processing. 4) Workout Actions: ✅ OPERATIONAL - 'Create me a push day workout' returned complete set_workout action with 6 exercises including sets/reps/weight/target_muscles. LLM integration (claude-sonnet-4-6) working perfectly with EMERGENT_LLM_KEY. Backend logs show successful LiteLLM calls, action parsing, and conversation history handling. AI Coach endpoint is production-ready with full conversation memory, conciseness, and workout actions functionality."
+    - message: "✅ COMPREHENSIVE AI COACH PRODUCTION TESTING COMPLETE - CRITICAL LLM ISSUE RESOLVED: Successfully tested all 4 review request scenarios on production URL https://workout-create-hub.preview.emergentagent.com/api. 1) Health check: ✅ Returns 200 OK. 2) Basic chat: ✅ Returns intelligent response (594 chars) and session_id with neutral coach style. 3) CRITICAL - Conversation Memory: ✅ FULLY FUNCTIONAL - Two-part test with Marcus chest workout profile: Part 1 generated contextual response, Part 2 follow-up correctly referenced both 'Marcus' name and 'chest' muscle from conversation_history array. Backend logs confirm proper memory processing. 4) Workout Actions: ✅ OPERATIONAL - 'Create me a push day workout' returned complete set_workout action with 6 exercises including sets/reps/weight/target_muscles. LLM integration (claude-sonnet-4-6) working perfectly with EMERGENT_LLM_KEY. Backend logs show successful LiteLLM calls, action parsing, and conversation history handling. AI Coach endpoint is production-ready with full conversation memory, conciseness, and workout actions functionality."
+    - agent: "testing"
+    - message: "✅ TRAINING PREFERENCES INTEGRATION TESTING COMPLETE: All 7 test scenarios passed successfully on production URL https://workout-create-hub.preview.emergentagent.com/api. 1) Health check: ✅ 200 OK. 2) Core functionality: ✅ Basic chat, conversation memory, and workout actions all working. 3) Bodybuilding style: ✅ trainingStyle='bodybuilding' with push_pull_legs split generates valid response for Alex's chest workout. 4) Sport-specific style: ✅ Basketball context (trainingStyle='sport_specific', sport='basketball') generates athletic performance workout for Jordan. 5) Hybrid style: ✅ Multiple training styles (bodybuilding + powerlifting + crossfit) correctly generates comprehensive training week mentioning all three styles for Sam. Training preferences integration is fully operational - backend processes trainingStyle, trainingSplit, sport, and hybridStyles context and incorporates them into system prompt (lines 254-306). AI coaching responses now properly reflect the user's training style preferences. Feature is production-ready."

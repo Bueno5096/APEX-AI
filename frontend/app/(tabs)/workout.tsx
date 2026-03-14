@@ -19,6 +19,7 @@ import { useWorkoutStore } from '../../src/store/workoutStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
 import { ApexBodyMap } from '../../src/components/ApexBodyMap';
 import { useHealthStore } from '../../src/store/healthStore';
+import { useUserStore } from '../../src/store/userStore';
 import { CircularProgress } from '../../src/components/CircularProgress';
 import Constants from 'expo-constants';
 
@@ -50,6 +51,7 @@ const WORKOUT_SUGGESTIONS = [
 export default function WorkoutScreen() {
   const { theme, accentColor, unitSystem } = useThemeStore();
   const { recoveryData } = useHealthStore();
+  const { profile } = useUserStore();
   const router = useRouter();
   const {
     todayWorkout,
@@ -77,7 +79,7 @@ export default function WorkoutScreen() {
   const getBackendUrl = () => {
     const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
       || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || 'https://smart-workout-ai-14.preview.emergentagent.com';
+      || 'https://workout-create-hub.preview.emergentagent.com';
     return backendUrl;
   };
   
@@ -119,6 +121,11 @@ export default function WorkoutScreen() {
             activeWorkout: workoutTitle,
             currentExercise: exerciseName,
             workoutExercises: workoutExercises,
+            userProfile: profile,
+            trainingStyle: profile?.trainingStyle || undefined,
+            trainingSplit: profile?.trainingSplit || undefined,
+            sport: profile?.sport || undefined,
+            hybridStyles: profile?.hybridStyles || undefined,
           },
         }),
       });
