@@ -120,13 +120,23 @@ export default function CoachScreen() {
   const recognitionRef = useRef<any>(null);
   const pendingMessageSent = useRef(false);
 
+  // Stop TTS and speech recognition on unmount to prevent audio bleeding into other screens
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
   // Handle pending coach message from Progress "Deep Dive" button
   useEffect(() => {
     if (pendingCoachMessage && !pendingMessageSent.current) {
       pendingMessageSent.current = true;
       // Small delay to ensure the screen is fully mounted
       const timer = setTimeout(() => {
-        sendMessage(pendingCoachMessage);
+        sendMessage(pendingCoachMessage).catch(e => console.error('Pending message failed:', e));
         setPendingCoachMessage(null);
       }, 500);
       return () => clearTimeout(timer);

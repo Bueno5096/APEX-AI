@@ -651,8 +651,12 @@ async def coach_chat(http_request: Request, body: ChatRequest, current_user: str
                     logger.warning(f"Force actions retry: failed to parse: {parse_error}")
 
         # Store messages in database
-        await db.chat_messages.insert_one(ChatMessage(session_id=session_id, role="user", content=body.message).model_dump())
-        await db.chat_messages.insert_one(ChatMessage(session_id=session_id, role="coach", content=clean_response).model_dump())
+        user_msg = ChatMessage(session_id=session_id, role="user", content=body.message).model_dump()
+        user_msg["user_id"] = current_user
+        coach_msg = ChatMessage(session_id=session_id, role="coach", content=clean_response).model_dump()
+        coach_msg["user_id"] = current_user
+        await db.chat_messages.insert_one(user_msg)
+        await db.chat_messages.insert_one(coach_msg)
 
         logger.info(f"Coach chat completed for session {session_id}")
         return ChatResponse(response=clean_response, session_id=session_id, actions=actions)
@@ -678,7 +682,7 @@ async def coach_chat(http_request: Request, body: ChatRequest, current_user: str
 async def get_chat_history(request: Request, session_id: str, limit: int = 50, current_user: str = Depends(get_current_user)):
     """Get chat history for a session"""
     messages = await db.chat_messages.find(
-        {"session_id": session_id}
+        {"session_id": session_id, "user_id": current_user}
     ).sort("timestamp", 1).limit(limit).to_list(limit)
     return {"session_id": session_id, "messages": messages}
 
@@ -724,6 +728,8 @@ async def update_profile(request: Request, user_id: str, profile_update: Profile
         raise HTTPException(status_code=404, detail="Profile not found")
 
     profile = await db.profiles.find_one({"id": user_id})
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
     return UserProfile(**profile)
 
 # Workout logging endpoints
@@ -769,6 +775,8 @@ async def get_recovery_history(request: Request, user_id: str, limit: int = 30, 
 @limiter.limit("20/minute")
 async def get_analytics(request: Request, user_id: str, days: int = 30, current_user: str = Depends(get_current_user)):
     """Get user analytics for the specified period"""
+    if current_user != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     if not (1 <= days <= 365):
         raise HTTPException(status_code=400, detail="days must be between 1 and 365")
     from_date = datetime.now(timezone.utc) - timedelta(days=days)
