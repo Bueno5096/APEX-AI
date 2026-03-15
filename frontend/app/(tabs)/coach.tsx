@@ -23,7 +23,7 @@ import WorkoutEngine from '../../src/services/WorkoutEngine';
 import { useGoalStore } from '../../src/store/goalStore';
 import { useBodyCompStore } from '../../src/store/bodyCompositionStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
-import Constants from 'expo-constants';
+import { apiFetch } from '../../src/utils/api';
 
 // ─── Category helper functions (same as body-composition screen) ───
 const getBFCategory = (bf: number, gender: string) => {
@@ -146,13 +146,6 @@ export default function CoachScreen() {
     }
   }, [isListening]);
   
-  const getBackendUrl = () => {
-    const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
-      || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || '';
-    return backendUrl;
-  };
-  
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
     
@@ -255,9 +248,8 @@ export default function CoachScreen() {
       const isModificationRequest = modificationKeywords.some(kw => text.toLowerCase().includes(kw));
       const hasActiveWorkout = workoutExercises.length > 0 || (todayWorkout?.title);
 
-      const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
+      const response = await apiFetch('/api/coach/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text.trim(),
           session_id: sessionId,
@@ -304,6 +296,9 @@ export default function CoachScreen() {
         }),
       });
       
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
       const data = await response.json();
       
       // Persist session_id from backend for future messages

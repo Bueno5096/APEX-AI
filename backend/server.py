@@ -1,27 +1,67 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Security, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from jose import JWTError, jwt
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import os
 import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ.get('MONGO_URL')
+if not mongo_url:
+    raise RuntimeError("MONGO_URL environment variable is required but not set")
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'coach_db')]
+
+# LLM configuration constants
+LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'anthropic')
+LLM_MODEL = os.environ.get('LLM_MODEL', 'claude-sonnet-4-6')
+CHAT_MAX_TOKENS = 1024
+WORKOUT_MAX_TOKENS = 2048
+
+# JWT configuration
+JWT_SECRET = os.environ.get('JWT_SECRET_KEY', 'changeme-set-a-strong-secret-in-production')
+JWT_ALGORITHM = 'HS256'
+JWT_EXPIRE_DAYS = 30
+
+_bearer = HTTPBearer(auto_error=False)
+
+def create_token(user_id: str) -> str:
+    expires = datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRE_DAYS)
+    return jwt.encode({'sub': user_id, 'exp': expires}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Security(_bearer)) -> str:
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id: str = payload.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return user_id
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 # LLM Integration
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 # Import models from refactored schemas
+from pydantic import BaseModel
 from models.schemas import (
     StatusCheck, StatusCheckCreate, ChatContext, ConversationMessage,
     ChatRequest, WorkoutAction, ChatResponse, ChatMessage,
@@ -30,6 +70,8 @@ from models.schemas import (
 
 # Create the main app
 app = FastAPI(title="Coach AI Fitness API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -487,7 +529,26 @@ async def root():
 
 @api_router.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+# Auth endpoints
+class RegisterRequest(BaseModel):
+    user_id: str
+    name: str
+
+@api_router.post("/auth/register")
+@limiter.limit("10/minute")
+async def register(request: Request, body: RegisterRequest):
+    """Register a device/user and receive a JWT token. Safe to call multiple times — re-issues token."""
+    existing = await db.auth_users.find_one({"user_id": body.user_id})
+    if not existing:
+        await db.auth_users.insert_one({
+            "user_id": body.user_id,
+            "name": body.name,
+            "created_at": datetime.now(timezone.utc),
+        })
+    token = create_token(body.user_id)
+    return {"token": token, "user_id": body.user_id}
 
 # Status endpoints
 @api_router.post("/status", response_model=StatusCheck)
@@ -504,59 +565,56 @@ async def get_status_checks():
 
 # Coach Chat endpoint
 @api_router.post("/coach/chat", response_model=ChatResponse)
-async def coach_chat(request: ChatRequest):
+@limiter.limit("30/minute")
+async def coach_chat(request: Request, body: ChatRequest, current_user: str = Depends(get_current_user)):
     """Main AI Coach chat endpoint"""
     try:
         # Get or create session ID
-        session_id = request.session_id or str(uuid.uuid4())
-        
+        session_id = body.session_id or str(uuid.uuid4())
+
         # Get coach style from context
-        coach_style = request.context.coachStyle if request.context else "neutral"
-        
+        coach_style = body.context.coachStyle if body.context else "neutral"
+
         # Generate system prompt
-        system_prompt = get_coach_system_prompt(coach_style, request.context)
-        
+        system_prompt = get_coach_system_prompt(coach_style, body.context)
+
         # Get API key
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
             raise HTTPException(status_code=500, detail="LLM API key not configured")
-        
+
         # Build conversation history for LlmChat's initial_messages
         initial_messages = []
-        
-        if request.conversation_history and len(request.conversation_history) > 0:
-            for msg in request.conversation_history[-20:]:
+
+        if body.conversation_history and len(body.conversation_history) > 0:
+            for msg in body.conversation_history[-20:]:
                 role = "user" if msg.role == "user" else "assistant"
                 initial_messages.append({"role": role, "content": msg.content})
-            logger.info(f"Using frontend conversation history: {len(request.conversation_history)} messages")
+            logger.info(f"Using frontend conversation history: {len(body.conversation_history)} messages")
         else:
             # Fallback: Load previous messages from database
             previous_messages = await db.chat_messages.find(
                 {"session_id": session_id}
             ).sort("timestamp", -1).limit(20).to_list(20)
-            
+
             if previous_messages:
                 for msg in reversed(previous_messages):
                     role = "user" if msg['role'] == 'user' else "assistant"
                     initial_messages.append({"role": role, "content": msg['content']})
                 logger.info(f"Using DB conversation history: {len(previous_messages)} messages")
-        
+
         # Create LlmChat instance with conversation history
-        api_key = os.environ.get('EMERGENT_LLM_KEY')
-        if not api_key:
-            raise HTTPException(status_code=500, detail="LLM API key not configured")
-        
         chat = LlmChat(
             api_key=api_key,
             session_id=session_id,
             system_message=system_prompt,
             initial_messages=initial_messages if initial_messages else None,
         )
-        chat = chat.with_model('anthropic', 'claude-sonnet-4-6')
-        chat = chat.with_params(max_tokens=1024)
-        
-        response = await chat.send_message(UserMessage(text=request.message))
-        
+        chat = chat.with_model(LLM_PROVIDER, LLM_MODEL)
+        chat = chat.with_params(max_tokens=CHAT_MAX_TOKENS)
+
+        response = await chat.send_message(UserMessage(text=body.message))
+
         # Parse actions from response if present
         actions = None
         clean_response = response
@@ -572,10 +630,9 @@ async def coach_chat(request: ChatRequest):
             except Exception as parse_error:
                 logger.warning(f"Failed to parse actions: {parse_error}")
                 clean_response = response.replace('[ACTIONS]', '').replace('[/ACTIONS]', '').strip()
-        
-        # FIX 9: If force_actions was requested but no actions were returned,
-        # send a follow-up message to force the AI to produce the action block
-        if request.force_actions and not actions and request.context and request.context.fullWorkoutPlan:
+
+        # If force_actions was requested but no actions were returned, send follow-up
+        if body.force_actions and not actions and body.context and body.context.fullWorkoutPlan:
             logger.info("Force actions requested but none returned - sending follow-up")
             follow_up = (
                 "You forgot to include the [ACTIONS] block. The user's request requires a workout modification. "
@@ -593,85 +650,96 @@ async def coach_chat(request: ChatRequest):
                     logger.info(f"Force actions retry: parsed {len(actions)} workout actions")
                 except Exception as parse_error:
                     logger.warning(f"Force actions retry: failed to parse: {parse_error}")
-        
-        # Store user message in database
-        user_msg = ChatMessage(
-            session_id=session_id,
-            role="user",
-            content=request.message
-        )
-        await db.chat_messages.insert_one(user_msg.model_dump())
-        
-        # Store coach response in database
-        coach_msg = ChatMessage(
-            session_id=session_id,
-            role="coach",
-            content=clean_response
-        )
-        await db.chat_messages.insert_one(coach_msg.model_dump())
-        
+
+        # Store messages in database
+        await db.chat_messages.insert_one(ChatMessage(session_id=session_id, role="user", content=body.message).model_dump())
+        await db.chat_messages.insert_one(ChatMessage(session_id=session_id, role="coach", content=clean_response).model_dump())
+
         logger.info(f"Coach chat completed for session {session_id}")
-        
         return ChatResponse(response=clean_response, session_id=session_id, actions=actions)
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Coach chat error: {str(e)}")
-        # Return a fallback response
         fallback_responses = {
             "neutral": "I'm experiencing a temporary connection issue. Please try again in a moment.",
             "direct": "Connection issue. Retry shortly.",
             "supportive": "I'm having a brief technical hiccup, but don't worry - try again in just a moment!"
         }
-        coach_style = request.context.coachStyle if request.context else "neutral"
+        coach_style = body.context.coachStyle if body.context else "neutral"
         return ChatResponse(
             response=fallback_responses.get(coach_style, fallback_responses["neutral"]),
-            session_id=request.session_id or str(uuid.uuid4())
+            session_id=body.session_id or str(uuid.uuid4())
         )
 
 # Chat history endpoint
 @api_router.get("/coach/history/{session_id}")
-async def get_chat_history(session_id: str, limit: int = 50):
+@limiter.limit("30/minute")
+async def get_chat_history(request: Request, session_id: str, limit: int = 50, current_user: str = Depends(get_current_user)):
     """Get chat history for a session"""
     messages = await db.chat_messages.find(
         {"session_id": session_id}
     ).sort("timestamp", 1).limit(limit).to_list(limit)
-    
     return {"session_id": session_id, "messages": messages}
 
 # User Profile endpoints
 @api_router.post("/profile", response_model=UserProfile)
-async def create_profile(profile: UserProfile):
+@limiter.limit("20/minute")
+async def create_profile(request: Request, profile: UserProfile, current_user: str = Depends(get_current_user)):
     await db.profiles.insert_one(profile.model_dump())
     return profile
 
 @api_router.get("/profile/{user_id}", response_model=UserProfile)
-async def get_profile(user_id: str):
+@limiter.limit("30/minute")
+async def get_profile(request: Request, user_id: str, current_user: str = Depends(get_current_user)):
+    if current_user != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     profile = await db.profiles.find_one({"id": user_id})
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
     return UserProfile(**profile)
 
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    height: Optional[int] = None
+    weight: Optional[float] = None
+    age: Optional[int] = None
+    body_fat: Optional[float] = None
+    training_experience: Optional[str] = None
+    fitness_goals: Optional[List[str]] = None
+
 @api_router.put("/profile/{user_id}", response_model=UserProfile)
-async def update_profile(user_id: str, profile_update: Dict[str, Any]):
-    profile_update["updated_at"] = datetime.utcnow()
+@limiter.limit("20/minute")
+async def update_profile(request: Request, user_id: str, profile_update: ProfileUpdate, current_user: str = Depends(get_current_user)):
+    if current_user != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    update_data = {k: v for k, v in profile_update.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc)
     result = await db.profiles.update_one(
         {"id": user_id},
-        {"$set": profile_update}
+        {"$set": update_data}
     )
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Profile not found")
-    
+
     profile = await db.profiles.find_one({"id": user_id})
     return UserProfile(**profile)
 
 # Workout logging endpoints
 @api_router.post("/workout/log", response_model=WorkoutLog)
-async def log_workout(workout: WorkoutLog):
+@limiter.limit("60/minute")
+async def log_workout(request: Request, workout: WorkoutLog, current_user: str = Depends(get_current_user)):
+    if current_user != workout.user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     await db.workout_logs.insert_one(workout.model_dump())
     return workout
 
 @api_router.get("/workout/history/{user_id}")
-async def get_workout_history(user_id: str, limit: int = 30):
+@limiter.limit("30/minute")
+async def get_workout_history(request: Request, user_id: str, limit: int = 30, current_user: str = Depends(get_current_user)):
+    if current_user != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     workouts = await db.workout_logs.find(
         {"user_id": user_id}
     ).sort("completed_at", -1).limit(limit).to_list(limit)
@@ -679,12 +747,18 @@ async def get_workout_history(user_id: str, limit: int = 30):
 
 # Recovery logging endpoints
 @api_router.post("/recovery/log", response_model=RecoveryLog)
-async def log_recovery(recovery: RecoveryLog):
+@limiter.limit("60/minute")
+async def log_recovery(request: Request, recovery: RecoveryLog, current_user: str = Depends(get_current_user)):
+    if current_user != recovery.user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     await db.recovery_logs.insert_one(recovery.model_dump())
     return recovery
 
 @api_router.get("/recovery/history/{user_id}")
-async def get_recovery_history(user_id: str, limit: int = 30):
+@limiter.limit("30/minute")
+async def get_recovery_history(request: Request, user_id: str, limit: int = 30, current_user: str = Depends(get_current_user)):
+    if current_user != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     logs = await db.recovery_logs.find(
         {"user_id": user_id}
     ).sort("logged_at", -1).limit(limit).to_list(limit)
@@ -692,9 +766,12 @@ async def get_recovery_history(user_id: str, limit: int = 30):
 
 # Analytics endpoints
 @api_router.get("/analytics/{user_id}")
-async def get_analytics(user_id: str, days: int = 30):
+@limiter.limit("20/minute")
+async def get_analytics(request: Request, user_id: str, days: int = 30, current_user: str = Depends(get_current_user)):
     """Get user analytics for the specified period"""
-    from_date = datetime.utcnow() - timedelta(days=days)
+    if not (1 <= days <= 365):
+        raise HTTPException(status_code=400, detail="days must be between 1 and 365")
+    from_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Get workout stats
     workout_count = await db.workout_logs.count_documents({
@@ -710,7 +787,7 @@ async def get_analytics(user_id: str, days: int = 30):
     
     avg_recovery = 0
     if recovery_logs:
-        avg_recovery = sum(log['score'] for log in recovery_logs) / len(recovery_logs)
+        avg_recovery = sum(log.get('score', 0) for log in recovery_logs) / len(recovery_logs)
     
     return {
         "user_id": user_id,
@@ -722,7 +799,8 @@ async def get_analytics(user_id: str, days: int = 30):
 
 # AI Workout Generator endpoint
 @api_router.post("/generate-workout")
-async def generate_workout(request: GenerateWorkoutRequest):
+@limiter.limit("10/minute")
+async def generate_workout(request: Request, body: GenerateWorkoutRequest, current_user: str = Depends(get_current_user)):
     """AI-powered workout generator"""
     try:
         api_key = os.environ.get('EMERGENT_LLM_KEY')
@@ -731,15 +809,15 @@ async def generate_workout(request: GenerateWorkoutRequest):
         
         # Build context
         profile_ctx = ""
-        if request.userProfile:
-            name = request.userProfile.get('name', 'User')
-            exp = request.userProfile.get('trainingExperience', 'intermediate')
-            injuries = request.userProfile.get('injuries', 'None')
+        if body.userProfile:
+            name = body.userProfile.get('name', 'User')
+            exp = body.userProfile.get('trainingExperience', 'intermediate')
+            injuries = body.userProfile.get('injuries', 'None')
             profile_ctx = f"User: {name}, Experience: {exp}, Injuries/Limitations: {injuries}"
         
-        style_ctx = f"Training Style: {request.trainingStyle or 'General'}"
-        if request.sport:
-            style_ctx += f" (Sport: {request.sport})"
+        style_ctx = f"Training Style: {body.trainingStyle or 'General'}"
+        if body.sport:
+            style_ctx += f" (Sport: {body.sport})"
         
         equipment_map = {
             'full_gym': 'Full gym with all equipment (barbells, dumbbells, cables, machines)',
@@ -748,7 +826,7 @@ async def generate_workout(request: GenerateWorkoutRequest):
             'home_gym': 'Home gym (dumbbells, pull-up bar, resistance bands)',
             'barbell_only': 'Barbell and plates only',
         }
-        equipment_desc = equipment_map.get(request.equipment, request.equipment)
+        equipment_desc = equipment_map.get(body.equipment, body.equipment)
         
         # Build strict style enforcement rules for the prompt
         style_rules = {
@@ -783,8 +861,8 @@ async def generate_workout(request: GenerateWorkoutRequest):
 - Rep ranges: 10-20 reps
 - LOW IMPACT ONLY — no jumping, no heavy weights
 - Include breathing pattern cues in every exercise note""",
-            'sport_specific': f"""STRICT STYLE RULES (SPORT SPECIFIC - {request.sport or 'GENERAL'}):
-- All exercises must translate to {request.sport or 'athletic'} performance
+            'sport_specific': f"""STRICT STYLE RULES (SPORT SPECIFIC - {body.sport or 'GENERAL'}):
+- All exercises must translate to {body.sport or 'athletic'} performance
 - Include at least 2 plyometric/explosive movements
 - Include agility or sport-specific movement patterns
 - Power movements: 3-6 reps explosive
@@ -802,15 +880,15 @@ async def generate_workout(request: GenerateWorkoutRequest):
 - Include at least one conditioning element (circuit, AMRAP, or cardio)""",
         }
         
-        style_enforcement = style_rules.get(request.trainingStyle, '') if request.trainingStyle else ''
+        style_enforcement = style_rules.get(body.trainingStyle, '') if body.trainingStyle else ''
         
         prompt = f"""Generate a complete workout plan. Return ONLY valid JSON, no other text.
 
 REQUIREMENTS:
-- Focus muscles: {', '.join(request.focusMuscles) if request.focusMuscles else 'Full body'}
+- Focus muscles: {', '.join(body.focusMuscles) if body.focusMuscles else 'Full body'}
 - Equipment available: {equipment_desc}
-- Target duration: {request.duration} minutes
-- Intensity: {request.intensity}
+- Target duration: {body.duration} minutes
+- Intensity: {body.intensity}
 - {style_ctx}
 - {profile_ctx}
 
@@ -821,8 +899,8 @@ Return this exact JSON structure:
   "title": "Workout name",
   "type": "push/pull/legs/upper/lower/full/cardio",
   "targetMuscles": ["muscle1", "muscle2"],
-  "duration": {request.duration},
-  "intensity": "{request.intensity}",
+  "duration": {body.duration},
+  "intensity": "{body.intensity}",
   "exercises": [
     {{
       "name": "Exercise Name",
@@ -843,8 +921,8 @@ Include 5-8 exercises. STRICTLY follow the style rules above. Be specific with e
             session_id=str(uuid.uuid4()),
             system_message="You are a workout programming expert. Return ONLY valid JSON. No markdown, no explanation, just the JSON object.",
         )
-        chat = chat.with_model('anthropic', 'claude-sonnet-4-6')
-        chat = chat.with_params(max_tokens=2048)
+        chat = chat.with_model(LLM_PROVIDER, LLM_MODEL)
+        chat = chat.with_params(max_tokens=WORKOUT_MAX_TOKENS)
         
         response = await chat.send_message(UserMessage(text=prompt))
         
@@ -875,11 +953,13 @@ Include 5-8 exercises. STRICTLY follow the style rules above. Be specific with e
 # Include the router in the main app
 app.include_router(api_router)
 
-# CORS middleware
+# CORS middleware — restrict allowed origins via ALLOWED_ORIGINS env var in production
+_origins_env = os.environ.get('ALLOWED_ORIGINS', '*')
+ALLOWED_ORIGINS = [o.strip() for o in _origins_env.split(',')] if _origins_env != '*' else ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -887,6 +967,3 @@ app.add_middleware(
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
-
-# Import for analytics
-from datetime import timedelta

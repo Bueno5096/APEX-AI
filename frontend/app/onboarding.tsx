@@ -224,7 +224,7 @@ const ProfileSummary = ({ data, onComplete }: { data: Record<string, any>; onCom
 // ── Main Component ──
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { setProfile, setOnboardingComplete } = useUserStore();
+  const { setProfile, setOnboardingComplete, setAuthToken } = useUserStore();
   const { accentColor, setUnitSystem } = useThemeStore();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -424,9 +424,19 @@ export default function OnboardingScreen() {
 
     await setProfile(profile);
     await setOnboardingComplete(true);
+
+    // Register with backend and store auth token
+    try {
+      const { registerAndGetToken } = await import('../src/utils/api');
+      const token = await registerAndGetToken(profile.id, profile.name);
+      if (token) await setAuthToken(token);
+    } catch (e) {
+      console.error('Auth registration failed (non-blocking):', e);
+    }
+
     // Route to training frequency → style → split before profile creation
     router.replace('/training-frequency?fromOnboarding=true');
-  }, [userData, setProfile, setOnboardingComplete, setUnitSystem, router]);
+  }, [userData, setProfile, setOnboardingComplete, setAuthToken, setUnitSystem, router]);
 
   // ── Loading Screen ──
   if (showLoading) {

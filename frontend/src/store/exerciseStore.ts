@@ -222,8 +222,8 @@ interface ExerciseState {
   savedWorkouts: SavedWorkout[];
   isFetching: boolean;
   loadExercises: () => void;
-  saveWorkout: (workout: SavedWorkout) => void;
-  deleteWorkout: (id: string) => void;
+  saveWorkout: (workout: SavedWorkout) => Promise<void>;
+  deleteWorkout: (id: string) => Promise<void>;
   loadSavedWorkouts: () => Promise<void>;
   resetStore: () => Promise<void>;
 }
@@ -307,20 +307,24 @@ export const useExerciseStore = create<ExerciseState>((set, get) => ({
     set({ exercises: LOCAL_EXERCISES });
   },
 
-  saveWorkout: (workout: SavedWorkout) => {
-    set((state) => {
-      const updated = [workout, ...state.savedWorkouts];
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return { savedWorkouts: updated };
-    });
+  saveWorkout: async (workout: SavedWorkout) => {
+    const updated = [workout, ...useExerciseStore.getState().savedWorkouts.filter(w => w.id !== workout.id)];
+    set({ savedWorkouts: updated });
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error('Error saving workout:', e);
+    }
   },
 
-  deleteWorkout: (id: string) => {
-    set((state) => {
-      const updated = state.savedWorkouts.filter((w) => w.id !== id);
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return { savedWorkouts: updated };
-    });
+  deleteWorkout: async (id: string) => {
+    const updated = useExerciseStore.getState().savedWorkouts.filter((w) => w.id !== id);
+    set({ savedWorkouts: updated });
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error('Error deleting workout:', e);
+    }
   },
 
   loadSavedWorkouts: async () => {

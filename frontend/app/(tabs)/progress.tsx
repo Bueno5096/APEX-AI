@@ -23,7 +23,7 @@ import { useHealthStore } from '../../src/store/healthStore';
 import { useUserStore } from '../../src/store/userStore';
 import { useGoalStore } from '../../src/store/goalStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
-import Constants from 'expo-constants';
+import { apiFetch } from '../../src/utils/api';
 
 // ─── Types ──────────────────────────────────────────────
 type TimePeriod = '7d' | '15d' | '30d' | 'all';
@@ -65,13 +65,6 @@ const MUSCLE_EXERCISE_MAP: { [muscle: string]: string[] } = {
 
 const DEFAULT_SECTION_ORDER: SectionId[] = ['calendar', 'strength', 'records', 'analysis'];
 const SECTION_ORDER_KEY = 'apex_progress_section_order';
-
-// ─── Helper: get backend URL ────────────────────────────
-const getBackendUrl = () => {
-  const extra = Constants.expoConfig?.extra;
-  if (extra?.EXPO_BACKEND_URL) return extra.EXPO_BACKEND_URL;
-  return '';
-};
 
 // ─── Animated Counter ───────────────────────────────────
 const CountUp = ({ target, suffix = '', prefix = '', color, duration = 900 }: {
@@ -346,12 +339,9 @@ Fitness goals: ${goals}
 Muscle readiness: ${recoverySummary}
 Tell me: 1) Which muscle improved most, 2) Which muscle is most undertrained or lagging, 3) Whether I'm overtrained in any area, 4) One specific actionable recommendation. Keep each point to 1-2 sentences. Do NOT include any action blocks.`;
     try {
-      const backendUrl = getBackendUrl();
-      const url = backendUrl ? `${backendUrl}/api/coach/chat` : '/api/coach/chat';
-      console.log(`[APEX] Fetching analysis from: ${url} (attempt ${retryAttempt + 1})`);
-      const response = await fetch(url, {
+      console.log(`[APEX] Fetching analysis (attempt ${retryAttempt + 1})`);
+      const response = await apiFetch('/api/coach/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, context: { coachStyle: 'analytical' } }),
       });
       if (!response.ok) {

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Constants from 'expo-constants';
+import { apiFetch } from '../src/utils/api';
 import { useThemeStore } from '../src/store/themeStore';
 import { useUserStore } from '../src/store/userStore';
 import { getTodaySplitDay } from '../src/utils/trainingHelpers';
@@ -55,13 +55,6 @@ export default function AIGenerateWorkoutScreen() {
       const without = prev.filter((x) => x !== 'Full Body');
       return without.includes(m) ? without.filter((x) => x !== m) : [...without, m];
     });
-  };
-
-  const getBackendUrl = () => {
-    const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL
-      || process.env.EXPO_PUBLIC_BACKEND_URL
-      || '';
-    return backendUrl;
   };
 
   const handleGenerate = async () => {
@@ -108,9 +101,8 @@ export default function AIGenerateWorkoutScreen() {
         } : null,
       };
 
-      const res = await fetch(`${getBackendUrl()}/api/generate-workout`, {
+      const res = await apiFetch('/api/generate-workout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(genParams),
         signal: controller.signal,
       });

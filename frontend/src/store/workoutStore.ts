@@ -815,8 +815,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       console.log(`[WorkoutStore] Saved workout log: ${log.workoutTitle} (${log.totalExercisesCompleted} exercises, ${log.totalSetsCompleted} sets)`);
       
       return {
-        workoutLogs: [log, ...state.workoutLogs],
-        workoutHistory: [historyEntry, ...state.workoutHistory],
+        workoutLogs: [log, ...state.workoutLogs].slice(0, 100),
+        workoutHistory: [historyEntry, ...state.workoutHistory].slice(0, 100),
         // Reset active workout
         activeWorkout: {
           workout: null,
