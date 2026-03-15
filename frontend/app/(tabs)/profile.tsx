@@ -10,6 +10,7 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -155,6 +156,9 @@ export default function ProfileScreen() {
       );
     } catch (err) {
       console.error('[Reset] Error:', err);
+      setIsResetting(false);
+      Alert.alert('Reset Failed', 'Something went wrong. Please try again.');
+      return;
     }
 
     // Show fade-to-black transition

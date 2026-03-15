@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -46,6 +46,21 @@ export default function AIGenerateWorkoutScreen() {
   const [loadingPhase, setLoadingPhase] = useState('');
   const [showCancel, setShowCancel] = useState(false);
 
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  // Clean up all timers and pending requests on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (controllerRef.current) controllerRef.current.abort();
+    };
+  }, []);
+
   const toggleMuscle = (m: string) => {
     if (m === 'Full Body') {
       setFocusMuscles(focusMuscles.includes('Full Body') ? [] : ['Full Body']);
@@ -74,16 +89,17 @@ export default function AIGenerateWorkoutScreen() {
     ];
     let phaseIdx = 0;
     setLoadingPhase(phases[0]);
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       phaseIdx = (phaseIdx + 1) % phases.length;
       setLoadingPhase(phases[phaseIdx]);
     }, 1500);
-    
+
     // Show cancel button after 10 seconds
-    const cancelTimer = setTimeout(() => setShowCancel(true), 10000);
+    cancelTimerRef.current = setTimeout(() => setShowCancel(true), 10000);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    controllerRef.current = controller;
+    timeoutRef.current = setTimeout(() => controller.abort(), 30000);
 
     try {
       const genParams = {
@@ -107,9 +123,9 @@ export default function AIGenerateWorkoutScreen() {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-      clearInterval(interval);
-      clearTimeout(cancelTimer);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current);
 
       if (!res.ok) throw new Error('Failed to generate workout');
       const data = await res.json();
@@ -129,9 +145,9 @@ export default function AIGenerateWorkoutScreen() {
         },
       });
     } catch (err) {
-      clearTimeout(timeoutId);
-      clearInterval(interval);
-      clearTimeout(cancelTimer);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current);
       setIsGenerating(false);
       if (err.name === 'AbortError') {
         Alert.alert('Timeout', 'Generation is taking longer than expected. Please try again.');

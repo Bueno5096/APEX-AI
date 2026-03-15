@@ -8,6 +8,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import os
+import json
 import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -619,11 +620,10 @@ async def coach_chat(http_request: Request, body: ChatRequest, current_user: str
         clean_response = response
         if '[ACTIONS]' in response and '[/ACTIONS]' in response:
             try:
-                import json as json_module
                 action_start = response.index('[ACTIONS]') + len('[ACTIONS]')
                 action_end = response.index('[/ACTIONS]')
                 action_json = response[action_start:action_end].strip()
-                actions = json_module.loads(action_json)
+                actions = json.loads(action_json)
                 clean_response = response[:response.index('[ACTIONS]')].strip()
                 logger.info(f"Parsed {len(actions)} workout actions")
             except Exception as parse_error:
@@ -641,11 +641,10 @@ async def coach_chat(http_request: Request, body: ChatRequest, current_user: str
             follow_up_response = await chat.send_message(UserMessage(text=follow_up))
             if '[ACTIONS]' in follow_up_response and '[/ACTIONS]' in follow_up_response:
                 try:
-                    import json as json_module
                     action_start = follow_up_response.index('[ACTIONS]') + len('[ACTIONS]')
                     action_end = follow_up_response.index('[/ACTIONS]')
                     action_json = follow_up_response[action_start:action_end].strip()
-                    actions = json_module.loads(action_json)
+                    actions = json.loads(action_json)
                     logger.info(f"Force actions retry: parsed {len(actions)} workout actions")
                 except Exception as parse_error:
                     logger.warning(f"Force actions retry: failed to parse: {parse_error}")
@@ -935,15 +934,14 @@ Include 5-8 exercises. STRICTLY follow the style rules above. Be specific with e
         response = await chat.send_message(UserMessage(text=prompt))
         
         # Parse JSON from response
-        import json as json_module
         # Try to extract JSON from the response
         clean = response.strip()
         if clean.startswith('```'):
             # Remove markdown code fences
             lines = clean.split('\n')
             clean = '\n'.join(lines[1:-1] if lines[-1].strip() == '```' else lines[1:])
-        
-        workout_data = json_module.loads(clean)
+
+        workout_data = json.loads(clean)
         
         # Add IDs to exercises
         for i, ex in enumerate(workout_data.get('exercises', [])):
@@ -956,7 +954,7 @@ Include 5-8 exercises. STRICTLY follow the style rules above. Be specific with e
         
     except Exception as e:
         logger.error(f"Workout generation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate workout: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate workout. Please try again.")
 
 # Include the router in the main app
 app.include_router(api_router)

@@ -157,9 +157,14 @@ export default function RecoveryScreen() {
   
   useEffect(() => {
     const init = async () => {
-      await loadState();
-      await fetchHealthData();
-      setIsInitialized(true);
+      try {
+        await loadState();
+        await fetchHealthData();
+      } catch (e) {
+        console.error('Recovery init failed:', e);
+      } finally {
+        setIsInitialized(true);
+      }
     };
     init();
   }, []);
