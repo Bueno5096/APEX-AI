@@ -297,9 +297,8 @@ THEIR GOALS:
     # Split day context
     split_day_block = ''
     if context and context.trainingSplit and training_days_list:
-        import datetime as dt
         day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        today = day_names[dt.datetime.now().weekday()]
+        today = day_names[datetime.now(timezone.utc).weekday()]
         is_training_today = today in training_days_list
         
         if is_training_today:
@@ -687,7 +686,8 @@ async def get_chat_history(request: Request, session_id: str, limit: int = 50, c
 @api_router.post("/profile", response_model=UserProfile)
 @limiter.limit("20/minute")
 async def create_profile(request: Request, profile: UserProfile, current_user: str = Depends(get_current_user)):
-    await db.profiles.insert_one(profile.model_dump())
+    profile.id = current_user  # enforce ownership — stored id always matches authenticated user
+    await db.profiles.replace_one({"id": current_user}, profile.model_dump(), upsert=True)
     return profile
 
 @api_router.get("/profile/{user_id}", response_model=UserProfile)

@@ -44,9 +44,9 @@ interface UserState {
   isLoaded: boolean;
   pendingCoachMessage: string | null;
   authToken: string | null;
-  setProfile: (profile: UserProfile) => void;
-  setGender: (gender: Gender) => void;
-  updateSettings: (settings: Partial<UserSettings>) => void;
+  setProfile: (profile: UserProfile) => Promise<void>;
+  setGender: (gender: Gender) => Promise<void>;
+  updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   setOnboardingComplete: (complete: boolean) => void;
   setPendingCoachMessage: (message: string | null) => void;
   setAuthToken: (token: string) => Promise<void>;

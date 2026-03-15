@@ -41,8 +41,8 @@ interface GoalState {
   hasActiveGoalLayeringPlan: boolean;
   generatedPlan: GeneratedPlan | null;
   coachSuggestionDismissed: boolean;
-  setSecondaryGoal: (goal: SecondaryGoal) => void;
-  setGeneratedPlan: (plan: GeneratedPlan) => void;
+  setSecondaryGoal: (goal: SecondaryGoal) => Promise<void>;
+  setGeneratedPlan: (plan: GeneratedPlan) => Promise<void>;
   clearSecondaryGoal: () => void;
   dismissCoachSuggestion: () => void;
   resetCoachSuggestion: () => void;

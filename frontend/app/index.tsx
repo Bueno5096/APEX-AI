@@ -11,8 +11,13 @@ export default function Index() {
 
   useEffect(() => {
     const init = async () => {
-      await Promise.all([loadUser(), loadTheme()]);
-      setReady(true);
+      try {
+        await Promise.all([loadUser(), loadTheme()]);
+      } catch (e) {
+        console.error('App init failed:', e);
+      } finally {
+        setReady(true);
+      }
     };
     init();
   }, []);
