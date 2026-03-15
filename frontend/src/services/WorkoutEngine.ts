@@ -1,4 +1,31 @@
-import { useWorkoutStore } from '../store/workoutStore';
+import { useWorkoutStore, Workout, Exercise } from '../store/workoutStore';
+
+interface NewExerciseInput {
+  name?: string;
+  targetMuscles?: string[];
+  target_muscles?: string[];
+  sets?: number;
+  reps?: string | number;
+  weight?: number;
+  primaryMuscle?: string;
+  previousPerformance?: Exercise['previousPerformance'];
+}
+
+interface CoachAction {
+  type: string;
+  exercise_name?: string;
+  new_exercise_name?: string;
+  new_sets?: number;
+  new_reps?: string;
+  new_weight?: number;
+  target_muscles?: string[];
+  new_rest_seconds?: number;
+  workout?: Workout;
+  exercise?: NewExerciseInput;
+  position?: string;
+  weight?: number;
+  operation?: string;
+}
 
 let _idCounter = 0;
 function generateId(): string {
@@ -15,30 +42,30 @@ function generateId(): string {
 class WorkoutEngine {
 
   /** Normalize any workout-like object into a valid Workout for the store */
-  static normalizeWorkout(workout: any) {
+  static normalizeWorkout(workout: Partial<Workout> & { name?: string; estimatedDuration?: number }): Workout {
     return {
       id: workout.id || `wk_${generateId()}`,
       title: workout.title || workout.name || 'Today\'s Workout',
-      type: workout.type || 'full' as const,
+      type: workout.type || 'full',
       duration: workout.duration || workout.estimatedDuration || 45,
-      intensity: workout.intensity || 'moderate' as const,
+      intensity: workout.intensity || 'moderate',
       targetMuscles: workout.targetMuscles || [],
-      exercises: (workout.exercises || []).map((ex: any, index: number) => ({
+      exercises: (workout.exercises || []).map((ex, index) => ({
         id: ex.id || `ex_${generateId()}_${index}`,
         name: ex.name || `Exercise ${index + 1}`,
-        targetMuscles: ex.targetMuscles || ex.primaryMuscle ? [ex.primaryMuscle] : ['General'],
+        targetMuscles: ex.targetMuscles?.length ? ex.targetMuscles : ['General'],
         sets: typeof ex.sets === 'number' ? ex.sets : 3,
         reps: ex.reps ? String(ex.reps) : '10',
         weight: typeof ex.weight === 'number' ? ex.weight : undefined,
         isCompleted: false,
         completedSets: 0,
-        previousPerformance: ex.previousPerformance || undefined,
+        previousPerformance: ex.previousPerformance,
       })),
     };
   }
 
   /** SET a workout as today's workout (pre-workout view). Navigating to workout tab will show it. */
-  static setTodayWorkout(workout: any): any {
+  static setTodayWorkout(workout: Partial<Workout> & { name?: string; estimatedDuration?: number }): Workout {
     try {
       console.log('WorkoutEngine: Setting today workout:', workout?.title || workout?.name);
       const normalized = WorkoutEngine.normalizeWorkout(workout);
@@ -58,7 +85,7 @@ class WorkoutEngine {
   }
 
   /** START the workout immediately (sets it as active with timer running) */
-  static startWorkoutDirect(workout: any): any {
+  static startWorkoutDirect(workout: Partial<Workout> & { name?: string; estimatedDuration?: number }): Workout {
     try {
       console.log('WorkoutEngine: Starting workout directly:', workout?.title || workout?.name);
       const normalized = WorkoutEngine.normalizeWorkout(workout);
@@ -77,7 +104,7 @@ class WorkoutEngine {
   }
 
   /** START today's workout (transition from pre-workout to active) */
-  static startTodayWorkout(): any {
+  static startTodayWorkout(): Workout {
     try {
       const todayWorkout = useWorkoutStore.getState().todayWorkout;
       if (!todayWorkout) throw new Error('No today workout to start — call setTodayWorkout first');
@@ -91,7 +118,7 @@ class WorkoutEngine {
   }
 
   /** REPLACE one exercise by name with a new exercise at the same position */
-  static replaceExercise(oldExerciseName: string, newExercise: any): any {
+  static replaceExercise(oldExerciseName: string, newExercise: NewExerciseInput): { success: boolean; oldExercise: string; newExercise: string; position: number } {
     try {
       const state = useWorkoutStore.getState();
       const workout = state.activeWorkout.workout || state.todayWorkout;
@@ -137,7 +164,7 @@ class WorkoutEngine {
   }
 
   /** UPDATE weight for a specific exercise */
-  static updateExerciseWeight(exerciseName: string, newWeight: number, operation: string = 'set'): any {
+  static updateExerciseWeight(exerciseName: string, newWeight: number, operation: string = 'set'): { success: boolean; exerciseName: string; oldWeight: number; newWeight: number } {
     try {
       const state = useWorkoutStore.getState();
       const workout = state.activeWorkout.workout || state.todayWorkout;
@@ -257,7 +284,7 @@ class WorkoutEngine {
   }
 
   /** Execute an action from the Coach AI backend */
-  static executeAction(action: any): any {
+  static executeAction(action: CoachAction): unknown {
     switch (action.type) {
       case 'swap_exercise':
         return WorkoutEngine.replaceExercise(action.exercise_name, {
@@ -302,8 +329,8 @@ class WorkoutEngine {
   }
 
   /** Execute all actions from a Coach response and return results */
-  static executeAllActions(actions: any[]): any[] {
-    const results: any[] = [];
+  static executeAllActions(actions: CoachAction[]): { action: CoachAction; result?: unknown; error?: string; success: boolean }[] {
+    const results: { action: CoachAction; result?: unknown; error?: string; success: boolean }[] = [];
     for (const action of actions) {
       try {
         const result = WorkoutEngine.executeAction(action);
@@ -318,7 +345,7 @@ class WorkoutEngine {
   }
 
   /** Get a description string for a completed action */
-  static getActionDescription(action: any): string {
+  static getActionDescription(action: CoachAction): string {
     switch (action.type) {
       case 'swap_exercise':
         return `✓ Replaced "${action.exercise_name}" → "${action.new_exercise_name}"`;

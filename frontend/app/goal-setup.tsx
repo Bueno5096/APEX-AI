@@ -21,13 +21,7 @@ import { useWorkoutStore } from '../src/store/workoutStore';
 import { useHealthStore } from '../src/store/healthStore';
 import { kgToLbs } from '../src/store/bodyCompositionStore';
 import { MetallicCard } from '../src/components/MetallicCard';
-import Constants from 'expo-constants';
-
-const getBackendUrl = () => {
-  const extra = Constants.expoConfig?.extra;
-  if (extra?.EXPO_BACKEND_URL) return extra.EXPO_BACKEND_URL;
-  return '';
-};
+import { apiFetch } from '../src/utils/api';
 
 type GoalType = 'reduce_bodyfat' | 'build_muscle' | 'increase_frequency' | 'maintain_health';
 type Timeframe = '6w' | '3m' | '6m' | '1y' | 'custom';
@@ -180,11 +174,13 @@ RESPOND ONLY WITH VALID JSON (no markdown, no explanation) in this exact format:
 KEEP ALL ADVICE PURELY PHYSICAL TRAINING. NO NUTRITION OR DIET ADVICE. Respond ONLY with the JSON object.`;
 
     try {
-      const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
+      const response = await apiFetch('/api/coach/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: prompt }),
       });
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
       const data = await response.json();
 
       let plan: GeneratedPlan;

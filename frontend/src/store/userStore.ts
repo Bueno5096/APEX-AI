@@ -43,11 +43,13 @@ interface UserState {
   onboardingComplete: boolean;
   isLoaded: boolean;
   pendingCoachMessage: string | null;
+  authToken: string | null;
   setProfile: (profile: UserProfile) => void;
   setGender: (gender: Gender) => void;
   updateSettings: (settings: Partial<UserSettings>) => void;
   setOnboardingComplete: (complete: boolean) => void;
   setPendingCoachMessage: (message: string | null) => void;
+  setAuthToken: (token: string) => Promise<void>;
   loadUser: () => Promise<void>;
   resetStore: () => Promise<void>;
 }
@@ -83,6 +85,7 @@ export const useUserStore = create<UserState>((set) => ({
   onboardingComplete: false,
   isLoaded: false,
   pendingCoachMessage: null,
+  authToken: null,
   
   setProfile: async (profile: UserProfile) => {
     set({ profile, gender: profile.gender });
@@ -126,6 +129,15 @@ export const useUserStore = create<UserState>((set) => ({
   setPendingCoachMessage: (message: string | null) => {
     set({ pendingCoachMessage: message });
   },
+
+  setAuthToken: async (token: string) => {
+    set({ authToken: token });
+    try {
+      await AsyncStorage.setItem('apex_auth_token', token);
+    } catch (error) {
+      console.error('Error saving auth token:', error);
+    }
+  },
   
   loadUser: async () => {
     try {
@@ -133,6 +145,7 @@ export const useUserStore = create<UserState>((set) => ({
       const savedSettings = await AsyncStorage.getItem('coach_settings');
       const savedGender = await AsyncStorage.getItem('coach_gender');
       const savedOnboarding = await AsyncStorage.getItem('apex_onboarding_complete');
+      const savedToken = await AsyncStorage.getItem('apex_auth_token');
       
       const updates: Partial<UserState> = { isLoaded: true };
 
@@ -154,6 +167,10 @@ export const useUserStore = create<UserState>((set) => ({
         updates.onboardingComplete = true;
       }
 
+      if (savedToken) {
+        updates.authToken = savedToken;
+      }
+
       set(updates);
     } catch (error) {
       console.error('Error loading user:', error);
@@ -163,7 +180,7 @@ export const useUserStore = create<UserState>((set) => ({
   
   resetStore: async () => {
     await AsyncStorage.multiRemove([
-      'coach_profile', 'coach_settings', 'coach_gender', 'apex_onboarding_complete',
+      'coach_profile', 'coach_settings', 'coach_gender', 'apex_onboarding_complete', 'apex_auth_token',
     ]);
     set({
       profile: null,
@@ -172,6 +189,7 @@ export const useUserStore = create<UserState>((set) => ({
       onboardingComplete: false,
       isLoaded: true,
       pendingCoachMessage: null,
+      authToken: null,
     });
   },
 }));

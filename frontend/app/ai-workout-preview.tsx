@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Constants from 'expo-constants';
+import { apiFetch } from '../src/utils/api';
 import { useThemeStore } from '../src/store/themeStore';
 import { useUserStore } from '../src/store/userStore';
 import { useExerciseStore } from '../src/store/exerciseStore';
@@ -69,12 +69,6 @@ export default function AIWorkoutPreviewScreen() {
       </SafeAreaView>
     );
   }
-
-  const getBackendUrl = () => {
-    return Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL
-      || process.env.EXPO_PUBLIC_BACKEND_URL
-      || '';
-  };
 
   // Apply actions from coach to the workout
   const applyActionsToWorkout = (actions: any[]) => {
@@ -154,9 +148,8 @@ export default function AIWorkoutPreviewScreen() {
         content: msg.content,
       }));
 
-      const res = await fetch(`${getBackendUrl()}/api/coach/chat`, {
+      const res = await apiFetch('/api/coach/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text.trim(),
           session_id: refineSessionId,
@@ -173,6 +166,9 @@ export default function AIWorkoutPreviewScreen() {
         }),
       });
 
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
       const data = await res.json();
 
       if (data.session_id && !refineSessionId) {

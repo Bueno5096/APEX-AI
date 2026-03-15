@@ -23,8 +23,8 @@ import { useHealthStore } from '../../src/store/healthStore';
 import { useUserStore } from '../../src/store/userStore';
 import { getTodaySplitDay, getGreeting } from '../../src/utils/trainingHelpers';
 import { CircularProgress } from '../../src/components/CircularProgress';
-import Constants from 'expo-constants';
 import WorkoutEngine from '../../src/services/WorkoutEngine';
+import { apiFetch } from '../../src/utils/api';
 
 // Weight display helper
 const displayWeight = (kg: number | undefined, isImperial: boolean): string => {
@@ -85,13 +85,6 @@ export default function WorkoutScreen() {
     loadSavedWorkouts();
   }, []);
   
-  const getBackendUrl = () => {
-    const backendUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL 
-      || process.env.EXPO_PUBLIC_BACKEND_URL 
-      || '';
-    return backendUrl;
-  };
-  
   const sendCoachMessage = async (text: string) => {
     if (!text.trim() || isChatLoading) return;
     
@@ -128,9 +121,8 @@ export default function WorkoutScreen() {
     setIsChatLoading(true);
     
     try {
-      const response = await fetch(`${getBackendUrl()}/api/coach/chat`, {
+      const response = await apiFetch('/api/coach/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text.trim(),
           force_actions: isModification && hasWorkout,
@@ -150,7 +142,9 @@ export default function WorkoutScreen() {
           },
         }),
       });
-      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
       const data = await response.json();
       const coachMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),

@@ -30,13 +30,7 @@ import {
   ActivityLevel,
 } from '../src/store/bodyCompositionStore';
 import { MetallicCard } from '../src/components/MetallicCard';
-import Constants from 'expo-constants';
-
-const getBackendUrl = () => {
-  const extra = Constants.expoConfig?.extra;
-  if (extra?.EXPO_BACKEND_URL) return extra.EXPO_BACKEND_URL;
-  return '';
-};
+import { apiFetch } from '../src/utils/api';
 
 // ─── Input Field Component (MUST be outside main component to prevent keyboard dismissal) ───
 const InputField = React.memo(({ label, value, onChangeText, placeholder, infoText, show = true, tooltipField, setTooltipField, theme }: {
@@ -334,11 +328,13 @@ export default function BodyCompositionScreen() {
     const primaryGoal = profile?.fitnessGoals?.[0] || 'Build Muscle';
     const prompt = `The user just calculated their body composition. Results: ${r.bodyFatPercent}% body fat (${gender}), FFMI ${r.ffmi}, BMI ${r.bmi}. Their primary goal is "${primaryGoal}". Based on these results, suggest ONE specific secondary training goal that would complement their primary goal. Be concise (2-3 sentences). Do NOT include action blocks. Keep advice purely physical training only — no nutrition or diet advice.`;
     try {
-      const resp = await fetch(`${getBackendUrl()}/api/coach/chat`, {
+      const resp = await apiFetch('/api/coach/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: prompt }),
       });
+      if (!resp.ok) {
+        throw new Error(`Server error: ${resp.status}`);
+      }
       const data = await resp.json();
       setCoachMessage(data.response || null);
     } catch {
