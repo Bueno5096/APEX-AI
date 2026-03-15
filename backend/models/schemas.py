@@ -1,7 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # ============ Models ============
@@ -9,7 +9,7 @@ from datetime import datetime
 class StatusCheck(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class StatusCheckCreate(BaseModel):
     client_name: str
@@ -73,7 +73,7 @@ class ChatMessage(BaseModel):
     session_id: str
     role: str  # 'user' or 'coach'
     content: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserProfile(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -84,8 +84,8 @@ class UserProfile(BaseModel):
     body_fat: Optional[float] = None
     training_experience: str  # beginner, intermediate, advanced
     fitness_goals: List[str] = []
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class WorkoutLog(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -95,18 +95,18 @@ class WorkoutLog(BaseModel):
     duration_minutes: int
     intensity: str
     notes: Optional[str] = None
-    completed_at: datetime = Field(default_factory=datetime.utcnow)
+    completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class RecoveryLog(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str
-    score: int
-    sleep_duration: float
-    sleep_score: int
-    hrv: int
-    resting_heart_rate: int
-    steps: int
-    logged_at: datetime = Field(default_factory=datetime.utcnow)
+    score: int = Field(ge=0, le=100)
+    sleep_duration: float = Field(ge=0, le=24)
+    sleep_score: int = Field(ge=0, le=100)
+    hrv: int = Field(ge=0, le=500)
+    resting_heart_rate: int = Field(ge=20, le=250)
+    steps: int = Field(ge=0, le=100000)
+    logged_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class GenerateWorkoutRequest(BaseModel):
     focusMuscles: List[str] = []

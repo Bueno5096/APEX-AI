@@ -113,7 +113,7 @@ export const useGoalStore = create<GoalState>((set, get) => ({
         });
       }
     } catch (e) {
-      console.log('Error loading goals:', e);
+      console.error('Error loading goals:', e);
     }
   },
   

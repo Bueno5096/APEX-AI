@@ -7,16 +7,24 @@ import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ.get('MONGO_URL')
+if not mongo_url:
+    raise RuntimeError("MONGO_URL environment variable is required but not set")
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'coach_db')]
+
+# LLM configuration constants
+LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'anthropic')
+LLM_MODEL = os.environ.get('LLM_MODEL', 'claude-sonnet-4-6')
+CHAT_MAX_TOKENS = 1024
+WORKOUT_MAX_TOKENS = 2048
 
 # LLM Integration
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -487,7 +495,7 @@ async def root():
 
 @api_router.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 # Status endpoints
 @api_router.post("/status", response_model=StatusCheck)
@@ -520,10 +528,10 @@ async def coach_chat(request: ChatRequest):
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
             raise HTTPException(status_code=500, detail="LLM API key not configured")
-        
+
         # Build conversation history for LlmChat's initial_messages
         initial_messages = []
-        
+
         if request.conversation_history and len(request.conversation_history) > 0:
             for msg in request.conversation_history[-20:]:
                 role = "user" if msg.role == "user" else "assistant"
@@ -534,26 +542,22 @@ async def coach_chat(request: ChatRequest):
             previous_messages = await db.chat_messages.find(
                 {"session_id": session_id}
             ).sort("timestamp", -1).limit(20).to_list(20)
-            
+
             if previous_messages:
                 for msg in reversed(previous_messages):
                     role = "user" if msg['role'] == 'user' else "assistant"
                     initial_messages.append({"role": role, "content": msg['content']})
                 logger.info(f"Using DB conversation history: {len(previous_messages)} messages")
-        
+
         # Create LlmChat instance with conversation history
-        api_key = os.environ.get('EMERGENT_LLM_KEY')
-        if not api_key:
-            raise HTTPException(status_code=500, detail="LLM API key not configured")
-        
         chat = LlmChat(
             api_key=api_key,
             session_id=session_id,
             system_message=system_prompt,
             initial_messages=initial_messages if initial_messages else None,
         )
-        chat = chat.with_model('anthropic', 'claude-sonnet-4-6')
-        chat = chat.with_params(max_tokens=1024)
+        chat = chat.with_model(LLM_PROVIDER, LLM_MODEL)
+        chat = chat.with_params(max_tokens=CHAT_MAX_TOKENS)
         
         response = await chat.send_message(UserMessage(text=request.message))
         
@@ -651,16 +655,26 @@ async def get_profile(user_id: str):
         raise HTTPException(status_code=404, detail="Profile not found")
     return UserProfile(**profile)
 
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    height: Optional[int] = None
+    weight: Optional[float] = None
+    age: Optional[int] = None
+    body_fat: Optional[float] = None
+    training_experience: Optional[str] = None
+    fitness_goals: Optional[List[str]] = None
+
 @api_router.put("/profile/{user_id}", response_model=UserProfile)
-async def update_profile(user_id: str, profile_update: Dict[str, Any]):
-    profile_update["updated_at"] = datetime.utcnow()
+async def update_profile(user_id: str, profile_update: ProfileUpdate):
+    update_data = {k: v for k, v in profile_update.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc)
     result = await db.profiles.update_one(
         {"id": user_id},
-        {"$set": profile_update}
+        {"$set": update_data}
     )
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Profile not found")
-    
+
     profile = await db.profiles.find_one({"id": user_id})
     return UserProfile(**profile)
 
@@ -694,7 +708,9 @@ async def get_recovery_history(user_id: str, limit: int = 30):
 @api_router.get("/analytics/{user_id}")
 async def get_analytics(user_id: str, days: int = 30):
     """Get user analytics for the specified period"""
-    from_date = datetime.utcnow() - timedelta(days=days)
+    if not (1 <= days <= 365):
+        raise HTTPException(status_code=400, detail="days must be between 1 and 365")
+    from_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Get workout stats
     workout_count = await db.workout_logs.count_documents({
@@ -710,7 +726,7 @@ async def get_analytics(user_id: str, days: int = 30):
     
     avg_recovery = 0
     if recovery_logs:
-        avg_recovery = sum(log['score'] for log in recovery_logs) / len(recovery_logs)
+        avg_recovery = sum(log.get('score', 0) for log in recovery_logs) / len(recovery_logs)
     
     return {
         "user_id": user_id,
@@ -843,8 +859,8 @@ Include 5-8 exercises. STRICTLY follow the style rules above. Be specific with e
             session_id=str(uuid.uuid4()),
             system_message="You are a workout programming expert. Return ONLY valid JSON. No markdown, no explanation, just the JSON object.",
         )
-        chat = chat.with_model('anthropic', 'claude-sonnet-4-6')
-        chat = chat.with_params(max_tokens=2048)
+        chat = chat.with_model(LLM_PROVIDER, LLM_MODEL)
+        chat = chat.with_params(max_tokens=WORKOUT_MAX_TOKENS)
         
         response = await chat.send_message(UserMessage(text=prompt))
         
@@ -875,11 +891,13 @@ Include 5-8 exercises. STRICTLY follow the style rules above. Be specific with e
 # Include the router in the main app
 app.include_router(api_router)
 
-# CORS middleware
+# CORS middleware — restrict allowed origins via ALLOWED_ORIGINS env var in production
+_origins_env = os.environ.get('ALLOWED_ORIGINS', '*')
+ALLOWED_ORIGINS = [o.strip() for o in _origins_env.split(',')] if _origins_env != '*' else ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -887,6 +905,3 @@ app.add_middleware(
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
-
-# Import for analytics
-from datetime import timedelta

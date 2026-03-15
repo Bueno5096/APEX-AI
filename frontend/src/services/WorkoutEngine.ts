@@ -1,7 +1,11 @@
 import { useWorkoutStore } from '../store/workoutStore';
 
+let _idCounter = 0;
 function generateId(): string {
-  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+  const counter = (++_idCounter).toString(36).padStart(4, '0');
+  const timestamp = Date.now().toString(36);
+  const random = Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0');
+  return `${timestamp}${random}${counter}`;
 }
 
 /**
@@ -61,7 +65,7 @@ class WorkoutEngine {
       useWorkoutStore.getState().setActiveWorkoutDirect(normalized);
       
       const saved = useWorkoutStore.getState().activeWorkout;
-      if (!saved.workout || saved.workout.id !== normalized.id) {
+      if (!saved || !saved.workout || saved.workout.id !== normalized.id) {
         throw new Error('Workout was not activated in store correctly');
       }
       console.log(`WorkoutEngine: ✅ Workout started: "${normalized.title}" with ${normalized.exercises.length} exercises`);

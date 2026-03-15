@@ -122,18 +122,21 @@ export const useHealthStore = create<HealthState>((set) => ({
   
   fetchHealthData: async () => {
     set({ isLoading: true });
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // In production, this would connect to Health Connect / HealthKit
+
+    // Simulate API delay in dev only — remove when integrating Health Connect / HealthKit
+    if (__DEV__) {
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+
     const data = generateSimulatedData();
     set({ recoveryData: data, isLoading: false });
   },
-  
+
   refreshData: async () => {
     set({ isLoading: true });
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (__DEV__) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
     const data = generateSimulatedData();
     set({ recoveryData: data, isLoading: false });
   },

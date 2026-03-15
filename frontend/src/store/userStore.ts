@@ -86,8 +86,12 @@ export const useUserStore = create<UserState>((set) => ({
   
   setProfile: async (profile: UserProfile) => {
     set({ profile, gender: profile.gender });
-    await AsyncStorage.setItem('coach_profile', JSON.stringify(profile));
-    await AsyncStorage.setItem('coach_gender', profile.gender);
+    try {
+      await AsyncStorage.setItem('coach_profile', JSON.stringify(profile));
+      await AsyncStorage.setItem('coach_gender', profile.gender);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+    }
   },
   
   setGender: async (gender: Gender) => {
@@ -137,7 +141,7 @@ export const useUserStore = create<UserState>((set) => ({
         updates.settings = JSON.parse(savedSettings);
       }
       
-      if (savedGender) {
+      if (savedGender && (savedGender === 'male' || savedGender === 'female')) {
         updates.gender = savedGender as Gender;
       }
 
@@ -147,7 +151,7 @@ export const useUserStore = create<UserState>((set) => ({
 
       set(updates);
     } catch (error) {
-      console.log('Error loading user:', error);
+      console.error('Error loading user:', error);
       set({ isLoaded: true });
     }
   },
