@@ -289,6 +289,9 @@ interface WorkoutState {
   
   loadTodayWorkout: () => void;
   setTodayWorkoutByType: (type: string, title: string) => void;
+  setTodayWorkoutDirect: (workout: Workout) => void;
+  setActiveWorkoutDirect: (workout: Workout) => void;
+  clearActiveWorkout: () => void;
   startWorkout: () => void;
   endWorkout: () => void;
   completeSet: (exerciseId: string) => void;
@@ -471,6 +474,41 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       console.log(`[WorkoutStore] Unknown workout type: "${type}" (normalized: "${normalizedType}"), falling back to Push Day`);
       set({ todayWorkout: generateTodayWorkout() });
     }
+  },
+
+  // Set any arbitrary workout directly as today's workout
+  setTodayWorkoutDirect: (workout: Workout) => {
+    console.log(`[WorkoutStore] setTodayWorkoutDirect: "${workout.title}" with ${workout.exercises.length} exercises`);
+    set({ todayWorkout: workout });
+  },
+
+  // Set and immediately activate a workout (skip pre-workout view)
+  setActiveWorkoutDirect: (workout: Workout) => {
+    console.log(`[WorkoutStore] setActiveWorkoutDirect: "${workout.title}" with ${workout.exercises.length} exercises`);
+    set({
+      todayWorkout: workout,
+      activeWorkout: {
+        workout: { ...workout },
+        currentExerciseIndex: 0,
+        startTime: new Date(),
+        restTimer: 0,
+        isResting: false,
+      },
+    });
+  },
+
+  // Clear the active workout without logging
+  clearActiveWorkout: () => {
+    console.log(`[WorkoutStore] clearActiveWorkout called`);
+    set({
+      activeWorkout: {
+        workout: null,
+        currentExerciseIndex: 0,
+        startTime: null,
+        restTimer: 0,
+        isResting: false,
+      },
+    });
   },
   
   startWorkout: () => {

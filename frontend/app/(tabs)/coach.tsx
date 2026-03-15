@@ -19,6 +19,7 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { useUserStore } from '../../src/store/userStore';
 import { useHealthStore } from '../../src/store/healthStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
+import WorkoutEngine from '../../src/services/WorkoutEngine';
 import { useGoalStore } from '../../src/store/goalStore';
 import { useBodyCompStore } from '../../src/store/bodyCompositionStore';
 import { MetallicCard } from '../../src/components/MetallicCard';
@@ -320,11 +321,23 @@ export default function CoachScreen() {
       
       setMessages((prev) => [...prev, coachMessage]);
       
-      // Auto-apply workout actions if returned
+      // Auto-apply workout actions via WorkoutEngine
       if (data.actions && data.actions.length > 0) {
         try {
-          console.log('[Coach] Applying workout actions:', JSON.stringify(data.actions));
-          useWorkoutStore.getState().applyCoachActions(data.actions);
+          console.log('[Coach] Auto-applying workout actions via WorkoutEngine:', JSON.stringify(data.actions));
+          const results = WorkoutEngine.executeAllActions(data.actions);
+          // Show confirmation for each action in chat
+          for (const result of results) {
+            const description = result.success 
+              ? WorkoutEngine.getActionDescription(result.action)
+              : `❌ Failed: ${result.error}`;
+            setMessages((prev) => [...prev, {
+              id: (Date.now() + Math.random()).toString(),
+              role: 'coach' as const,
+              content: description,
+              timestamp: new Date(),
+            }]);
+          }
         } catch (actionErr) {
           console.error('[Coach] Error applying actions:', actionErr);
         }

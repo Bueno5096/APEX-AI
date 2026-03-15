@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for APEX Fitness App - 4 Critical Fixes
+APEX AI Fitness Backend Test Suite - Review Request Scenarios
 Testing URL: https://workout-fixes-branch.preview.emergentagent.com/api
 
-Test Scenarios:
-1. Health check endpoint
-2. FIX 1: Training style enforcement (powerlifting, calisthenics, crossfit)  
-3. FIX 2: Split day context in AI coach
+Test Scenarios from Review Request:
+1. Health Check (GET /api/health) — verify returns 200 OK  
+2. Force Actions Coach Chat (POST /api/coach/chat with force_actions=true)
+3. AI Workout Generation (POST /api/generate-workout)
 """
 
 import asyncio
@@ -14,6 +14,7 @@ import aiohttp
 import json
 import sys
 from typing import Dict, Any
+from datetime import datetime
 
 # Test configuration
 BASE_URL = "https://workout-fixes-branch.preview.emergentagent.com/api"
@@ -46,17 +47,17 @@ class BackendTester:
         })
         
     async def test_health_check(self):
-        """Test 1: Health check endpoint"""
+        """Test 1: Health Check - GET /api/health — verify returns 200 OK"""
         test_name = "Health Check"
         try:
             async with self.session.get(f"{BASE_URL}/health") as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    if data.get("status") == "healthy":
-                        self.log_result(test_name, True, "Returns 200 OK with healthy status")
+                    if data.get("status") == "healthy" and "timestamp" in data:
+                        self.log_result(test_name, True, f"Returns 200 OK with healthy status and timestamp: {data['timestamp']}")
                         return True
                     else:
-                        self.log_result(test_name, False, f"Status not healthy: {data}")
+                        self.log_result(test_name, False, f"Invalid response structure: {data}")
                         return False
                 else:
                     self.log_result(test_name, False, f"HTTP {resp.status}")
@@ -65,203 +66,87 @@ class BackendTester:
             self.log_result(test_name, False, f"Request failed: {str(e)}")
             return False
     
-    async def test_powerlifting_style_enforcement(self):
-        """Test 2: FIX 1 - Powerlifting style enforcement"""
-        test_name = "Powerlifting Style Enforcement"
+    async def test_force_actions_coach_chat(self):
+        """Test 2: Force Actions Coach Chat with fullWorkoutPlan context"""
+        test_name = "Force Actions Coach Chat"
         try:
+            # Exact payload from review request
             payload = {
-                "focusMuscles": ["Chest"],
-                "equipment": "full_gym",
-                "duration": 45,
-                "intensity": "high",
-                "trainingStyle": "powerlifting",
-                "userProfile": {
-                    "name": "Alex", 
-                    "trainingExperience": "intermediate"
+                "message": "swap bench press for dumbbell press",
+                "force_actions": True,
+                "context": {
+                    "activeWorkout": "Push Day",
+                    "fullWorkoutPlan": [
+                        {
+                            "name": "Bench Press",
+                            "sets": 4,
+                            "reps": "8-10", 
+                            "weight": 70,
+                            "targetMuscles": ["Chest"]
+                        },
+                        {
+                            "name": "Shoulder Press",
+                            "sets": 3,
+                            "reps": "10-12",
+                            "weight": 40,
+                            "targetMuscles": ["Shoulders"]
+                        }
+                    ],
+                    "workoutExercises": [
+                        {
+                            "name": "Bench Press",
+                            "sets": 4,
+                            "reps": "8-10",
+                            "weight": 70
+                        },
+                        {
+                            "name": "Shoulder Press", 
+                            "sets": 3,
+                            "reps": "10-12",
+                            "weight": 40
+                        }
+                    ]
                 }
             }
             
-            async with self.session.post(f"{BASE_URL}/generate-workout", 
+            async with self.session.post(f"{BASE_URL}/coach/chat", 
                                        json=payload, 
                                        headers={"Content-Type": "application/json"}) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     
-                    # Verify powerlifting requirements
-                    exercises = data.get("exercises", [])
-                    if not exercises:
-                        self.log_result(test_name, False, "No exercises returned")
+                    # Verify basic response structure
+                    if not ("response" in data and "session_id" in data):
+                        self.log_result(test_name, False, f"Missing required fields. Keys: {list(data.keys())}")
                         return False
                     
-                    first_exercise = exercises[0].get("name", "").lower()
-                    
-                    # Check if first exercise is a major compound (bench press or similar)
-                    major_compounds = ["bench press", "barbell bench", "squat", "deadlift"]
-                    is_compound = any(comp in first_exercise for comp in major_compounds)
-                    
-                    # Check rep ranges (should be 1-5 for main lifts)
-                    main_lift_reps = str(exercises[0].get("reps", ""))
-                    low_rep_patterns = ["1-5", "3-5", "1-3", "2-5", "1-4", "3", "4", "5", "1", "2"]
-                    is_low_rep = any(pattern in main_lift_reps for pattern in low_rep_patterns)
-                    
-                    # Check rest periods (should be 180+ seconds)
-                    rest_seconds = exercises[0].get("restSeconds", 0)
-                    is_long_rest = rest_seconds >= 180
-                    
-                    # Collect verification results
-                    checks = []
-                    if is_compound:
-                        checks.append("✓ First exercise is major compound")
-                    else:
-                        checks.append("✗ First exercise not a major compound")
-                    
-                    if is_low_rep:
-                        checks.append("✓ Low rep range (1-5) for main lift")
-                    else:
-                        checks.append("✗ Rep range not powerlifting style")
-                    
-                    if is_long_rest:
-                        checks.append("✓ Rest period 180+ seconds")
-                    else:
-                        checks.append("✗ Rest period too short")
-                    
-                    all_checks_pass = is_compound and is_low_rep and is_long_rest
-                    
-                    details = f"First exercise: {exercises[0].get('name')}, Reps: {main_lift_reps}, Rest: {rest_seconds}s. Checks: {'; '.join(checks)}"
-                    
-                    self.log_result(test_name, all_checks_pass, details)
-                    return all_checks_pass
-                else:
-                    error_text = await resp.text()
-                    self.log_result(test_name, False, f"HTTP {resp.status}: {error_text}")
-                    return False
-                    
-        except Exception as e:
-            self.log_result(test_name, False, f"Request failed: {str(e)}")
-            return False
-    
-    async def test_calisthenics_style_enforcement(self):
-        """Test 3: FIX 1 - Calisthenics style enforcement"""
-        test_name = "Calisthenics Style Enforcement"
-        try:
-            payload = {
-                "focusMuscles": ["Chest", "Back"],
-                "equipment": "bodyweight",
-                "duration": 40,
-                "intensity": "moderate",
-                "trainingStyle": "calisthenics"
-            }
-            
-            async with self.session.post(f"{BASE_URL}/generate-workout", 
-                                       json=payload, 
-                                       headers={"Content-Type": "application/json"}) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    
-                    exercises = data.get("exercises", [])
-                    if not exercises:
-                        self.log_result(test_name, False, "No exercises returned")
-                        return False
-                    
-                    # Check that ALL exercises are bodyweight only
-                    forbidden_equipment = ["barbell", "dumbbell", "cable", "machine", "kettlebell", "plate"]
-                    equipment_violations = []
-                    
-                    for exercise in exercises:
-                        ex_name = exercise.get("name", "").lower()
-                        for equipment in forbidden_equipment:
-                            if equipment in ex_name:
-                                equipment_violations.append(f"{exercise.get('name')} contains '{equipment}'")
-                    
-                    # Check for proper bodyweight exercises
-                    bodyweight_indicators = ["push", "pull", "squat", "lunge", "plank", "dip", "chin", "sit", "handstand", "burpee", "jump"]
-                    has_bodyweight = any(any(indicator in ex.get("name", "").lower() for indicator in bodyweight_indicators) for ex in exercises)
-                    
-                    is_all_bodyweight = len(equipment_violations) == 0
-                    
-                    if is_all_bodyweight and has_bodyweight:
-                        exercise_names = [ex.get("name") for ex in exercises]
-                        details = f"All {len(exercises)} exercises are bodyweight-only: {', '.join(exercise_names)}"
-                        self.log_result(test_name, True, details)
-                        return True
-                    else:
-                        violation_text = f"Equipment violations: {'; '.join(equipment_violations)}" if equipment_violations else "No clear bodyweight exercises found"
-                        self.log_result(test_name, False, violation_text)
-                        return False
+                    # Critical verification: Check for actions array with swap_exercise action
+                    if "actions" in data and data["actions"]:
+                        actions = data["actions"]
                         
-                else:
-                    error_text = await resp.text()
-                    self.log_result(test_name, False, f"HTTP {resp.status}: {error_text}")
-                    return False
-                    
-        except Exception as e:
-            self.log_result(test_name, False, f"Request failed: {str(e)}")
-            return False
-    
-    async def test_crossfit_style_enforcement(self):
-        """Test 4: FIX 1 - CrossFit style enforcement"""
-        test_name = "CrossFit Style Enforcement"
-        try:
-            payload = {
-                "focusMuscles": ["Full Body"],
-                "equipment": "full_gym",
-                "duration": 30,
-                "intensity": "high",
-                "trainingStyle": "crossfit"
-            }
-            
-            async with self.session.post(f"{BASE_URL}/generate-workout", 
-                                       json=payload, 
-                                       headers={"Content-Type": "application/json"}) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    
-                    exercises = data.get("exercises", [])
-                    title = data.get("title", "")
-                    
-                    if not exercises:
-                        self.log_result(test_name, False, "No exercises returned")
-                        return False
-                    
-                    # Check for CrossFit format indicators in title or notes
-                    crossfit_formats = ["amrap", "emom", "for time", "rounds", "time cap"]
-                    title_lower = title.lower()
-                    has_crossfit_format = any(fmt in title_lower for fmt in crossfit_formats)
-                    
-                    # Check for functional/Olympic movements
-                    functional_movements = ["clean", "jerk", "snatch", "kettlebell", "box jump", "burpee", "thrusters", "deadlift", "pull-up", "double under"]
-                    functional_exercises = []
-                    
-                    for exercise in exercises:
-                        ex_name = exercise.get("name", "").lower()
-                        for movement in functional_movements:
-                            if movement in ex_name:
-                                functional_exercises.append(exercise.get("name"))
-                                break
-                    
-                    has_functional_movements = len(functional_exercises) >= 1
-                    
-                    # Check notes for additional format clues
-                    format_in_notes = False
-                    for exercise in exercises:
-                        notes = exercise.get("notes", "").lower()
-                        if any(fmt in notes for fmt in crossfit_formats):
-                            format_in_notes = True
-                            break
-                    
-                    has_format = has_crossfit_format or format_in_notes
-                    
-                    if has_format and has_functional_movements:
-                        details = f"Title: '{title}' contains CrossFit format. Functional movements: {', '.join(functional_exercises)}"
-                        self.log_result(test_name, True, details)
+                        # Look for swap_exercise action that replaces Bench Press with dumbbell variation
+                        swap_found = False
+                        for action in actions:
+                            if action.get("type") == "swap_exercise":
+                                exercise_name = action.get("exercise_name", "")
+                                new_exercise = action.get("new_exercise_name", "")
+                                
+                                # Verify it's swapping Bench Press for dumbbell variant
+                                if "bench press" in exercise_name.lower() and "dumbbell" in new_exercise.lower():
+                                    details = f"✅ VERIFIED: Actions array contains swap_exercise action - '{exercise_name}' → '{new_exercise}' (force_actions working correctly)"
+                                    self.log_result(test_name, True, details)
+                                    swap_found = True
+                                    break
+                        
+                        if not swap_found:
+                            details = f"❌ No valid swap_exercise action found. Actions returned: {actions}"
+                            self.log_result(test_name, False, details)
+                            return False
+                        
                         return True
+                        
                     else:
-                        missing = []
-                        if not has_format:
-                            missing.append("no AMRAP/EMOM/For Time format")
-                        if not has_functional_movements:
-                            missing.append("no functional/Olympic movements")
-                        details = f"Title: '{title}'. Missing: {', '.join(missing)}"
+                        details = f"❌ CRITICAL: No actions array returned despite force_actions=true. Response keys: {list(data.keys())}"
                         self.log_result(test_name, False, details)
                         return False
                         
@@ -274,88 +159,72 @@ class BackendTester:
             self.log_result(test_name, False, f"Request failed: {str(e)}")
             return False
     
-    async def test_coach_split_day_context(self):
-        """Test 5: FIX 2 - Split day context in AI Coach"""
-        test_name = "Coach Split Day Context"
+    async def test_ai_workout_generation(self):
+        """Test 3: AI Workout Generation with specified parameters"""
+        test_name = "AI Workout Generation"
         try:
+            # Exact payload from review request
             payload = {
-                "message": "What should I train today?",
-                "context": {
-                    "trainingStyle": "bodybuilding",
-                    "trainingSplit": "push_pull_legs",
-                    "trainingFrequency": 6,
-                    "trainingDays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-                    "userProfile": {
-                        "name": "Alex", 
-                        "trainingExperience": "intermediate", 
-                        "trainingDaysPerWeek": 6
-                    }
-                }
+                "focusMuscles": ["Chest", "Back"],
+                "equipment": "full_gym",
+                "duration": 45,
+                "intensity": "moderate"
             }
             
-            async with self.session.post(f"{BASE_URL}/coach/chat", 
+            async with self.session.post(f"{BASE_URL}/generate-workout", 
                                        json=payload, 
                                        headers={"Content-Type": "application/json"}) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    response_text = data.get("response", "").lower()
-                    session_id = data.get("session_id")
                     
-                    if not response_text:
-                        self.log_result(test_name, False, "No response text returned")
+                    # Verify response has valid exercises array
+                    if "exercises" in data and isinstance(data["exercises"], list):
+                        exercises = data["exercises"]
+                        if len(exercises) > 0:
+                            # Verify exercise structure
+                            valid_exercises = 0
+                            for ex in exercises:
+                                required_fields = ["name", "sets", "reps", "targetMuscles"]
+                                if all(field in ex for field in required_fields):
+                                    valid_exercises += 1
+                            
+                            # Verify focus muscles are targeted
+                            target_muscles_found = set()
+                            for ex in exercises:
+                                if "targetMuscles" in ex:
+                                    for muscle in ex["targetMuscles"]:
+                                        target_muscles_found.add(muscle.lower())
+                            
+                            # More flexible muscle targeting verification
+                            # Accept any back-related muscles (lats, rhomboids, teres, traps) as "back"
+                            back_muscles = ['back', 'lats', 'latissimus', 'rhomboids', 'teres', 'trapezius', 'traps']
+                            chest_muscles = ['chest', 'pectorals', 'pecs']
+                            
+                            chest_targeted = any(muscle in target_muscles_found for muscle in chest_muscles)
+                            back_targeted = any(muscle in target_muscles_found for muscle in back_muscles)
+                            
+                            if valid_exercises == len(exercises) and chest_targeted and back_targeted:
+                                workout_title = data.get("title", "Generated Workout")
+                                details = f"✅ VERIFIED: Generated '{workout_title}' with {len(exercises)} valid exercises targeting Chest and Back muscles correctly"
+                                self.log_result(test_name, True, details)
+                                return True
+                            else:
+                                issues = []
+                                if valid_exercises != len(exercises):
+                                    issues.append(f"only {valid_exercises}/{len(exercises)} exercises have valid structure")
+                                if not chest_targeted:
+                                    issues.append("chest not targeted")
+                                if not back_targeted:
+                                    issues.append("back muscles not targeted")
+                                details = f"❌ Issues found: {', '.join(issues)}. Target muscles found: {sorted(target_muscles_found)}"
+                                self.log_result(test_name, False, details)
+                                return False
+                        else:
+                            self.log_result(test_name, False, "❌ Empty exercises array returned")
+                            return False
+                    else:
+                        self.log_result(test_name, False, f"❌ No valid exercises array in response. Keys: {list(data.keys())}")
                         return False
-                    
-                    # Check for split day mention (push/pull/legs)
-                    split_indicators = ["push", "pull", "legs"]
-                    has_split_day = any(indicator in response_text for indicator in split_indicators)
-                    
-                    # Check for muscle group mentions
-                    muscle_groups = ["chest", "shoulders", "triceps", "back", "biceps", "quads", "hamstrings", "glutes", "calves"]
-                    mentioned_muscles = [muscle for muscle in muscle_groups if muscle in response_text]
-                    
-                    # Also check for muscle groups with capital letters (like "Quads")
-                    response_text_original = data.get("response", "")
-                    capital_muscle_groups = ["Chest", "Shoulders", "Triceps", "Back", "Biceps", "Quads", "Hamstrings", "Glutes", "Calves"]
-                    capital_mentioned = [muscle for muscle in capital_muscle_groups if muscle in response_text_original]
-                    
-                    # Combine both lowercase and capital muscle mentions
-                    all_mentioned_muscles = mentioned_muscles + capital_mentioned
-                    
-                    # Check for bodybuilding style (8-15 rep ranges)
-                    rep_indicators = ["8-", "10-", "12-", "15", "hypertrophy", "pump", "isolation"]
-                    has_bodybuilding_style = any(indicator in response_text for indicator in rep_indicators)
-                    
-                    # Verify response quality
-                    checks = []
-                    if has_split_day:
-                        checks.append("✓ Mentions specific split day")
-                    else:
-                        checks.append("✗ No split day reference")
-                    
-                    if mentioned_muscles:
-                        checks.append(f"✓ Mentions muscle groups: {', '.join(mentioned_muscles)}")
-                    elif capital_mentioned:
-                        checks.append(f"✓ Mentions muscle groups: {', '.join(capital_mentioned)}")
-                    else:
-                        checks.append("✗ No muscle group mentions")
-                    
-                    if has_bodybuilding_style:
-                        checks.append("✓ Uses bodybuilding style")
-                    else:
-                        checks.append("✗ No bodybuilding style indicators")
-                    
-                    if session_id:
-                        checks.append("✓ Returns session_id")
-                    else:
-                        checks.append("✗ No session_id")
-                    
-                    # Test passes if it has split day context and muscle mentions
-                    test_passed = has_split_day and (len(mentioned_muscles) > 0 or len(capital_mentioned) > 0)
-                    
-                    details = f"Response length: {len(data.get('response', ''))} chars. Checks: {'; '.join(checks)}"
-                    
-                    self.log_result(test_name, test_passed, details)
-                    return test_passed
                         
                 else:
                     error_text = await resp.text()
@@ -367,25 +236,25 @@ class BackendTester:
             return False
     
     async def run_all_tests(self):
-        """Run all backend tests"""
-        print("🏋️  Starting APEX Fitness Backend Testing")
+        """Run all backend tests from the review request"""
+        print("🏋️  Starting APEX AI Fitness Backend Testing - Review Request Scenarios")
         print(f"📡 Testing URL: {BASE_URL}")
-        print("=" * 60)
+        print(f"⏱️  Timeout: {TIMEOUT}s for AI calls")
+        print("=" * 80)
         
         await self.setup()
         
         try:
-            # Run all tests in sequence
+            # Run the 3 specific tests from review request
             tests = [
-                self.test_health_check,
-                self.test_powerlifting_style_enforcement,
-                self.test_calisthenics_style_enforcement,
-                self.test_crossfit_style_enforcement,
-                self.test_coach_split_day_context
+                ("Test 1", self.test_health_check),
+                ("Test 2", self.test_force_actions_coach_chat),
+                ("Test 3", self.test_ai_workout_generation)
             ]
             
             results = []
-            for test_func in tests:
+            for test_label, test_func in tests:
+                print(f"\n{test_label}: Running {test_func.__doc__.split(':')[1].split('(')[0].strip()}...")
                 result = await test_func()
                 results.append(result)
                 print()  # Empty line between tests
@@ -394,16 +263,20 @@ class BackendTester:
             passed_count = sum(1 for r in results if r)
             total_count = len(results)
             
-            print("=" * 60)
-            print("📊 TEST SUMMARY")
+            print("=" * 80)
+            print("📊 REVIEW REQUEST TEST SUMMARY")
+            print("=" * 80)
             print(f"✅ Passed: {passed_count}/{total_count}")
             print(f"❌ Failed: {total_count - passed_count}/{total_count}")
             
             if passed_count == total_count:
-                print("🎉 ALL TESTS PASSED - Backend is working correctly!")
+                print("🎉 ALL REVIEW REQUEST TESTS PASSED!")
+                print("✅ Health check endpoint working")
+                print("✅ Force actions coach chat working")
+                print("✅ AI workout generation working")
                 return True
             else:
-                print("⚠️  SOME TESTS FAILED - Issues found in backend")
+                print("⚠️  SOME TESTS FAILED - Issues found requiring attention")
                 return False
                 
         finally:

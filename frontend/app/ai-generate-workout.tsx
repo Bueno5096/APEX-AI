@@ -316,6 +316,16 @@ export default function AIGenerateWorkoutScreen() {
           </View>
         )}
 
+        {/* Talk to Coach First */}
+        <TouchableOpacity
+          style={[styles.talkToCoachBtn, { borderColor: '#7C3AED', backgroundColor: '#7C3AED10' }]}
+          onPress={() => router.push('/(tabs)/coach')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chatbubbles" size={18} color="#7C3AED" />
+          <Text style={styles.talkToCoachText}>Talk to Coach First 💬</Text>
+        </TouchableOpacity>
+
         {/* Generate Button */}
         <TouchableOpacity
           style={[
@@ -358,8 +368,10 @@ const styles = StyleSheet.create({
   intensityText: { fontSize: 13, fontWeight: '700' },
   contextCard: { flexDirection: 'row', gap: 8, padding: 14, borderRadius: 12, borderWidth: 0.5, marginTop: 20, alignItems: 'flex-start' },
   contextText: { fontSize: 13, lineHeight: 18, flex: 1 },
-  generateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14, marginTop: 24 },
+  generateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14, marginTop: 12 },
   generateBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  talkToCoachBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, borderWidth: 1.5, marginTop: 24 },
+  talkToCoachText: { color: '#7C3AED', fontSize: 15, fontWeight: '700' },
   cancelBtn: { marginTop: 20, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12, borderWidth: 1 },
   cancelBtnText: { fontSize: 14, fontWeight: '600' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },

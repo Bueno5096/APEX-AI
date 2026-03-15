@@ -16,6 +16,7 @@ import { useExerciseStore } from '../src/store/exerciseStore';
 import { useUserStore } from '../src/store/userStore';
 import { useWorkoutStore } from '../src/store/workoutStore';
 import { STYLE_TEMPLATE_COMPAT } from '../src/utils/trainingHelpers';
+import WorkoutEngine from '../src/services/WorkoutEngine';
 
 const CATEGORIES = ['All', 'Push', 'Pull', 'Legs', 'Upper', 'Full Body', 'Bodyweight', 'Strength', 'HIIT', 'Dumbbell'];
 
@@ -55,18 +56,31 @@ export default function WorkoutTemplatesScreen() {
   };
 
   const handleStartNow = (template) => {
-    // Start workout immediately
-    const exercises = template.exercises.map((ex, i) => ({
-      id: `tpl_live_${i}`,
-      name: ex.name,
-      sets: Array.from({ length: ex.sets }, (_, si) => ({ id: `s${si}`, weight: 0, reps: parseInt(ex.reps) || 10, completed: false })),
-      restSeconds: ex.restSeconds,
-    }));
-    setTodayWorkoutByType('custom', {
-      title: template.name,
-      exercises,
-    });
-    router.replace('/(tabs)/workout');
+    try {
+      // Use WorkoutEngine to properly set the workout
+      WorkoutEngine.setTodayWorkout({
+        title: template.name,
+        type: 'full',
+        duration: template.duration || 45,
+        intensity: template.difficulty || 'moderate',
+        targetMuscles: template.targetMuscles || [],
+        exercises: template.exercises.map((ex, i) => ({
+          id: `tpl_${Date.now()}_${i}`,
+          name: ex.name,
+          targetMuscles: ex.targetMuscles || [ex.primaryMuscle || 'General'],
+          sets: ex.sets || 3,
+          reps: ex.reps || '10',
+          weight: ex.weight || undefined,
+          restSeconds: ex.restSeconds || 90,
+          isCompleted: false,
+          completedSets: 0,
+        })),
+      });
+      router.replace('/(tabs)/workout');
+    } catch (error) {
+      Alert.alert('Could Not Start Workout', 'Something went wrong. Please try again.');
+      console.error('Start workout failed:', error);
+    }
   };
 
   const handleSave = (template) => {
@@ -239,6 +253,39 @@ export default function WorkoutTemplatesScreen() {
                     <Ionicons name="calendar-outline" size={18} color={theme.colors.textSecondary} />
                     <Text style={[styles.tertiaryBtnText, { color: theme.colors.textSecondary }]}>Schedule for a Day</Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.coachBtn, { borderColor: '#7C3AED', backgroundColor: '#7C3AED10' }]}
+                    onPress={() => {
+                      // Set the template as today's workout first, then navigate to coach
+                      try {
+                        WorkoutEngine.setTodayWorkout({
+                          title: template.name,
+                          type: 'full',
+                          duration: template.duration || 45,
+                          intensity: template.difficulty || 'moderate',
+                          targetMuscles: template.targetMuscles || [],
+                          exercises: template.exercises.map((ex, i) => ({
+                            id: `tpl_coach_${Date.now()}_${i}`,
+                            name: ex.name,
+                            targetMuscles: ex.targetMuscles || [ex.primaryMuscle || 'General'],
+                            sets: ex.sets || 3,
+                            reps: ex.reps || '10',
+                            weight: ex.weight || undefined,
+                            restSeconds: ex.restSeconds || 90,
+                            isCompleted: false,
+                            completedSets: 0,
+                          })),
+                        });
+                        router.push('/(tabs)/coach');
+                      } catch (e) {
+                        Alert.alert('Error', 'Could not load template for coach. Please try again.');
+                      }
+                    }}
+                  >
+                    <Ionicons name="chatbubbles" size={18} color="#7C3AED" />
+                    <Text style={[styles.coachBtnText, { color: '#7C3AED' }]}>Modify with Coach 💬</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -293,8 +340,10 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, marginBottom: 8 },
   secondaryBtnText: { fontSize: 15, fontWeight: '700' },
-  tertiaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
+  tertiaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1, marginBottom: 8 },
   tertiaryBtnText: { fontSize: 14, fontWeight: '600' },
+  coachBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5 },
+  coachBtnText: { fontSize: 14, fontWeight: '700' },
   emptyState: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 14 },
 });

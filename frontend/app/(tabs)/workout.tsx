@@ -24,6 +24,7 @@ import { useUserStore } from '../../src/store/userStore';
 import { getTodaySplitDay, getGreeting } from '../../src/utils/trainingHelpers';
 import { CircularProgress } from '../../src/components/CircularProgress';
 import Constants from 'expo-constants';
+import WorkoutEngine from '../../src/services/WorkoutEngine';
 
 // Weight display helper
 const displayWeight = (kg: number | undefined, isImperial: boolean): string => {
@@ -109,6 +110,14 @@ export default function WorkoutScreen() {
       isCompleted: ex.isCompleted,
     }));
     
+    // Detect if this is a workout modification request
+    const modificationKeywords = ['swap', 'change', 'replace', 'switch', 'instead', 'different',
+      'easier', 'harder', 'lighter', 'heavier', 'increase', 'decrease', 'add', 'remove',
+      'more', 'less', 'skip', 'drop', 'modify', 'make it', 'bodyweight', 'leg day',
+      'push day', 'pull day', 'full body', 'too heavy', 'too light', 'sore', 'hurts'];
+    const isModification = modificationKeywords.some(kw => text.toLowerCase().includes(kw));
+    const hasWorkout = workoutExercises.length > 0;
+    
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -124,11 +133,13 @@ export default function WorkoutScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text.trim(),
+          force_actions: isModification && hasWorkout,
           context: {
             recoveryScore: recoveryData?.score,
             activeWorkout: workoutTitle,
             currentExercise: exerciseName,
             workoutExercises: workoutExercises,
+            fullWorkoutPlan: workoutExercises,
             userProfile: profile,
             trainingStyle: profile?.trainingStyle || undefined,
             trainingSplit: profile?.trainingSplit || undefined,
@@ -148,15 +159,23 @@ export default function WorkoutScreen() {
       };
       setChatMessages(prev => [...prev, coachMsg]);
       
-      // If the AI returned workout modification actions, show apply button
+      // AUTO-APPLY actions using WorkoutEngine (no manual button needed)
       if (data.actions && data.actions.length > 0) {
-        setPendingActions(data.actions);
-        const actionMsg: ChatMessage = {
-          id: (Date.now() + 2).toString(),
-          role: 'coach',
-          content: `__ACTIONS__`,
-        };
-        setChatMessages(prev => [...prev, actionMsg]);
+        console.log('[Workout Coach] Auto-applying', data.actions.length, 'actions');
+        const results = WorkoutEngine.executeAllActions(data.actions);
+        
+        // Show confirmation messages for each action
+        for (const result of results) {
+          const description = result.success 
+            ? WorkoutEngine.getActionDescription(result.action)
+            : `❌ Failed: ${result.error}`;
+          
+          setChatMessages(prev => [...prev, {
+            id: (Date.now() + Math.random()).toString(),
+            role: 'coach',
+            content: description,
+          }]);
+        }
       }
     } catch (error) {
       setChatMessages(prev => [...prev, {

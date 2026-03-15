@@ -20,6 +20,7 @@ import { useThemeStore } from '../src/store/themeStore';
 import { useUserStore } from '../src/store/userStore';
 import { useExerciseStore } from '../src/store/exerciseStore';
 import { useWorkoutStore } from '../src/store/workoutStore';
+import WorkoutEngine from '../src/services/WorkoutEngine';
 
 interface RefineChatMessage {
   id: string;
@@ -202,22 +203,31 @@ export default function AIWorkoutPreviewScreen() {
   };
 
   const handleStartNow = () => {
-    const exercises = (workout.exercises || []).map((ex: any, i: number) => ({
-      id: ex.id || `ai_live_${i}`,
-      name: ex.name,
-      sets: Array.from({ length: ex.sets || 3 }, (_, si) => ({
-        id: `s${si}`,
-        weight: ex.weight || 0,
-        reps: parseInt(ex.reps) || 10,
-        completed: false,
-      })),
-      restSeconds: ex.restSeconds || 90,
-    }));
-    setTodayWorkoutByType('custom', {
-      title: workout.title || 'AI Workout',
-      exercises,
-    });
-    router.replace('/(tabs)/workout');
+    try {
+      // Use WorkoutEngine to properly set the workout
+      WorkoutEngine.setTodayWorkout({
+        title: workout.title || 'AI Workout',
+        type: 'full',
+        duration: workout.duration || 45,
+        intensity: workout.intensity || 'moderate',
+        targetMuscles: workout.targetMuscles || [],
+        exercises: (workout.exercises || []).map((ex: any, i: number) => ({
+          id: ex.id || `ai_${Date.now()}_${i}`,
+          name: ex.name,
+          targetMuscles: ex.targetMuscles || [ex.primaryMuscle || 'General'],
+          sets: ex.sets || 3,
+          reps: ex.reps || '10',
+          weight: ex.weight || undefined,
+          restSeconds: ex.restSeconds || 90,
+          isCompleted: false,
+          completedSets: 0,
+        })),
+      });
+      router.replace('/(tabs)/workout');
+    } catch (error) {
+      Alert.alert('Could Not Start Workout', 'Something went wrong. Please try again.');
+      console.error('Start workout failed:', error);
+    }
   };
 
   const handleSave = () => {

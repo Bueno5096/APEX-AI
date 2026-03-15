@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { useHealthStore } from '../../src/store/healthStore';
@@ -188,7 +189,7 @@ export default function ProgressScreen() {
   const { hasActiveGoalLayeringPlan, secondaryGoal } = useGoalStore();
   const router = useRouter();
 
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('30d');
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('7d');
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [animKey, setAnimKey] = useState(0);
@@ -197,6 +198,13 @@ export default function ProgressScreen() {
     DEFAULT_SECTION_ORDER.map(id => ({ key: id, label: id }))
   );
   const [isStrengthExpanded, setIsStrengthExpanded] = useState(false);
+
+  // Reset to 7 days every time the tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      setTimePeriod('7d');
+    }, [])
+  );
 
   const isDark = theme.name === 'dark';
 

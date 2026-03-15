@@ -456,7 +456,18 @@ EXERCISE SWAP RULES — CRITICAL:
 - Always confirm: "Done — replaced [old exercise] with [new exercise]."
 - Never add a new exercise without removing the old one in a swap.
 
-CRITICAL: You MUST include an [ACTIONS] block for ANY workout modification request. The app reads this block to actually apply changes. Without it, nothing happens. Write your short confirmation message FIRST, then the action block at the very end."""
+CRITICAL: You MUST include an [ACTIONS] block for ANY workout modification request. The app reads this block to actually apply changes. Without it, nothing happens. Write your short confirmation message FIRST, then the action block at the very end.
+
+WORKOUT CHANGE BEHAVIOR — NEVER REFUSE:
+- Training preferences are GUIDELINES not restrictions.
+- The user's request in the moment ALWAYS overrides training preferences.
+- If user wants bodyweight when weighted is set: DO IT immediately.
+- If user wants leg day when push day is scheduled: DO IT immediately.
+- If user wants easier/harder: DO IT immediately.
+- NEVER refuse a workout change.
+- NEVER say "this conflicts with your preferences" — just make the change.
+- The sequence is ALWAYS: include [ACTIONS] block THEN send text confirmation.
+- Never describe what you would do — just do it using actions."""
 
     # ─── Append style modifier ───
     style_prompts = {
