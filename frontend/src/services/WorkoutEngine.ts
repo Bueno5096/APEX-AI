@@ -153,12 +153,12 @@ class WorkoutEngine {
 
       if (operation === 'increase') {
         const isCompound = ['squat', 'bench', 'deadlift', 'press', 'row', 'pull'].some(
-          kw => exerciseName.toLowerCase().includes(kw)
+          kw => new RegExp(`\\b${kw}\\b`, 'i').test(exerciseName)
         );
         calculatedWeight = currentWeight + (newWeight || (isCompound ? 5 : 2.5));
       } else if (operation === 'decrease') {
         const isCompound = ['squat', 'bench', 'deadlift', 'press', 'row', 'pull'].some(
-          kw => exerciseName.toLowerCase().includes(kw)
+          kw => new RegExp(`\\b${kw}\\b`, 'i').test(exerciseName)
         );
         calculatedWeight = Math.max(0, currentWeight - (newWeight || (isCompound ? 5 : 2.5)));
       }

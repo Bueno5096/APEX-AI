@@ -95,22 +95,27 @@ export const useUserStore = create<UserState>((set) => ({
   },
   
   setGender: async (gender: Gender) => {
-    set((state) => {
-      const updatedProfile = state.profile ? { ...state.profile, gender } : null;
+    const currentProfile = useUserStore.getState().profile;
+    const updatedProfile = currentProfile ? { ...currentProfile, gender } : null;
+    set({ gender, profile: updatedProfile });
+    try {
       if (updatedProfile) {
-        AsyncStorage.setItem('coach_profile', JSON.stringify(updatedProfile));
+        await AsyncStorage.setItem('coach_profile', JSON.stringify(updatedProfile));
       }
-      AsyncStorage.setItem('coach_gender', gender);
-      return { gender, profile: updatedProfile };
-    });
+      await AsyncStorage.setItem('coach_gender', gender);
+    } catch (error) {
+      console.error('Error saving gender:', error);
+    }
   },
-  
+
   updateSettings: async (newSettings: Partial<UserSettings>) => {
-    set((state) => {
-      const settings = { ...state.settings, ...newSettings };
-      AsyncStorage.setItem('coach_settings', JSON.stringify(settings));
-      return { settings };
-    });
+    const settings = { ...useUserStore.getState().settings, ...newSettings };
+    set({ settings });
+    try {
+      await AsyncStorage.setItem('coach_settings', JSON.stringify(settings));
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    }
   },
 
   setOnboardingComplete: async (complete: boolean) => {

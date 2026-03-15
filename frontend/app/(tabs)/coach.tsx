@@ -304,6 +304,9 @@ export default function CoachScreen() {
         }),
       });
       
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
       const data = await response.json();
       
       // Persist session_id from backend for future messages
