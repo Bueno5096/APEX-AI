@@ -16,7 +16,11 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const url = `${getBackendUrl()}${path}`;
+  const baseUrl = getBackendUrl();
+  if (!baseUrl) {
+    throw new Error('Backend URL is not configured. Set EXPO_PUBLIC_BACKEND_URL in your environment.');
+  }
+  const url = `${baseUrl}${path}`;
   const response = await fetch(url, {
     ...options,
     headers: {

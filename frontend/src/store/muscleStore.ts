@@ -205,9 +205,9 @@ export const useMuscleStore = create<MuscleStoreState>((set, get) => ({
       lastUpdated: new Date(),
     });
     
-    get().saveState();
+    get().saveState().catch((err) => console.error('muscleStore: failed to save state', err));
   },
-  
+
   updateRecoveryFactors: (factors: Partial<RecoveryFactors>) => {
     set((state) => ({
       recoveryFactors: { ...state.recoveryFactors, ...factors },
