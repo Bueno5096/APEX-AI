@@ -36,9 +36,14 @@ export default function WorkoutBuilderScreen() {
 
   // Parse exercise IDs from params (from exercise browser) or from template
   const exerciseIds = (params.exerciseIds as string || '').split(',').filter(Boolean);
-  const templateExercises = params.templateExercises ? JSON.parse(params.templateExercises as string) : null;
+  const safeJsonParse = (str: string | string[] | undefined | null, fallback: any = null) => {
+    if (!str) return fallback;
+    try { return JSON.parse(Array.isArray(str) ? str[0] : str); } catch { return fallback; }
+  };
+
+  const templateExercises = safeJsonParse(params.templateExercises);
   const templateName = params.templateName as string || '';
-  const aiWorkout = params.aiWorkout ? JSON.parse(params.aiWorkout as string) : null;
+  const aiWorkout = safeJsonParse(params.aiWorkout);
 
   const initExercises = useMemo(() => {
     if (aiWorkout && aiWorkout.exercises) {

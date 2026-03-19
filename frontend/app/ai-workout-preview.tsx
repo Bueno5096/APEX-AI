@@ -21,6 +21,7 @@ import { useUserStore } from '../src/store/userStore';
 import { useExerciseStore } from '../src/store/exerciseStore';
 import { useWorkoutStore } from '../src/store/workoutStore';
 import WorkoutEngine from '../src/services/WorkoutEngine';
+import { apiFetch } from '../src/utils/api';
 
 interface RefineChatMessage {
   id: string;
@@ -37,8 +38,13 @@ export default function AIWorkoutPreviewScreen() {
   const { saveWorkout } = useExerciseStore();
   const { setTodayWorkoutByType } = useWorkoutStore();
 
-  const initialWorkout = params.workoutData ? JSON.parse(params.workoutData as string) : null;
-  const genParams = params.genParams ? JSON.parse(params.genParams as string) : null;
+  const safeJsonParse = (str: string | string[] | undefined | null, fallback: any = null) => {
+    if (!str) return fallback;
+    try { return JSON.parse(Array.isArray(str) ? str[0] : str); } catch { return fallback; }
+  };
+
+  const initialWorkout = safeJsonParse(params.workoutData);
+  const genParams = safeJsonParse(params.genParams);
 
   // Mutable workout state so coach can update it
   const [workout, setWorkout] = useState(initialWorkout);
@@ -154,9 +160,8 @@ export default function AIWorkoutPreviewScreen() {
         content: msg.content,
       }));
 
-      const res = await fetch(`${getBackendUrl()}/api/coach/chat`, {
+      const res = await apiFetch('/api/coach/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text.trim(),
           session_id: refineSessionId,
@@ -173,6 +178,7 @@ export default function AIWorkoutPreviewScreen() {
         }),
       });
 
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
 
       if (data.session_id && !refineSessionId) {

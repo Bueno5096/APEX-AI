@@ -450,7 +450,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   workoutLogs: [],
   
   loadTodayWorkout: () => {
-    set({ todayWorkout: generateTodayWorkout() });
+    // Do not set a hardcoded workout — let the user create or select one
+    set({ todayWorkout: null });
   },
   
   setTodayWorkoutByType: (type: string, title: string) => {
@@ -471,8 +472,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       console.log(`[WorkoutStore] Setting workout: ${workout.title} (type: ${normalizedType}, ${workout.exercises.length} exercises)`);
       set({ todayWorkout: workout });
     } else {
-      console.log(`[WorkoutStore] Unknown workout type: "${type}" (normalized: "${normalizedType}"), falling back to Push Day`);
-      set({ todayWorkout: generateTodayWorkout() });
+      console.warn(`[WorkoutStore] Unknown workout type: "${type}" (normalized: "${normalizedType}"). No workout set.`);
     }
   },
 

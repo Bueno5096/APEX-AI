@@ -223,7 +223,7 @@ export const useMuscleStore = create<MuscleStoreState>((set, get) => ({
     const hoursSinceUpdate = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60);
     
     // Calculate recovery rate based on factors
-    const sleepBonus = recoveryFactors.sleepScore > 70 ? SLEEP_RECOVERY_BONUS * (recoveryFactors.sleepHours - 6) : 0;
+    const sleepBonus = recoveryFactors.sleepScore > 70 ? Math.max(0, SLEEP_RECOVERY_BONUS * (recoveryFactors.sleepHours - 6)) : 0;
     const hrvBonus = recoveryFactors.hrv > 50 ? 0.3 : recoveryFactors.hrv < 30 ? -0.3 : 0;
     const sorenessReduction = recoveryFactors.sorenessLevel * 0.1;
     const recoveryRate = Math.max(0.5, BASE_RECOVERY_RATE + sleepBonus + hrvBonus - sorenessReduction);

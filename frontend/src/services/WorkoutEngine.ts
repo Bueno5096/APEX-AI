@@ -216,7 +216,9 @@ class WorkoutEngine {
   static removeExercise(exerciseName: string): any {
     try {
       const state = useWorkoutStore.getState();
-      const workout = state.activeWorkout.workout || state.todayWorkout;
+      const activeWorkoutData = state.activeWorkout.workout;
+      const todayWorkoutData = state.todayWorkout;
+      const workout = activeWorkoutData || todayWorkoutData;
       if (!workout) throw new Error('No active workout');
 
       const lowerName = exerciseName.toLowerCase().trim();
@@ -225,14 +227,35 @@ class WorkoutEngine {
       );
       if (!exercise) throw new Error(`Exercise "${exerciseName}" not found`);
 
-      // Skip the exercise (marks it and moves on)
-      state.swapExercise(exercise.id, { ...exercise, name: '__REMOVED__', sets: 0 });
-      // Actually remove by setting a filtered workout
       const filtered = workout.exercises.filter(
         (ex: any) => ex.name.toLowerCase().trim() !== lowerName
       );
-      state.setTodayWorkoutDirect({ ...workout, exercises: filtered });
-      
+
+      // Update both todayWorkout and activeWorkout atomically
+      useWorkoutStore.setState((s) => ({
+        todayWorkout: s.todayWorkout
+          ? { ...s.todayWorkout, exercises: filtered }
+          : s.todayWorkout,
+        activeWorkout: s.activeWorkout.workout
+          ? {
+              ...s.activeWorkout,
+              workout: { ...s.activeWorkout.workout, exercises: filtered },
+            }
+          : s.activeWorkout,
+      }));
+
+      // Verify removal from both slices
+      const newState = useWorkoutStore.getState();
+      const stillInActive = newState.activeWorkout.workout?.exercises.some(
+        (ex: any) => ex.name.toLowerCase().trim() === lowerName
+      );
+      const stillInToday = newState.todayWorkout?.exercises.some(
+        (ex: any) => ex.name.toLowerCase().trim() === lowerName
+      );
+      if (stillInActive || stillInToday) {
+        throw new Error(`Failed to remove "${exerciseName}" from one or both workout slices`);
+      }
+
       console.log(`WorkoutEngine: ✅ Removed exercise: ${exerciseName}`);
       return { success: true, exerciseName };
     } catch (error: any) {

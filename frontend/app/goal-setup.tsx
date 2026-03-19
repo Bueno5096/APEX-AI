@@ -98,7 +98,8 @@ export default function GoalSetupScreen() {
   // Smart target weight suggestion (displays in user's preferred unit)
   useEffect(() => {
     if (goalType === 'reduce_bodyfat') {
-      const targetWeightKg = Math.round(weight * (1 - (targetBF - bodyFat) / 100));
+      const leanMass = weight * (1 - bodyFat / 100);
+      const targetWeightKg = Math.round(leanMass / (1 - targetBF / 100));
       setTargetWeight(String(isImperial ? Math.round(kgToLbs(targetWeightKg)) : targetWeightKg));
     } else if (goalType === 'build_muscle') {
       const targetWeightKg = Math.round(weight * 1.05);

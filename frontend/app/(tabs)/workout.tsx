@@ -153,23 +153,15 @@ export default function WorkoutScreen() {
       };
       setChatMessages(prev => [...prev, coachMsg]);
       
-      // AUTO-APPLY actions using WorkoutEngine (no manual button needed)
+      // Queue actions for user approval via "Apply Changes" button
       if (data.actions && data.actions.length > 0) {
-        console.log('[Workout Coach] Auto-applying', data.actions.length, 'actions');
-        const results = WorkoutEngine.executeAllActions(data.actions);
-        
-        // Show confirmation messages for each action
-        for (const result of results) {
-          const description = result.success 
-            ? WorkoutEngine.getActionDescription(result.action)
-            : `❌ Failed: ${result.error}`;
-          
-          setChatMessages(prev => [...prev, {
-            id: (Date.now() + Math.random()).toString(),
-            role: 'coach',
-            content: description,
-          }]);
-        }
+        console.log('[Workout Coach] Queuing', data.actions.length, 'actions for user approval');
+        setPendingActions(data.actions);
+        setChatMessages(prev => [...prev, {
+          id: (Date.now() + Math.random()).toString(),
+          role: 'coach',
+          content: '__ACTIONS__',
+        }]);
       }
     } catch (error) {
       setChatMessages(prev => [...prev, {
@@ -251,9 +243,20 @@ export default function WorkoutScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-            Loading workout...
+          <Ionicons name="barbell-outline" size={48} color={theme.colors.textMuted} style={{ marginBottom: 16 }} />
+          <Text style={[styles.loadingText, { color: theme.colors.textPrimary, fontSize: 18, fontWeight: '600' }]}>
+            No Workout Planned
           </Text>
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary, fontSize: 14, marginTop: 8 }]}>
+            Ask your Coach to generate a workout, or pick a template to get started.
+          </Text>
+          <TouchableOpacity
+            style={[styles.finishWorkoutButton, { backgroundColor: accentColor, marginTop: 24 }]}
+            onPress={() => router.push('/workout-templates')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.finishWorkoutText}>Browse Templates</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );

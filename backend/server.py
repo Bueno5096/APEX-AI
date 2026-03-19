@@ -409,7 +409,14 @@ STRENGTH PROGRESS THIS MONTH:
         workout_block += f"\n\nCURRENT ACTIVE WORKOUT PLAN:\n- Workout: {context.activeWorkout}"
         if context.workoutExercises:
             for ex in context.workoutExercises:
-                workout_block += f"\n  - {ex.get('name', 'Unknown')}: {ex.get('sets', '?')} sets x {ex.get('reps', '?')} @ {ex.get('weight', '?')}kg"
+                w_str = ex.get('weight', '?')
+                if unit_sys == 'imperial' and isinstance(w_str, (int, float)) and w_str > 0:
+                    w_str = f"{round(w_str * 2.20462)} lbs"
+                elif isinstance(w_str, (int, float)) and w_str > 0:
+                    w_str = f"{w_str}kg"
+                else:
+                    w_str = "bodyweight"
+                workout_block += f"\n  - {ex.get('name', 'Unknown')}: {ex.get('sets', '?')} sets x {ex.get('reps', '?')} @ {w_str}"
     else:
         workout_block += "\n\nCURRENT ACTIVE WORKOUT PLAN:\n- No active plan yet — generate one when the user asks"
 
@@ -485,8 +492,8 @@ Available action types:
 
 WEIGHT ADJUSTMENT RULES — CRITICAL:
 - When the user asks to increase or decrease weight, ALWAYS look at the CURRENT weight listed above in CURRENT ACTIVE WORKOUT PLAN.
-- For compound movements (bench press, squat, deadlift, overhead press, rows): default increment is 5lbs (2.5kg).
-- For isolation movements (curls, lateral raises, extensions, flyes): default increment is 2.5lbs (1.25kg).
+- For compound movements (bench press, squat, deadlift, overhead press, rows): default increment is 5lbs (2.27kg).
+- For isolation movements (curls, lateral raises, extensions, flyes): default increment is 2.5lbs (1.13kg).
 - If the user specifies an amount, use that exact amount.
 - NEVER set a weight more than 20% above or below the current value unless the user gives an exact target.
 - Always confirm: "Done — increased [exercise] from [old] to [new]."
@@ -628,8 +635,9 @@ async def coach_chat(request: Request, body: ChatRequest, current_user: str = De
                 clean_response = response[:response.index('[ACTIONS]')].strip()
                 logger.info(f"Parsed {len(actions)} workout actions")
             except Exception as parse_error:
-                logger.warning(f"Failed to parse actions: {parse_error}")
+                logger.error(f"Failed to parse actions from JSON: {parse_error}. Raw action JSON (first 500 chars): {action_json[:500]}")
                 clean_response = response.replace('[ACTIONS]', '').replace('[/ACTIONS]', '').strip()
+                clean_response += "\n\n⚠️ I couldn't apply the workout changes automatically due to a formatting issue. Please try rephrasing your request."
 
         # If force_actions was requested but no actions were returned, send follow-up
         if body.force_actions and not actions and body.context and body.context.fullWorkoutPlan:

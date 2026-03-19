@@ -1,5 +1,6 @@
 // ─── Split Day Helper ───────────────────────────────
 // Determines today's muscle groups based on training split and training days
+import { useMuscleStore } from '../store/muscleStore';
 
 export interface SplitDayInfo {
   dayName: string;
@@ -85,8 +86,25 @@ export function getTodaySplitDay(
       return { dayName: today, targetMuscles: ['Quads', 'Hamstrings', 'Glutes', 'Core'], isTrainingDay: true, isRestDay: false, splitDayLabel: 'Legs (Bodyweight)' };
     }
 
-    case 'fresh_muscle':
-      return { dayName: today, targetMuscles: ['AI Selected'], isTrainingDay: true, isRestDay: false, splitDayLabel: 'Fresh Muscle Groups (AI)' };
+    case 'fresh_muscle': {
+      // Select the 2 muscle groups with highest readiness from the muscle store
+      const muscleState = useMuscleStore.getState();
+      const muscleGroups = [
+        { label: 'Push', muscles: ['Chest', 'Shoulders', 'Triceps'], ids: ['chest', 'shoulders', 'triceps_left', 'triceps_right'] },
+        { label: 'Pull', muscles: ['Back', 'Biceps'], ids: ['back', 'biceps_left', 'biceps_right', 'traps'] },
+        { label: 'Legs', muscles: ['Quads', 'Hamstrings', 'Glutes', 'Calves'], ids: ['quads', 'hamstrings', 'glutes', 'calves'] },
+        { label: 'Core', muscles: ['Core'], ids: ['core'] },
+      ];
+      const scored = muscleGroups.map((g) => ({
+        ...g,
+        readiness: g.ids.reduce((sum: number, id: string) => sum + muscleState.getMuscleReadiness(id), 0) / g.ids.length,
+      }));
+      scored.sort((a, b) => b.readiness - a.readiness);
+      const top2 = scored.slice(0, 2);
+      const targetMuscles: string[] = ([] as string[]).concat(...top2.map((g) => g.muscles));
+      const dayLabel = top2.map((g) => g.label).join(' + ');
+      return { dayName: today, targetMuscles, isTrainingDay: true, isRestDay: false, splitDayLabel: `${dayLabel} (Readiness)` };
+    }
 
     default:
       return { dayName: today, targetMuscles: ['Full Body'], isTrainingDay: true, isRestDay: false, splitDayLabel: 'Training Day' };

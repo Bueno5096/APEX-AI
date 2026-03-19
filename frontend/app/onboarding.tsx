@@ -186,7 +186,9 @@ const ProfileSummary = ({ data, onComplete }: { data: Record<string, any>; onCom
   const cards = [
     { label: 'NAME', value: data.name },
     { label: 'AGE & GENDER', value: `${data.age} • ${data.gender}` },
-    { label: 'MEASUREMENTS', value: data.unitSystem === 'imperial' ? `${data.heightFt}'${data.heightIn}" • ${data.weightLbs} lbs` : `${data.heightCm} cm • ${data.weightKg} kg` },
+    { label: 'MEASUREMENTS', value: data.unitSystem === 'imperial'
+        ? `${data.heightFt ?? 'N/A'}'${data.heightIn ?? '0'}" • ${data.weightLbs ?? 'N/A'} lbs`
+        : `${data.heightCm ?? 'N/A'} cm • ${data.weightKg ?? 'N/A'} kg` },
     { label: 'GOAL', value: data.goal },
     { label: 'EXPERIENCE', value: `${data.level} • ${data.days}` },
     { label: 'WORKOUT STYLE', value: `${data.location}${data.injuryDetail ? ` • ${data.injuryDetail}` : ''}` },
@@ -225,7 +227,7 @@ const ProfileSummary = ({ data, onComplete }: { data: Record<string, any>; onCom
 export default function OnboardingScreen() {
   const router = useRouter();
   const { setProfile, setOnboardingComplete, setAuthToken } = useUserStore();
-  const { accentColor, setUnitSystem } = useThemeStore();
+  const { accentColor, setUnitSystem, unitSystem: savedUnitSystem } = useThemeStore();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentStep, setCurrentStep] = useState(-1);
@@ -235,7 +237,7 @@ export default function OnboardingScreen() {
   const [textValue, setTextValue] = useState('');
   const [showSummary, setShowSummary] = useState(false);
   const [showLoading, setShowLoading] = useState(false);
-  const [unitSystem, setLocalUnitSystem] = useState<'metric' | 'imperial'>('imperial');
+  const [unitSystem, setLocalUnitSystem] = useState<'metric' | 'imperial'>(savedUnitSystem || 'imperial');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
   const [heightFt, setHeightFt] = useState('');
@@ -353,7 +355,7 @@ export default function OnboardingScreen() {
       addMessage(injuryDetail.trim(), 'user');
     }
     setShowInjuryInput(false);
-    const newData = { ...userDataRef.current, injuryDetail: injuryDetail.trim() || userDataRef.current.injuries };
+    const newData = { ...userDataRef.current, injuryDetail: injuryDetail.trim() || '' };
     userDataRef.current = newData;
     setUserData(newData);
     setInjuryDetail('');

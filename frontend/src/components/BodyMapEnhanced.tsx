@@ -256,8 +256,8 @@ export const BodyMapEnhanced: React.FC<BodyMapProps> = ({
                   </Text>
                   <Text style={[styles.modalValue, { color: theme.colors.textPrimary }]}>
                     {selectedMuscle.lastTrained
-                      ? `${Math.floor((Date.now() - selectedMuscle.lastTrained.getTime()) / (24 * 60 * 60 * 1000))} days ago`
-                      : 'Not recently'}
+                      ? `${Math.floor((Date.now() - new Date(selectedMuscle.lastTrained).getTime()) / (24 * 60 * 60 * 1000))} days ago`
+                      : 'Never trained'}
                   </Text>
                 </View>
 

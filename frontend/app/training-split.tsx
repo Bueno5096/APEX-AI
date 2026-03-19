@@ -109,10 +109,10 @@ export default function TrainingSplitScreen() {
           const daysMatch = getDaysMatchIndicator(split);
           const iconName = SPLIT_ICONS[split.key] || 'grid';
           
-          // Frequency compatibility check
-          const freq = profile?.trainingFrequency;
-          const compatSplits = freq ? (FREQUENCY_SPLIT_COMPAT[freq] || []) : [];
-          const isIncompat = freq ? !compatSplits.includes(split.key) : false;
+          // Frequency compatibility check — default to 3 days if not set
+          const freq = profile?.trainingFrequency || 3;
+          const compatSplits = FREQUENCY_SPLIT_COMPAT[freq] || [];
+          const isIncompat = !compatSplits.includes(split.key);
 
           return (
             <TouchableOpacity

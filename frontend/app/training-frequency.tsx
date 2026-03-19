@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -36,6 +36,15 @@ export default function TrainingFrequencyScreen() {
   const [selectedFreq, setSelectedFreq] = useState(profile?.trainingFrequency || 0);
   const [selectedDays, setSelectedDays] = useState(profile?.trainingDays || []);
   const [showDayPicker, setShowDayPicker] = useState(!!profile?.trainingFrequency);
+
+  // Sync state if profile loads asynchronously after mount
+  useEffect(() => {
+    if (profile?.trainingFrequency && selectedFreq === 0) {
+      setSelectedFreq(profile.trainingFrequency);
+      if (profile.trainingDays?.length) setSelectedDays(profile.trainingDays);
+      setShowDayPicker(true);
+    }
+  }, [profile?.trainingFrequency]);
 
   const toggleDay = (day: string) => {
     setSelectedDays((prev) => {
